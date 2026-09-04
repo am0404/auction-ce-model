@@ -233,13 +233,17 @@ arrives later by populating the same fields; the engine is not rewritten.
 ```python
 PlayerSpec(
     player_id, crn_key, name, position, nfl_team, bye_week,
-    base_mean,             # <- real per-week median/mean projection
-    week_sd,               # <- real boom/bust width
+    base_mean,             # <- real projected EXPECTED POINTS per week
+    week_sd,               # <- unforecastable weekly dispersion
     season_sd,             # <- how much true talent can differ from consensus
     weekly_injury_hazard,  # <- real per-week injury probability
     injury_mean_weeks,     # <- real expected absence length
     spike_rate, spike_scale,           # <- unforecastable ceiling games
     role_change_prob, role_change_mean, role_change_sd, role_reveal_lag,
+    signal_noise_sd,       # <- precision of usage / snaps / routes / targets
+    weekly_state_sd,       # <- forecastable weekly conditions, stochastic
+    weekly_state_pattern,  # <- forecastable weekly conditions, supplied per week
+    hidden_weekly_pattern, # <- the unforecastable control counterpart
     shock_loadings,        # <- correlation relationships (team, stack, custom groups)
     contingency,           # <- handcuff / next-man-up structure
     proj_noise_sd,         # <- how wrong consensus projections are, week to week
@@ -562,7 +566,12 @@ same permutation is used in both scenarios of a paired comparison.
 
 ## 8. Championship equity and paired comparison
 
-`CE(team t) = (# seasons where t wins week 17) / (# seasons)`, winner-take-all.
+`CE(team t) = (# seasons where t wins week 17) / (# seasons)`.
+
+The league is **winner-take-all**, definitively — there is no payout to 2nd or
+3rd and therefore no payout vector to weight the objective by. `made_final`,
+`made_playoffs` and `has_bye` are still tracked per season, but as diagnostics
+that explain *how* a CE number arose, not as components of it.
 
 Monte Carlo standard error of a single CE: `sqrt(p(1-p)/n)`.
 
@@ -603,8 +612,11 @@ are deterministic.
 
 Every result is a pure function of `(rosters, seed, n_sims)`. Chunking the simulation
 into batches does not change results: sim index `i` uses stream coordinate `i`
-regardless of batch boundaries. `tests/test_reproducibility.py` asserts identical
-output across repeated runs and across different chunk sizes.
+regardless of batch boundaries. `tests/test_simulate.py` asserts identical output
+across repeated runs, across chunk sizes 1 / 7 / 64 / 300 / 1000 / 256, and between
+a short run and the prefix of a longer one;
+`tests/test_worlds.py::test_world_generation_is_chunk_independent` asserts the same
+at the world-generation level.
 
 ---
 
@@ -624,15 +636,28 @@ output across repeated runs and across different chunk sizes.
 4. **Projection = conditional mean + noise.** No manager optimism/pessimism bias, no
    vendor disagreement, no start/sit expected-value adjustments for tail-seeking.
 5. **No waivers, no FAAB, no trades, no in-season roster change of any kind.** The
-   drafted 15 are the 15 all season. This understates the value of bench depth and
-   overstates the cost of injuries.
+   drafted 15 are the 15 all season. The bias this creates does **not** point one
+   way, and it is worth being precise because the largest errors land exactly where
+   $1–$3 auction decisions live:
+   * it **overvalues** static drafted depth and handcuffs as injury protection,
+     because in reality a comparable replacement is usually available on waivers;
+   * it **undervalues** churnable lottery-ticket roster spots, because a failed bet
+     here occupies a spot for seventeen weeks instead of being cut in week 4;
+   * it **overstates** the damage from injuries, because the real fallback is the
+     waiver wire rather than whoever you happen to own.
+
+   A handcuff and a lottery ticket are therefore biased in *opposite* directions by
+   the same simplification. See `OPEN_QUESTIONS.md` B2.
 6. **No IR**, per league settings — an injured player occupies a roster spot.
 7. **Injury model is a two-parameter hazard/duration process**, independent across
    players, with no position-specific structure and no re-injury correlation.
 8. **Byes are drawn per NFL team in weeks 5–14** and are fixed for a season; the real
    NFL bye schedule is known in advance and should replace this.
 9. **Opponent rosters are exogenous.** Changing your roster does not change theirs, and
-   the 180-player pool is exactly consumed by the 12 rosters.
+   the 180-player pool is exactly consumed by the 12 rosters. Note this is a
+   simplification with teeth: the `rival-fit` experiment (§9) shows that *which*
+   rival owns a valuable player moves your own CE by a resolvable amount once the
+   rivals differ in how well they can use him.
 10. **The league median uses all 12 teams' realized scores**, which is correct for
     Sleeper, but note the median is itself affected by every manager's lineup skill;
     all 12 managers here are equally and perfectly rational given their information.

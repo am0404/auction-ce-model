@@ -27,7 +27,7 @@ def test_every_required_experiment_exists():
     required = {
         "marginal-point", "second-qb", "volatility", "spikes", "concentration",
         "injury", "bench-correlation", "stack", "handcuff", "opponent-placement",
-        "aggregate-lineup-spot",
+        "aggregate-lineup-spot", "rival-fit",
     }
     assert required <= set(EXPERIMENTS)
 
@@ -87,20 +87,56 @@ def test_lab_players_are_inert_by_default():
     assert p.stream_key == 1
 
 
-def test_moving_a_stud_between_two_rivals_does_not_move_your_ce(league):
-    """The control experiment must come back statistically flat.
+def test_moving_a_stud_between_two_interchangeable_rivals_does_not_move_your_ce(league):
+    """The CONTROL must come back statistically flat.
 
     A significant result here would mean the schedule is not exchangeable
     across teams, or that team identity leaks into the standings somewhere.
     """
     out = run_experiment("opponent-placement", 3000, SEED, base=league)
     c = out.comparisons[0]
+    assert "CONTROL" in out.title
     assert abs(c.delta_ce_z) < 3.0, (
         f"the focus team's CE moved when a rival's roster was relabelled "
         f"(dCE = {c.delta_ce:+.5f}, z = {c.delta_ce_z:+.2f})"
     )
     assert abs(c.delta_points_per_week) < 1e-9, (
         "the focus team's own scoring must be byte-identical"
+    )
+
+
+def test_rival_ownership_matters_when_the_recipients_are_not_interchangeable(league):
+    """The counterpart to the control, and the reason the control is a control.
+
+    The focus roster is untouched and its scoring is byte-identical, exactly as
+    in the control. The only difference is that here the two recipients differ
+    in how well they can use the player -- and that is enough to move the focus
+    team's championship equity by a resolvable amount.
+    """
+    # 20,000 seasons, not 8,000: the effect is a stable +0.009 to +0.011 across
+    # seeds, but its paired SE at 8,000 is ~0.003, so a smaller run resolves it
+    # only some of the time. Measured z at this size ranges +4.6 to +5.6 over
+    # four seeds, so the 3.5 threshold below has real margin.
+    out = run_experiment("rival-fit", 20_000, SEED, base=league)
+    c = out.comparisons[0]
+    assert abs(c.delta_points_per_week) < 1e-9, (
+        "the focus team's own scoring must still be byte-identical"
+    )
+    assert abs(c.delta_ce) > 0.005
+    assert abs(c.delta_ce_z) > 3.5, (
+        f"non-exchangeable rival ownership should be detectable "
+        f"(dCE = {c.delta_ce:+.5f}, z = {c.delta_ce_z:+.2f})"
+    )
+
+
+def test_rival_fit_leaves_the_focus_roster_and_the_league_multiset_unchanged(league):
+    """Both arms must be the same league with two labels exchanged."""
+    from ceauction.experiments import exp_rival_fit
+
+    out = exp_rival_fit(league, 120, SEED)
+    assert out.key == "rival-fit"
+    assert "out of scope" in out.interpretation, (
+        "the reading must not drift into auction bidding logic"
     )
 
 

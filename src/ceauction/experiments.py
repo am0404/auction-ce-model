@@ -756,7 +756,7 @@ def exp_handcuff(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
 
 
 # ---------------------------------------------------------------------------
-# 10. The same strong player on different opposing rosters
+# 10. CONTROL: the same strong player on two interchangeable rival rosters
 # ---------------------------------------------------------------------------
 
 
@@ -775,9 +775,10 @@ def exp_opponent_placement(base: RosterSet, n: int, seed: int) -> ExperimentOutp
 
     return ExperimentOutput(
         key="opponent-placement",
-        title="The same strong player placed on different opposing rosters",
-        question=("Your roster is untouched. Does it matter to *you* which rival owns "
-                  "a stud?"),
+        title="CONTROL: the same strong player on two interchangeable rivals",
+        question=("Your roster is untouched and the two recipient rosters are "
+                  "statistically interchangeable. Does it matter to *you* which "
+                  "of them owns a stud? It must not."),
         comparisons=(
             _run(a, b, f"{strong.name} on team 1 vs on team 2", n, seed,
                  f"{strong.name} on {base.rosters[1].team_name}, "
@@ -787,12 +788,111 @@ def exp_opponent_placement(base: RosterSet, n: int, seed: int) -> ExperimentOutp
                  notes="the focus team's 15 players are byte-identical in both arms"),
         ),
         interpretation=(
-            "A control. The schedule is re-permuted every season, so both rivals are "
-            "equally likely to be any of your opponents, and the league median depends "
-            "on the multiset of rosters rather than their labels. delta-CE should be "
-            "statistically indistinguishable from zero. A significant result here would "
-            "indicate a bug -- most likely a schedule that is not exchangeable across "
-            "teams."
+            "This is a CONTROL and nothing else. Rival rosters 1 and 2 are near "
+            "duplicates of each other, and the player is swapped for his own "
+            "counterpart at the same position, so the two arms differ only in a "
+            "label. The schedule is re-permuted every season, so both rivals are "
+            "equally likely to be any of your opponents, and the league median "
+            "depends on the multiset of rosters rather than their names. delta-CE "
+            "should be statistically indistinguishable from zero. A significant "
+            "result here would indicate a bug -- most likely a schedule that is not "
+            "exchangeable across teams. Read it alongside `rival-fit`, which asks "
+            "the same question of rivals that are *not* interchangeable and gets a "
+            "very different answer; the pair is the point."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# 11. The same strong player on two rivals he fits very differently
+# ---------------------------------------------------------------------------
+
+
+def exp_rival_fit(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
+    """Non-exchangeable rivals: does specific ownership matter then?
+
+    The control above is constructed so the answer must be no. This one is
+    constructed so it can be yes, by making the two recipient rosters genuinely
+    different in how well they can *use* the player:
+
+    * ``CONTENDER`` already starts two strong QBs, so its SUPERFLEX is a real
+      QB slot and a stud quarterback converts almost fully;
+    * ``ALSO-RAN`` has replacement-level backups and is weak overall, so the
+      same player lifts it only from bad to mediocre.
+
+    Both QB-depth modifications are applied in **both** arms -- they are the
+    fixed, non-exchangeable structure, not the treatment. The treatment is
+    which rival receives the stud and which receives his same-CRN counterpart,
+    so the league holds the identical multiset of player parameters either way.
+    The focus team's fifteen players are byte-identical throughout, and its
+    realized scoring is identical to the last decimal.
+    """
+    also_ran, contender = 1, 2
+    shared = dict(week_sd=6.5, season_sd=2.0, weekly_injury_hazard=0.03,
+                  injury_mean_weeks=2.2, proj_noise_sd=1.0, weekly_state_sd=2.5)
+    stud_level, plain_level = 24.0, 8.0
+    depth = {also_ran: 1.0, contender: 21.0}
+
+    root = base
+    qbs = {}
+    for team in (also_ran, contender):
+        team_qbs = [s for s in roster_by_strength(root, team)
+                    if s.position is Position.QB]
+        qbs[team] = team_qbs
+        for b in team_qbs[1:]:
+            root = tweak(root, b.player_id, base_mean=depth[team])
+
+    def build(stud_to: int) -> RosterSet:
+        rs = root
+        for team in (also_ran, contender):
+            is_stud = team == stud_to
+            tag = "STUD" if is_stud else "PLAIN"
+            # A shared crn_key means the roster that holds the stud in one arm
+            # and the plain QB in the other draws the same uniforms either way.
+            qb = lab_player(LAB_ID_BASE + 100 + team, f"LAB-RIVALQB-{tag}-T{team}",
+                            Position.QB,
+                            stud_level if is_stud else plain_level,
+                            crn_key=LAB_ID_BASE + 100 + team, **shared)
+            rs = swap_in(rs, team, qbs[team][0].player_id, qb)
+        return rs
+
+    weak_name = root.rosters[also_ran].team_name
+    strong_name = root.rosters[contender].team_name
+    return ExperimentOutput(
+        key="rival-fit",
+        title="The same strong player on two rivals who can use him very differently",
+        question=("Your roster is untouched, but the two rivals are not "
+                  "interchangeable: one can start two quarterbacks and one cannot. "
+                  "Does it matter to *you* which of them ends up with the stud QB?"),
+        comparisons=(
+            _run(build(also_ran), build(contender),
+                 "stud QB to the weak rival vs to the contender", n, seed,
+                 f"{weak_name} (QB backups {depth[also_ran]:.1f}) gets the "
+                 f"{stud_level:.1f} QB; {strong_name} gets the {plain_level:.1f} QB",
+                 f"{strong_name} (QB backups {depth[contender]:.1f}) gets the "
+                 f"{stud_level:.1f} QB; {weak_name} gets the {plain_level:.1f} QB",
+                 notes="the focus team's fifteen players are byte-identical in "
+                       "both arms and its realized scoring is identical to the "
+                       "last decimal; the league holds the same multiset of "
+                       "player parameters either way. Both rivals' QB depth is "
+                       "fixed in advance and identical across arms, so the only "
+                       "thing that moves is which of them receives the stud"),
+        ),
+        interpretation=(
+            "The CONTROL immediately above says rival ownership is irrelevant when "
+            "the recipients are interchangeable. That is a statement about "
+            "exchangeability, and reading it as 'who buys a player never matters to "
+            "you' would be the wrong lesson -- this experiment is the counterexample. "
+            "Here the recipients differ in fit, and the result is not a small "
+            "correction: sending the stud to the contender is materially worse for "
+            "the focus team than sending him to the weak rival. Note the direction "
+            "carefully, because it is not 'the field got stronger'. The field is "
+            "stronger in *total* points when the weak rival receives him; what makes "
+            "the other arm worse is that the contender turns into a single dominant "
+            "team, and championship equity is convex in roster strength, so one "
+            "very strong rival costs you more than two moderate ones. That is a "
+            "measurement about the shape of CE, not a bidding rule: nothing here "
+            "decides what to do about it, and auction behaviour remains out of scope."
         ),
     )
 
@@ -822,9 +922,14 @@ EXPERIMENTS: Dict[str, ExperimentSpec] = {
                        "Is stacking worth anything in this format?", exp_stack),
         ExperimentSpec("handcuff", "Starting RB / backup RB contingency",
                        "Is contingency timing worth more than raw points?", exp_handcuff),
-        ExperimentSpec("opponent-placement", "Same strong player on different opposing rosters",
-                       "Does a rival's roster composition affect you? (control)",
+        ExperimentSpec("opponent-placement",
+                       "CONTROL: same strong player on two interchangeable rivals",
+                       "Does relabelling which rival owns a stud affect you? "
+                       "(it must not)",
                        exp_opponent_placement),
+        ExperimentSpec("rival-fit", "Same strong player on two rivals he fits differently",
+                       "Can specific rival ownership matter when the recipient "
+                       "rosters are meaningfully different?", exp_rival_fit),
     )
 }
 
