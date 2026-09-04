@@ -287,20 +287,19 @@ def _draw_availability(
         pool.bye_index.reshape(1, p, 1) == weeks, (s, p, n_weeks)
     ).copy()
 
-    hazard = pool.injury_hazard.reshape(1, p, 1)
-    onset_u = rng.uniform(seed, rng.Kind.INJURY_ONSET, sims, keys, weeks)
-    dur_e = rng.exponential(seed, rng.Kind.INJURY_DURATION, sims, keys, weeks)
-    duration = np.maximum(
-        1, np.rint(dur_e * pool.injury_mean_weeks.reshape(1, p, 1)).astype(np.int64)
-    )
-
     injured = np.zeros((s, p, n_weeks), dtype=bool)
-    out_until = np.full((s, p), -1, dtype=np.int64)
-    for w in range(n_weeks):
-        healthy = out_until < w
-        onset = healthy & (onset_u[:, :, w] < hazard[:, :, 0])
-        out_until = np.where(onset, w + duration[:, :, w] - 1, out_until)
-        injured[:, :, w] = out_until >= w
+    if pool.injury_hazard.max() > 0.0:
+        hazard = pool.injury_hazard.reshape(1, p)
+        mean_len = pool.injury_mean_weeks.reshape(1, p)
+        onset_u = rng.uniform(seed, rng.Kind.INJURY_ONSET, sims, keys, weeks)
+        dur_e = rng.exponential(seed, rng.Kind.INJURY_DURATION, sims, keys, weeks)
+        out_until = np.full((s, p), -1, dtype=np.int64)
+        for w in range(n_weeks):
+            healthy = out_until < w
+            onset = healthy & (onset_u[:, :, w] < hazard)
+            duration = np.maximum(1, np.rint(dur_e[:, :, w] * mean_len).astype(np.int64))
+            out_until = np.where(onset, w + duration - 1, out_until)
+            injured[:, :, w] = out_until >= w
 
     available = ~(on_bye | injured)
     return AvailabilityBatch(available=available, on_bye=on_bye, injured=injured)
@@ -312,7 +311,24 @@ def _draw_latent(
     s, p = sims.shape[0], keys.shape[1]
     weeks = np.arange(n_weeks, dtype=np.int64).reshape(1, 1, n_weeks)
 
-    season_shift = rng.normal(seed, rng.Kind.SEASON_SHIFT, sims, keys) * pool.season_sd.reshape(1, p)
+    if pool.season_sd.max() > 0.0:
+        season_shift = (
+            rng.normal(seed, rng.Kind.SEASON_SHIFT, sims, keys)
+            * pool.season_sd.reshape(1, p)
+        )
+    else:
+        season_shift = np.zeros((s, p), dtype=np.float64)
+
+    if pool.role_prob.max() <= 0.0:
+        zeros3 = np.zeros((s, p, n_weeks), dtype=np.float64)
+        return LatentState(
+            season_shift=season_shift,
+            role_happens=np.zeros((s, p), dtype=bool),
+            role_week=np.zeros((s, p), dtype=np.int64),
+            role_size=np.zeros((s, p), dtype=np.float64),
+            true_role_delta=zeros3,
+            observed_role_delta=zeros3,
+        )
 
     role_happens = rng.uniform(seed, rng.Kind.ROLE_HAPPENS, sims, keys) < pool.role_prob.reshape(1, p)
     # Role changes land in weeks 2..13 (0-indexed 1..12) so that there is both
@@ -367,38 +383,46 @@ def _draw_realized(
     weeks = np.arange(n_weeks, dtype=np.int64).reshape(1, 1, n_weeks)
 
     # Correlated component: one shock per (group, week), loaded per player.
-    n_groups = pool.group_key.shape[0]
-    shock = rng.normal(
-        seed,
-        rng.Kind.GROUP_SHOCK,
-        sims.reshape(s, 1, 1),
-        pool.group_key.reshape(1, n_groups, 1),
-        weeks,
-    )  # (S, G, W)
-    group_effect = np.tensordot(pool.beta, shock, axes=([1], [1])).transpose(1, 0, 2)
+    if np.any(pool.beta):
+        n_groups = pool.group_key.shape[0]
+        shock = rng.normal(
+            seed,
+            rng.Kind.GROUP_SHOCK,
+            sims.reshape(s, 1, 1),
+            pool.group_key.reshape(1, n_groups, 1),
+            weeks,
+        )  # (S, G, W)
+        group_effect = np.tensordot(pool.beta, shock, axes=([1], [1])).transpose(1, 0, 2)
+    else:
+        group_effect = np.zeros((s, p, n_weeks), dtype=np.float64)
 
-    idio = rng.normal(seed, rng.Kind.WEEK_NOISE, sims, keys, weeks) * pool.week_sd.reshape(1, p, 1)
+    idio = rng.normal(seed, rng.Kind.WEEK_NOISE, sims, keys, weeks)
+    idio *= pool.week_sd.reshape(1, p, 1)
 
     # Unforecastable spike weeks.  The unconditional mean is removed so that
     # raising `spike_rate` changes the shape of the distribution without
     # changing its mean -- which is what makes the "predictable upside vs
     # unforecastable spikes" experiment a clean comparison.
-    hit = rng.uniform(seed, rng.Kind.SPIKE_HIT, sims, keys, weeks) < pool.spike_rate.reshape(1, p, 1)
-    size = rng.exponential(seed, rng.Kind.SPIKE_SIZE, sims, keys, weeks) * pool.spike_scale.reshape(1, p, 1)
-    spike = hit * size - (
-        pool.spike_rate * pool.spike_scale * pool.spike_demean
-    ).reshape(1, p, 1)
+    if np.any(pool.spike_rate > 0.0):
+        hit = rng.uniform(seed, rng.Kind.SPIKE_HIT, sims, keys, weeks) < pool.spike_rate.reshape(1, p, 1)
+        size = rng.exponential(seed, rng.Kind.SPIKE_SIZE, sims, keys, weeks) * pool.spike_scale.reshape(1, p, 1)
+        spike = hit * size - (
+            pool.spike_rate * pool.spike_scale * pool.spike_demean
+        ).reshape(1, p, 1)
+    else:
+        spike = np.zeros((s, p, n_weeks), dtype=np.float64)
 
-    raw = (
-        pool.base_mean.reshape(1, p, 1)
-        + latent.season_shift.reshape(s, p, 1)
-        + latent.true_role_delta
-        + contingency
-        + group_effect
-        + idio
-        + spike
-    )
-    points = np.where(avail.available, np.maximum(raw, 0.0), 0.0)
+    # Accumulate in place: each of these terms is an (S, P, W) array, and a
+    # naive sum would allocate six full-size temporaries per batch.
+    raw = np.empty((s, p, n_weeks), dtype=np.float64)
+    np.add(pool.base_mean.reshape(1, p, 1), latent.season_shift.reshape(s, p, 1), out=raw)
+    raw += latent.true_role_delta
+    raw += contingency
+    raw += group_effect
+    raw += idio
+    raw += spike
+    np.maximum(raw, 0.0, out=raw)
+    points = np.where(avail.available, raw, 0.0)
     return RealizedBatch(points=points, spike=spike, group_effect=group_effect)
 
 
@@ -447,8 +471,13 @@ def _build_pregame(
         ).reshape(1, p, 1)
         posterior = np.where(np.isinf(ratio), 0.0, cum_resid / (ratio + cum_n))
 
-    noise = rng.normal(seed, rng.Kind.PROJ_NOISE, sims, keys, weeks) * pool.proj_noise_sd.reshape(1, p, 1)
-    projection = np.maximum(known + posterior + noise, 0.0)
+    projection = known + posterior
+    if pool.proj_noise_sd.max() > 0.0:
+        projection = projection + (
+            rng.normal(seed, rng.Kind.PROJ_NOISE, sims, keys, weeks)
+            * pool.proj_noise_sd.reshape(1, p, 1)
+        )
+    projection = np.maximum(projection, 0.0)
 
     if pool.proj_override is not None:
         mask = pool.proj_override_mask.reshape(1, p, 1)

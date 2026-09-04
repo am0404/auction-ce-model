@@ -43,7 +43,11 @@ _S30 = np.uint64(30)
 _S27 = np.uint64(27)
 _S31 = np.uint64(31)
 _S11 = np.uint64(11)
+_S32 = np.uint64(32)
+_LOW32 = np.uint64(0xFFFFFFFF)
+_ODD = np.uint64(0xD6E8FEB86659FD93)
 _TWO53 = np.float64(1.0 / 9007199254740992.0)  # 2**-53
+_TWO32 = np.float64(1.0 / 4294967296.0)        # 2**-32
 
 
 class Kind:
@@ -90,11 +94,15 @@ def hash_coords(seed: int, kind: int, *coords: Iterable) -> np.ndarray:
     seed_arr = np.array(seed, dtype=np.uint64)
     kind_arr = np.array(kind, dtype=np.uint64)
     acc = mix64(seed_arr ^ mix64(kind_arr))
-    for c in coords:
-        arr = np.asarray(c)
-        if arr.dtype != np.uint64:
-            arr = arr.astype(np.int64, copy=False).astype(np.uint64, copy=False)
-        acc = mix64(acc ^ mix64(arr))
+    with np.errstate(over="ignore"):
+        for c in coords:
+            arr = np.asarray(c)
+            if arr.dtype != np.uint64:
+                arr = arr.astype(np.int64, copy=False).astype(np.uint64, copy=False)
+            # Multiplying by an odd constant is a bijection, so one mixing round
+            # per coordinate suffices.  Coordinates should be passed
+            # smallest-broadcast-first: only the last one runs at full size.
+            acc = mix64(acc ^ ((arr * _ODD) & _MASK))
     return acc
 
 
@@ -110,9 +118,16 @@ def _uniform_open(seed: int, kind: int, *coords: Iterable) -> np.ndarray:
 
 
 def normal(seed: int, kind: int, *coords: Iterable) -> np.ndarray:
-    """Standard normal via Box-Muller on two sub-streams of the same coords."""
-    u1 = _uniform_open(seed, kind, *coords, 0)
-    u2 = uniform(seed, kind, *coords, 1)
+    """Standard normal via Box-Muller.
+
+    Both uniforms come from the two halves of a *single* 64-bit hash rather
+    than from two hashes, which roughly quarters the cost of the dominant draw
+    in the simulator.  32 bits per uniform supports magnitudes out to about
+    6.6 sigma, far beyond anything a fantasy score distribution needs.
+    """
+    h = hash_coords(seed, kind, *coords)
+    u1 = ((h >> _S32).astype(np.float64) + 0.5) * _TWO32
+    u2 = ((h & _LOW32).astype(np.float64) + 0.5) * _TWO32
     return np.sqrt(-2.0 * np.log(u1)) * np.cos(2.0 * np.pi * u2)
 
 

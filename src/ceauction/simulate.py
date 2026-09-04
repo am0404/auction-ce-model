@@ -27,7 +27,12 @@ from .worlds import PoolArrays, WorldBatch, build_pool_arrays, generate_world
 
 __all__ = ["SeasonOutcomes", "team_scores", "simulate_seasons", "DEFAULT_CHUNK"]
 
-DEFAULT_CHUNK = 256
+#: Seasons per batch.  Results are identical for any value (the RNG is
+#: coordinate-addressed), so this is purely a performance knob.  The whole
+#: pipeline is memory-bandwidth bound, and 64 keeps a batch's working set
+#: inside cache: measured throughput is ~1,680 seasons/s at 64 vs ~1,490 at
+#: 256 and ~1,270 at 2,048.
+DEFAULT_CHUNK = 64
 
 
 @dataclass
