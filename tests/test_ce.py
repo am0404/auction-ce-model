@@ -130,6 +130,37 @@ def test_pairing_beats_independent_sampling(league):
     assert c.delta_ce_se < unpaired_se
 
 
+def test_every_shared_draw_is_shared_across_paired_arms(league):
+    """The full list, not a sample of it.
+
+    A new stream added without a CRN-stable key would silently decorrelate the
+    arms and quietly cost variance reduction rather than failing loudly, so
+    each one is named here.
+    """
+    variant = _swap_one_player(league)
+    wa = generate_world(build_pool_arrays(league.pool, league.settings), SEED, 0, 24)
+    wb = generate_world(build_pool_arrays(variant.pool, variant.settings), SEED, 0, 24)
+    changed = league.id_to_index[league.rosters[0].player_ids[0]]
+    others = [i for i in range(wa.pool.n_players) if i != changed]
+
+    for name, a, b in (
+        ("availability", wa.availability.available, wb.availability.available),
+        ("byes", wa.availability.on_bye, wb.availability.on_bye),
+        ("group shocks", wa.realized.group_effect, wb.realized.group_effect),
+        ("observable signals", wa.signals.level_signal, wb.signals.level_signal),
+        ("weekly state", wa.pregame.weekly_state, wb.pregame.weekly_state),
+        ("spikes", wa.realized.spike, wb.realized.spike),
+        ("role weeks", wa.latent.role_week, wb.latent.role_week),
+    ):
+        assert np.array_equal(a, b), f"{name} differs between paired arms"
+
+    # The changed player's own realized scores must move; nobody else's may.
+    assert not np.allclose(wa.realized.points[:, changed, :],
+                           wb.realized.points[:, changed, :])
+    assert np.array_equal(wa.realized.points[:, others, :],
+                          wb.realized.points[:, others, :])
+
+
 def test_a_real_improvement_is_detected_with_the_right_sign(league):
     variant = _swap_one_player(league, factor=1.5)
     c = compare_scenarios(variant, league, 0, 1500, SEED, label="stronger roster")

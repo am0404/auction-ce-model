@@ -249,17 +249,30 @@ def test_projection_override_replaces_the_model():
 
 
 def test_world_generation_is_chunk_independent():
+    """Every layer, with every mechanism switched on."""
+    pattern = tuple(float(k % 5) - 2.0 for k in range(W))
     specs = [flat_spec(i, Position.WR, 10.0, week_sd=5.0, season_sd=2.0,
                        weekly_injury_hazard=0.05, spike_rate=0.1, spike_scale=5.0,
                        role_change_prob=0.3, role_change_mean=2.0, role_change_sd=1.0,
+                       signal_noise_sd=4.0, weekly_state_sd=2.0,
+                       weekly_state_pattern=pattern,
+                       hidden_weekly_pattern=tuple(-x for x in pattern),
                        shock_loadings=(ShockLoading("g", 2.0),))
              for i in range(6)]
     pool = build_pool_arrays(specs, DEFAULT_LEAGUE)
     full = generate_world(pool, SEED, 0, 40)
     tail = generate_world(pool, SEED, 25, 10)
-    assert np.array_equal(full.realized.points[25:35], tail.realized.points)
-    assert np.array_equal(full.pregame.projection[25:35], tail.pregame.projection)
-    assert np.array_equal(full.availability.available[25:35], tail.availability.available)
+    sl = slice(25, 35)
+    for name, a, b in (
+        ("realized", full.realized.points, tail.realized.points),
+        ("projection", full.pregame.projection, tail.pregame.projection),
+        ("available", full.availability.available, tail.availability.available),
+        ("signals", full.signals.level_signal, tail.signals.level_signal),
+        ("weekly_state", full.pregame.weekly_state, tail.pregame.weekly_state),
+        ("posterior", full.pregame.posterior_mean, tail.pregame.posterior_mean),
+        ("role", full.latent.observed_role_delta, tail.latent.observed_role_delta),
+    ):
+        assert np.array_equal(a[sl], b), f"{name} depends on the batch boundary"
 
 
 def test_crn_key_makes_two_specs_share_their_draws():

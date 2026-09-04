@@ -373,7 +373,7 @@ players independent.
 score *only*. Two arms in which one player carries a pattern as `weekly_state_pattern`
 and the other carries the identical numbers as `hidden_weekly_pattern` have
 byte-identical realized production and differ solely in whether the good weeks were
-identifiable before kickoff. The `aggregate-lineup-spot` experiment (§9) is built on
+identifiable before kickoff. The `aggregate-lineup-spot` experiment (§8.3) is built on
 exactly that pairing, which is why its result cannot be an artefact of retrospectively
 selecting players who happened to score.
 
@@ -391,14 +391,15 @@ carries `data_source="SYNTHETIC"`. It is a *demonstration* of the interface, not
 estimate of real football. It produces:
 
 1. persistent season-level performance states (`season_sd`);
-2. pregame projections (filtered posterior + analyst noise);
-3. weekly scoring variance (`week_sd`, position-scaled);
-4. injuries and unavailable weeks (hazard + duration) and bye weeks;
-5. observable role changes (§4.3);
-5b. forecastable weekly conditions (§4.7, `weekly_state_sd`);
-6. unforecastable spike weeks (§5.5);
-7. shared team-level shocks (§4.5);
-8. hooks for arbitrary player correlations (§4.5).
+2. pregame projections (posterior on the observable signal + analyst noise);
+3. unforecastable weekly scoring variance (`week_sd`, position-scaled);
+4. forecastable weekly conditions (`weekly_state_sd`, §4.7);
+5. injuries and unavailable weeks (hazard + duration) and bye weeks;
+6. observable role changes (§4.3);
+7. an observable-information channel (`signal_noise_sd`, §4.6);
+8. unforecastable spike weeks (§5.5);
+9. shared team-level shocks (§4.5);
+10. hooks for arbitrary player correlations (§4.5).
 
 ### 5.5 Realized score
 
@@ -540,8 +541,11 @@ their exclusion reason (`bye`, `injured`, `out-projected`, `slot-blocked`).
 
 **Portfolio framing.** Nothing in the engine labels eight players as "the starters".
 Every week, all 15 players are re-evaluated against that week's availability,
-contingency status, observed roles and projections. A bench WR is a real asset when he
-out-projects a starter on bye, and the engine values him accordingly.
+contingency status, observed roles, **forecastable weekly conditions** (§4.7) and
+projections. A bench WR is a real asset when he out-projects a starter on bye, and
+also when this week's matchup simply favours him — and the engine values him
+accordingly. On the synthetic league a team starts 14.8 of its 15 players at least
+once and changes 2.7 starters a week.
 
 ---
 
@@ -606,6 +610,41 @@ and Monte Carlo standard errors — plus the paired CE difference and its SE.
 **No separate playoff coin flips exist.** Given the score array, standings and bracket
 are deterministic.
 
+### 8.3 The CE laboratory
+
+`ceauction.experiments` holds twelve controlled paired comparisons. Each builds two (or
+three) leagues differing in exactly one respect and reports the paired CE difference
+for one focus team.
+
+**They are infrastructure tests, not fantasy-football conclusions.** Every number is a
+statement about the synthetic process in `synthetic.py`, whose parameters are invented.
+What they establish is that the engine responds to each structural change in a
+measurable, correctly signed, statistically resolvable way — which is the property a
+pricing layer would depend on.
+
+| Key | What it isolates |
+|---|---|
+| `marginal-point` | one projected point, at seven roster depths |
+| `second-qb` | positional value under a superflex, on two different rosters |
+| `volatility` | weekly dispersion at a fixed level |
+| `spikes` | forecastable vs unforecastable production at equal expected points |
+| `concentration` | 18/6/6 vs 10/10/10 across three spots |
+| `aggregate-lineup-spot` | one stable starter vs rotating candidates, **plus its unforecastable control** |
+| `injury` | availability risk at fixed per-week production |
+| `bench-correlation` | dependence structure at identical marginals |
+| `stack` | QB / pass-catcher correlation |
+| `handcuff` | contingency *timing* vs raw expected points |
+| `opponent-placement` | **CONTROL**: exchangeable rivals — must read zero |
+| `rival-fit` | non-exchangeable rivals — may read non-zero, and does |
+
+Two of these exist specifically as controls, and the pairs they belong to are the
+point. `aggregate-lineup-spot` includes an arm whose realized production is
+byte-identical to the treatment and differs only in pregame observability, which is
+what stops its result from being read as "variance is free". `opponent-placement` and
+`rival-fit` ask the same question of interchangeable and non-interchangeable rivals and
+get different answers, which is what stops either from being read as a general claim
+about auctions.
+
 ---
 
 ## 9. Determinism
@@ -655,7 +694,7 @@ at the world-generation level.
    NFL bye schedule is known in advance and should replace this.
 9. **Opponent rosters are exogenous.** Changing your roster does not change theirs, and
    the 180-player pool is exactly consumed by the 12 rosters. Note this is a
-   simplification with teeth: the `rival-fit` experiment (§9) shows that *which*
+   simplification with teeth: the `rival-fit` experiment (§8.3) shows that *which*
    rival owns a valuable player moves your own CE by a resolvable amount once the
    rivals differ in how well they can use him.
 10. **The league median uses all 12 teams' realized scores**, which is correct for

@@ -11,18 +11,19 @@
    Every spec emitted here carries ``data_source="SYNTHETIC"``.
 ======================================================================
 
-This module exists to demonstrate the eight properties the engine must
-support, all of which are expressed purely through ``PlayerSpec`` fields:
+This module exists to demonstrate the properties the engine must support, all
+of which are expressed purely through ``PlayerSpec`` fields:
 
-1. persistent season-level performance states   -> ``season_sd``
-2. pregame projections                          -> filtered posterior + noise
-3. weekly scoring variance                      -> ``week_sd``
-3b. forecastable weekly conditions              -> ``weekly_state_sd``
-4. injuries and unavailable weeks               -> hazard/duration + byes
-5. observable role changes                      -> ``role_change_*``
-6. unforecastable spike weeks                   -> ``spike_rate``/``spike_scale``
-7. shared team-level shocks                     -> ``shock_loadings`` (``team:*``)
-8. hooks for player correlations                -> ``shock_loadings`` (any group)
+1.  persistent season-level performance states  -> ``season_sd``
+2.  pregame projections                         -> signal posterior + noise
+3.  unforecastable weekly scoring variance      -> ``week_sd``
+4.  forecastable weekly conditions              -> ``weekly_state_sd``
+5.  injuries and unavailable weeks              -> hazard/duration + byes
+6.  observable role changes                     -> ``role_change_*``
+7.  the observable-information channel          -> ``signal_noise_sd``
+8.  unforecastable spike weeks                  -> ``spike_rate``/``spike_scale``
+9.  shared team-level shocks                    -> ``shock_loadings`` (``team:*``)
+10. hooks for player correlations               -> ``shock_loadings`` (any group)
 
 Replacing this module with real data requires **no change to the engine**:
 populate the same ``PlayerSpec`` fields from real medians, real injury

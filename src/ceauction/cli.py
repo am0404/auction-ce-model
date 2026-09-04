@@ -139,7 +139,25 @@ def cmd_run(args) -> int:
     print("\nA non-significant dCE with a significant dPts/wk means the mechanism "
           "fired\nbut the effect is smaller than this sample size can resolve -- "
           "raise --sims.")
-    print("\nREMINDER: synthetic inputs. These validate the machinery, "
+    print()
+    print("=" * 78)
+    print("HOW TO READ THIS TABLE")
+    print("=" * 78)
+    print(
+        "INFRASTRUCTURE finding: 'the engine responds to this structural change in a\n"
+        "  measurable, correctly signed, statistically resolvable way.' That is what\n"
+        "  every row above establishes, and it is a claim about this code.\n"
+        "\n"
+        "SYNTHETIC-FANTASY finding: 'a change of this kind is worth this much CE.'\n"
+        "  No row above establishes that. Every effect size is a property of the\n"
+        "  invented parameters in synthetic.py, and would change with real ones.\n"
+        "\n"
+        "Two rows are CONTROLS and are meant to read near zero:\n"
+        "  opponent-placement    exchangeable rivals -- a signal here is a bug\n"
+        "  aggregate-lineup-spot 'unforecastable rotation' arm -- byte-identical\n"
+        "                        realized production, so any gap is pure knowability\n"
+    )
+    print("REMINDER: synthetic inputs. These validate the machinery, "
           "not any football claim.")
     return 0
 

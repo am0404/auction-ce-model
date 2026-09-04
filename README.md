@@ -33,8 +33,13 @@ and fails with "editable mode currently requires a setuptools-based build".
 .venv/bin/ce-lab experiments               # list the controlled experiments
 .venv/bin/ce-lab run --all --sims 12000    # the full CE laboratory
 .venv/bin/ce-lab bench                     # runtime + Monte Carlo uncertainty
-.venv/bin/python -m pytest                 # the test suite
+.venv/bin/python -m pytest                 # 192 tests
 ```
+
+Two of the twelve experiments are **controls** and are meant to read near zero.
+`ce-lab run --all` prints a short guide explaining which findings are claims
+about this code and which would be claims about football — the laboratory only
+ever makes the first kind.
 
 ## Documents
 
@@ -45,14 +50,29 @@ and fails with "editable mode currently requires a setuptools-based build".
 | `OPEN_QUESTIONS.md` | Decisions that need real data or your judgement |
 | `docs/example_ce_lab_output.txt` | A full CE-laboratory run |
 
-## The one rule that shapes everything
+## The two rules that shape everything
 
 ```
-drafted roster -> latent player and season states -> information observable
-before kickoff -> lineup decision -> realized scores -> information update ->
-standings -> playoffs -> champion
+drafted roster -> latent player and season states -> observable signals and
+knowable weekly conditions -> lineup decision -> realized scores -> standings
+-> playoffs -> champion
 ```
 
-A lineup may use only what was knowable before kickoff. A benched player who
-scores 30 is worth exactly zero that week. He creates future value only if his
-performance reveals something persistent and observable.
+**A lineup may use only what was knowable before kickoff.** A benched player who
+scores 30 is worth exactly zero that week.
+
+**A projection may be moved only by information that was forecastable in the
+first place.** Beliefs update from a separate observable channel standing in for
+usage, snaps, routes, targets and depth-chart reporting — never from realized
+fantasy points. A lucky touchdown changes that week's score and nothing else. A
+genuine change in a player's role or usage changes every week that follows.
+
+The second rule is the harder one, and the code enforces it structurally: the
+projection builder has no parameter through which a realized score could arrive.
+
+## Scoring
+
+Half PPR, and the seam in `scoring.py` carries the complete rule set including
+two-point conversions and individual special-teams touchdowns. Interceptions and
+lost fumbles are both −2, so a weekly score can be negative — there is no rule
+flooring an individual player's week at zero, and the model does not impose one.

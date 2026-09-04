@@ -2,12 +2,13 @@
 
 Runs the full pipeline of ``SPEC.md`` section 2 in batches of seasons::
 
-    latent state -> availability -> realized scores -> pregame information
-        -> lineup decision -> team score -> standings -> playoffs -> champion
+    latent state -> availability -> observable signals -> realized scores
+        -> pregame information -> lineup decision -> team score -> standings
+        -> playoffs -> champion
 
 Batching exists purely for memory.  Because the RNG is counter-based, results
-are identical for any batch size, which ``tests/test_reproducibility.py``
-asserts.
+are identical for any batch size, which ``tests/test_simulate.py`` asserts over
+chunk sizes 1, 7, 64, 300 and 1000.
 """
 
 from __future__ import annotations

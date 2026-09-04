@@ -90,11 +90,19 @@ class PlayerSpec:
 
     # --- level and dispersion -------------------------------------------------
     base_mean: float
-    """Consensus per-week mean when active in the player's base role.
-    Real data: the player's projected weekly median/mean."""
+    """Consensus **expected fantasy points** per week when active in the
+    player's base role.
+
+    It means exactly what a projection source means, with no transform in
+    between.  Weekly scores are not floored at zero -- interceptions and lost
+    fumbles are both -2 and the league has no such rule -- so the realized mean
+    equals this number for any ``week_sd``."""
 
     week_sd: float
-    """Idiosyncratic weekly standard deviation.  Real data: boom/bust width."""
+    """Idiosyncratic, **unforecastable** weekly standard deviation.
+
+    Real data: the part of boom/bust width that a good weekly projection cannot
+    anticipate.  The part it can anticipate belongs in ``weekly_state_sd``."""
 
     season_sd: float = 0.0
     """SD of the persistent, unobserved season-level deviation from

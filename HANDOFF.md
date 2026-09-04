@@ -1,6 +1,7 @@
-# HANDOFF.md — Night 1
+# HANDOFF.md — audit correction pass
 
-Branch `ce-foundation`. Everything below is reproducible from the commands in §3.
+Branch `ce-foundation-audit-fixes`, off `ce-foundation`. Everything below is
+reproducible from the commands in §3.
 
 > **All player data is synthetic and labelled as such.** `src/ceauction/synthetic.py`
 > invents every number it produces. No real player distribution is used, estimated or
@@ -8,49 +9,76 @@ Branch `ce-foundation`. Everything below is reproducible from the commands in §
 
 ---
 
-## 1. What was built
+## 1. What this pass changed, and why it mattered
 
-A complete championship-equity engine: **drafted roster in, probability of winning the
-league out**, for the specified 12-team / $200 / half-PPR / superflex Sleeper auction
-league with a weekly league-median result and a fixed six-team bracket.
+The Night 1 engine was structurally sound — the league, lineup solver, standings,
+bracket, deterministic RNG and paired-comparison architecture all survive unchanged.
+Its 146 tests passed. They also could not have caught what was wrong, because every
+one of the four defects below was a *modelling* error that the code implemented
+faithfully.
 
-Auction pricing was not built, by instruction.
+**1. A zero floor on weekly scores that the league does not have.** `_draw_realized`
+applied `max(raw, 0)`. Interceptions and lost fumbles are both −2 in this league's
+rules and nothing floors an individual player's total, so this was inventing a rule.
+It was not a harmless clip: it made `base_mean` a latent parameter rather than
+expected fantasy points — silently redefining the one field real projection data will
+populate — and it forced a compensating `E[max(0, N(µ, σ))]` transform into the
+projection path, which two experiments then needed further corrections to undo.
 
-The five things worth knowing:
+**2. Beliefs updated from realized fantasy points.** The manager's posterior was a
+Gaussian conjugate filter on realized residuals, which cannot distinguish "this player
+is better than we thought" from "this player got lucky". Measured before the fix:
+injecting 100 points into one prior week raised the next week's projection by **+30.8**
+(mean 10.0, week_sd 6.0, season_sd 4.0). Unforecastable scoring became forecast.
 
-**1. The information barrier is enforced three ways, not asserted once.** The scalar
-lineup API consumes `PregameEntry`, which has no field capable of holding a realized
-score. The vectorised optimiser's signature accepts projections, availability and
-positions — there is no parameter through which a realized score could arrive. Week
-*w*'s belief is a cumulative sum over weeks strictly before *w*, so *w*'s own outcome
-is arithmetically absent. And the tests permute the realized array and assert the
-starter masks are bit-identical, then hand a benched player 1,000 points and assert
-nothing moves.
+**3. Role changes were counted twice.** An unrevealed role increase looked to that
+filter like evidence of a higher persistent level; when the role was formally revealed
+the explicit delta was added again on top. Measured before the fix: a 10-point player
+with a certain, revealed +20 role change projected **32.4** on average where 30 was
+correct, and ~38 at the season_sd/week_sd ratio the audit used.
 
-**2. Lineup selection is exact, and provably so.** The slot eligibility sets
-(`{QB}`, `{RB}`, `{WR,TE}`, `{RB,WR,TE}`, `{QB,RB,WR,TE}`) form a *laminar* family, so
-the startable player sets are a transversal matroid whose independence test collapses
-to seven counting constraints. Greedy over a matroid is optimal, so sorting by
-projection and taking each player who keeps the counts feasible is exact — no LP, no
-Hungarian algorithm, no heuristic. It is cross-checked against brute-force enumeration
-of all C(15,8) subsets with an independently written bipartite matcher.
+**4. No forecastable weekly variation existed.** Every pregame level was effectively
+static — it moved only when a role was revealed or a handcuff's starter went out. Two
+candidates for one lineup spot could therefore never trade places on knowable weekly
+conditions, which means the model could not represent *building a roster spot in the
+aggregate* at all. That is the central question a 15-for-8 roster poses.
 
-**3. Common random numbers come from the RNG design, not from bookkeeping.** All
-randomness is a counter-based hash of `(seed, kind, season, entity, week)`. There is no
-sequential state, so a draw's value depends only on its coordinates. Changing one player
-on one roster provably perturbs no other player's draws — a test asserts the other 11
-teams' weekly scores are byte-identical across scenarios. Measured variance reduction on
-the experiments below is 3–20x. Two *alternative* players competing for one roster slot
-can share a `crn_key` so they even share their uniform draws and differ only in
-parameters.
+Two further gaps were closed: the stat-line scoring seam was missing four of the
+league's rules, and the "does a rival's roster matter to you?" experiment was a
+control being read as a finding.
 
-**4. The 15-man roster is treated as a portfolio throughout.** Nothing labels eight
-players as starters. All 15 are re-evaluated every week against that week's byes,
-injuries, revealed role changes and contingency status. Measured over 400 simulated
-seasons: **a team starts 14.3 of its 15 players at least once** in the regular season
-(5th percentile 13, minimum 11). There is no such thing here as "the eight starters".
+### The shape of the fix
 
-**5. One real modelling bug was found and fixed by an experiment.** See §7.
+The model now separates four quantities that were partially conflated, and adds each
+**exactly once** on each side:
+
+| Component | Realized score | Projection |
+|---|---|---|
+| Persistent player level | `base_mean + season_shift` | `base_mean` + posterior from **observable signals** |
+| Observable role change | `true_role_delta`, from the change week | `observed_role_delta`, from the reveal week |
+| Forecastable weekly state | `weekly_state[p, w]` | the same array, unchanged |
+| Unforecastable realized noise | group shock + idiosyncratic + spikes | absent |
+
+The load-bearing change is that `_build_pregame` **no longer takes the realized array
+as an argument at all**. Beliefs update from `SignalBatch`, a distinct observable
+process:
+
+```
+level_signal[p, w] = season_shift[p] + signal_noise_sd[p] * xi[p, w]
+observed[p, w]     = available[p, w]
+```
+
+drawn from its own RNG stream, so it shares no draw with any realized score. It stands
+for what a manager actually watches — snap share, route participation, target or carry
+share, depth-chart reporting, the drift of a published projection — expressed on the
+fantasy-points scale, so calibrating it against real data means estimating one number
+and changing nothing else.
+
+That single structural change fixes defects 2 and 3 together, and fixes them by
+construction rather than by arithmetic anyone has to trust: a spike cannot reach a
+future projection because there is no channel through which it could arrive, and an
+unrevealed role change cannot inflate the level posterior because the signal does not
+observe role changes.
 
 ---
 
@@ -65,28 +93,31 @@ pyproject.toml              packaging; `ce-lab` entry point
 docs/
   example_ce_lab_output.txt full CE-laboratory run, 16,000 seasons per arm
   example_league_output.txt CE table for all 12 teams, 20,000 seasons
-src/ceauction/              ~3,900 lines
+src/ceauction/
   rng.py                    counter-based RNG; reproducibility + CRN
-  stats.py                  dependency-free normal CDF, floored mean
-  scoring.py                half-PPR rules; the seam for stat-level real data
+  scoring.py                the COMPLETE half-PPR rule set; the stat-line seam
   league.py                 settings, positions, the eight slots
   players.py                PlayerSpec -- the reversible real-data interface
   roster.py                 Roster, RosterSet, validation, vectorised views
   pregame.py                pregame-observable types (no realized field exists)
   lineup.py                 exact optimiser + per-slot explanations
   lineup_vec.py             the same algorithm, vectorised
-  worlds.py                 latent state / availability / realized / pregame
+  worlds.py                 latent / availability / SIGNALS / realized / pregame
   synthetic.py              SYNTHETIC pool generator (clearly labelled)
   schedule.py               round robin, permuted per season
   standings.py              dual results, records, total-points tiebreak
   playoffs.py               fixed 6-team bracket; zero randomness
   simulate.py               the pipeline, batched
   ce.py                     CE estimation + paired comparison
-  experiments.py            the CE laboratory
+  experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      ~2,000 lines, 146 tests
+tests/                      192 tests
 ```
+
+`stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
+existed only to compensate for the zero floor; with the floor gone they had no
+remaining caller, and a test now asserts they cannot come back.
 
 ---
 
@@ -97,112 +128,132 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 146 tests, ~40s
+.venv/bin/python -m pytest              # 192 tests, ~2 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
-.venv/bin/ce-lab run --all --sims 16000 # the full laboratory (~7 min)
-.venv/bin/ce-lab run spikes --sims 4000 # one experiment (~10s)
+.venv/bin/ce-lab run --all --sims 16000 # the full laboratory
+.venv/bin/ce-lab run spikes --sims 4000 # one experiment
 .venv/bin/ce-lab bench                  # runtime + Monte Carlo uncertainty
 ```
 
 Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev dependency.
 
-Verified from a clean `git clone` of this branch: fresh venv, the commands above,
-146 tests passing, and every `ce-lab` subcommand exiting 0. The pip upgrade is not
-optional on a stock macOS Python (bundled pip 21.2.4 predates PEP 660 and fails the
-editable install).
-
 ---
 
 ## 4. Test results
 
-**146 passed in 37s, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
+**192 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
-`flaky` markers.
+`flaky` markers. 146 before this pass, 46 added.
 
 | File | Tests | What it pins down |
 |---|---:|---|
-| `test_experiments.py` | 29 | every experiment builds a legal league and runs paired; the rival-placement control reads zero; floor-correction helpers; every documented `ce-lab` command exits 0 |
-| `test_worlds.py` | 19 | byes, injury hazard/duration, persistence of latent state, mean-neutral vs mean-adding spikes, shared/private/negative correlation, contingency, role-change reveal lag, filter behaviour, chunk independence, `crn_key` sharing, projection = expected points |
+| `test_experiments.py` | 35 | every experiment builds a legal league and runs paired; the rival-placement **control** reads zero and `rival-fit` does not; the aggregate-spot arms and their byte-identical control; the floor helpers cannot return; every documented `ce-lab` command exits 0 |
+| `test_worlds.py` | 21 | byes, injury hazard/duration, latent persistence, **negative realized scores**, **realized mean == base_mean**, unavailable weeks still zero, spike mean-neutrality, correlation, contingency, role reveal lag, belief convergence, chunk independence across **all seven layers**, `crn_key` sharing |
 | `test_players.py` | 18 | parameter validation and boundaries, immutability, `crn_key` semantics, **every synthetic spec is labelled `SYNTHETIC`**, projection-override validation, shock-loading accumulation, snake-draft balance |
-| `test_simulate.py` | 17 | seed reproducibility, chunk invariance, prefix stability, exactly one champion, roster-as-portfolio, bench depth value, roster validation |
 | `test_lineup.py` | 17 | Hall bounds, all eight slots filled, 2×RB and 3×WR/TE enforced, **non-QB superflex**, unavailable players, legally unfillable slots, greedy == brute force, vectorised == scalar, **projection monotonicity**, deterministic ties, per-slot explanations, a bench player stepping in for a bye |
-| `test_ce.py` | 12 | **12 identical teams have equal CE** (chi-square, 11 df), no seeding bias by team index, other teams' scores unchanged across paired arms, null comparison is exactly zero, pairing beats independent sampling, no extra playoff randomness |
+| `test_simulate.py` | 17 | seed reproducibility, chunk invariance (six chunk sizes), prefix stability, exactly one champion, roster-as-portfolio, bench depth value, roster validation |
+| `test_observable_signals.py` | 15 | **NEW.** a spike changes only its own week; **+100 injected into a past week moves nothing**; spikes / hidden team shocks / mean-adding hidden production never reach a projection; whole-league lineup masks unchanged; the persistent level *is* learned; `signal_noise_sd` is the learning dial; signals exist only for played weeks; stream independence; **role-change deltas exact to 1e-12 at lag 0, 1 and 4**; four-way decomposition |
+| `test_scoring.py` | 14 | every half-PPR rule including **two-point conversions and special-teams TDs**, every `StatLine` field has a coefficient, **a weekly score can be negative**, custom rule sets |
+| `test_ce.py` | 13 | **12 identical teams have equal CE** (chi-square, 11 df), no seeding bias by team index, **every shared draw is shared across paired arms** (named individually), null comparison is exactly zero, pairing beats independent sampling, no extra playoff randomness |
+| `test_weekly_state.py` | 12 | **NEW.** a pattern appears in the projection as supplied and in the score's conditional mean; distinct from `proj_noise_sd` and from `week_sd`; hidden patterns reach the score only; correlated / independent / offset structure; **a lineup spot actually rotates**; the synthetic league rotates more than a static one |
 | `test_standings.py` | 9 | median win/loss/**exact tie**, 2-0 / 1-1 / 0-2, two results per week, **total-points tiebreak** (both directions), index as final tiebreak, schedule covers all 66 pairs |
-| `test_playoffs.py` | 8 | exactly six qualifiers, **top-two byes**, fixed 3v6 / 4v5 pairing, **no reseeding** (1 always faces the 4/5 winner), bye teams' week-15 scores are irrelevant, **higher seed advances a tie** in every round and by seed rather than team index |
-| `test_information_barrier.py` | 6 | `PregameEntry` cannot hold a realized score; permuting realized scores leaves starter masks identical; **a benched player given +1,000 points changes nothing**; the filtration is a strictly shifted cumsum; **an observable role change moves future lineups but not past ones** |
+| `test_playoffs.py` | 8 | exactly six qualifiers, **top-two byes**, fixed 3v6 / 4v5 pairing, **no reseeding**, bye teams' week-15 scores are irrelevant, **higher seed advances a tie** in every round |
+| `test_information_barrier.py` | 7 | `PregameEntry` cannot hold a realized score; permuting realized scores leaves starter masks identical; **a benched player given +1,000 points changes nothing**; the filtration is a strictly shifted cumsum over **signals**; **`_build_pregame` has no realized parameter**; an observable role change moves future lineups but not past ones |
 | `test_rng.py` | 6 | moments, stream independence, value depends only on coordinates |
-| `test_scoring.py` | 5 | every half-PPR rule |
 
-Every item on the required test list is covered; the mapping is the bolded text above.
+### Determinism, chunk invariance and CRN — verified directly
+
+```
+repeat run identical                                     yes
+chunk sizes 1 / 3 / 7 / 64 / 500 / 4096 identical        yes
+900-season run's first 300 == a 300-season run           yes
+world layers chunk-invariant (realized, projection,
+  signals, weekly_state, posterior, role, availability)  yes
+paired arms share: availability, byes, group shocks,
+  observable signals, weekly state, spikes, role weeks   yes
+changing one player moves that player only;
+  the other 11 teams' scores are byte-identical          yes
+comparing a league with itself gives delta_CE == 0.0     yes
+```
 
 ---
 
 ## 5. Example CE-laboratory output
 
 Full run in `docs/example_ce_lab_output.txt` (16,000 seasons per arm, seed 20260904,
-412s). Focus team is `Team01`. `dPts/wk` is the paired difference in the focus team's
-realized weekly scoring — it is the diagnostic that separates "the mechanism did not
-fire" from "the effect is real but below this sample size's resolution".
+588s). Focus team is `Team01`. `dPts/wk` is the paired difference in the focus team's
+realized weekly scoring — the diagnostic that separates "the mechanism did not fire"
+from "the effect is real but below this sample size's resolution".
 
 ```
-experiment          comparison                                         dCE   +/-95%      z   dPts/wk      z
------------------------------------------------------------------------------------------------------------
-marginal-point      +1.00 pt/week to best QB                      +0.01294  0.00241 +10.50   +0.8912 +1286.9
-marginal-point      +1.00 pt/week to best RB                      +0.01144  0.00231  +9.71   +0.7948 +446.5
-marginal-point      +1.00 pt/week to best WR                      +0.01287  0.00239 +10.58   +0.8511 +850.1
-marginal-point      +1.00 pt/week to 2nd RB (fills RB2)           +0.01087  0.00249  +8.55   +0.7267 +141.7
-marginal-point      +1.00 pt/week to marginal starter (8th)       +0.00775  0.00265  +5.73   +0.6760  +91.0
-marginal-point      +1.00 pt/week to first bench player (9th)     +0.00844  0.00279  +5.93   +0.6737  +84.3
-marginal-point      +1.00 pt/week to last bench player (15th)     +0.00213  0.00213  +1.96   +0.1269  +18.5
-second-qb           QB vs WR at 14.0 -- roster already QB-deep    -0.08231  0.00573 -28.15   -5.0944 -216.2
-second-qb           QB vs WR at 14.0 -- roster thin at QB         +0.00125  0.00230  +1.07   +0.2266  +28.1
-volatility          volatile sd 11 vs stable sd 4, starter        +0.00000  0.00307  +0.00   +0.0026   +0.3
-volatility          volatile sd 11 vs stable sd 4, flex           -0.00137  0.00283  -0.95   -0.0024   -0.3
-spikes              predictable +3.0 vs unforecastable +3.0       +0.02081  0.00460  +8.86   +0.5225  +23.6
-concentration       18/6/6 vs 10/10/10 across three WR spots      +0.08737  0.00667 +25.69   +4.0841 +142.1
-injury              weekly injury hazard 8% vs 2%                 -0.01450  0.00272 -10.45   -1.2223  -82.4
-injury              weekly injury hazard 16% vs 2%                -0.03525  0.00376 -18.35   -2.6411 -134.1
-bench-correlation   correlated bench pair (rho ~ .60) vs indep    -0.01331  0.00684  -3.81   +0.0173   +0.5
-stack               stacked QB+WR vs same players uncorrelated    -0.00294  0.00539  -1.07   +0.0083   +0.2
-handcuff            handcuff to own RB vs uplift on a rival's RB  +0.00975  0.00459  +4.16   +0.2565   +9.5
-opponent-placement  same stud on team 1 vs team 2 (CONTROL)       +0.00119  0.00396  +0.59   +0.0000   +0.0
+experiment            comparison                                   dCE   +/-95%      z   dPts/wk
+------------------------------------------------------------------------------------------------
+marginal-point        +1.00 pt/wk to best QB                  +0.01344  0.00243 +10.86   +0.8909
+marginal-point        +1.00 pt/wk to best RB                  +0.01213  0.00238  +9.98   +0.8169
+marginal-point        +1.00 pt/wk to best WR                  +0.01325  0.00248 +10.48   +0.8723
+marginal-point        +1.00 pt/wk to 2nd RB (fills RB2)       +0.01181  0.00255  +9.08   +0.6811
+marginal-point        +1.00 pt/wk to marginal starter (8th)   +0.00625  0.00257  +4.76   +0.5740
+marginal-point        +1.00 pt/wk to first bench (9th)        +0.00838  0.00266  +6.18   +0.6042
+marginal-point        +1.00 pt/wk to last bench (15th)        +0.00462  0.00224  +4.05   +0.2536
+second-qb             QB vs WR at 14.0 -- roster QB-deep      -0.08669  0.00567 -29.96   -5.4553
+second-qb             QB vs WR at 14.0 -- roster thin at QB   -0.00256  0.00284  -1.77   -0.1064
+volatility            sd 11 vs sd 4, starter level            +0.00250  0.00337  +1.45   +0.0189
+volatility            sd 11 vs sd 4, flex level               -0.00187  0.00351  -1.05   -0.0102
+spikes                predictable +3.0 vs unforecastable +3.0 +0.01506  0.00466  +6.34   +0.6535
+concentration         18/6/6 vs 10/10/10 across three spots   +0.09094  0.00648 +27.51   +4.3552
+aggregate-lineup-spot forecastable rotation vs stable starter -0.00387  0.00572  -1.33   +0.0279
+aggregate-lineup-spot unforecastable rotation vs stable (CTL) -0.09369  0.00644 -28.50   -4.7859
+aggregate-lineup-spot the same rotation, forecastable vs not  +0.08981  0.00653 +26.95   +4.8138
+injury                weekly injury hazard 8% vs 2%           -0.01831  0.00274 -13.11   -1.3329
+injury                weekly injury hazard 16% vs 2%          -0.03794  0.00373 -19.95   -2.8857
+bench-correlation     correlated bench pair vs independent    -0.00625  0.00672  -1.82   +0.0083
+stack                 stacked QB+WR vs the same uncorrelated  -0.00075  0.00548  -0.27   +0.0122
+handcuff              handcuff to own RB vs a rival's RB      -0.00156  0.00462  -0.66   +0.3456
+opponent-placement    same stud on rival 1 vs rival 2 (CTL)   +0.00219  0.00407  +1.05   +0.0000
+rival-fit             stud QB to weak rival vs to contender   +0.01044  0.00421  +4.86   +0.0000
 ```
 
-**These are statements about the synthetic process, not about football.** What they
-establish is that the engine responds to each structural change in a measurable,
-correctly signed, statistically resolvable way. Reading them as infrastructure results:
+### Infrastructure findings — claims about this code
 
-* **Marginal point declines monotonically down the roster** (0.0129 at the top to
-  0.0021 at the 15th man), and `dPts/wk` shows why: a full-time starter converts 0.89
-  of the point, the last bench player converts 0.13. The conversion rate *is* the
-  mechanism, and it is a property of the roster, not of the position.
-* **The second-QB answer flips sign with roster context.** On a roster already starting
-  two QBs a third is nearly worthless while the same-sized WR upgrades a real flex slot
-  (−0.082); on a QB-thin roster the two are indistinguishable (+0.001, n.s.). This is
-  the clearest argument in the whole run against a positional modifier and for
-  per-roster CE.
-* **At matched expected points, volatility is CE-neutral here** (0.000 and −0.001, both
-  n.s., with `dPts/wk` at z ≈ 0.3). The median-result format punishes variance and the
-  bracket rewards it, and in this league they roughly cancel. Note this is only a clean
-  measurement *because* of the fix in §7.
-* **Unforecastable production is worth much less than forecastable production**
-  (+0.0208, z = 8.9) at identical expected points. This is the information rule showing
-  up as a price.
-* **Correlated bench upside is worth less than independent** (−0.0133, z = −3.8) with
-  `dPts/wk` at zero — marginals are matched exactly, so this is pure dependence
-  structure. The lineup takes a max over available options, and independent options
-  give the max more chances to be high.
-* **Contingency timing has real value beyond expected points** (+0.0098, z = 4.2). Both
-  arms receive the same uplift about equally often; only the handcuff's arrives in the
-  weeks a hole opened.
-* **The control reads zero.** Moving a stud between two rival rosters leaves the focus
-  team's `dPts/wk` at exactly 0.0000 and its CE statistically flat.
+These are what the run establishes, and they are the only kind of claim it can make.
 
-The one comparison that does not resolve is **stacking** (−0.0029, z = −1.1). Its
-`dPts/wk` is zero by construction, so it is a pure variance effect, and it needs
-roughly 10x the seasons to separate from zero.
+* **Every mechanism fires with the right sign and is resolvable at 16,000 seasons**,
+  except the three noted below. Marginal projection, positional eligibility,
+  concentration, availability risk, forecastability and rival fit all separate cleanly.
+* **The two controls behave as controls.** `opponent-placement` reads +0.0022 (z = 1.05)
+  with the focus team's scoring at exactly 0.0000 — the schedule is exchangeable and no
+  team identity leaks into the standings. The `aggregate-lineup-spot` unforecastable arm
+  has byte-identical realized production to its forecastable twin, so the +0.0898 gap
+  between them is purely the value of pregame knowability and cannot be an artefact of
+  retrospective selection.
+* **Forecastability is now measured twice, two different ways, and agrees.** `spikes`
+  (+0.0151) prices unforecastable production against forecastable at equal expected
+  points; `aggregate-lineup-spot` (+0.0898) prices the same thing at much larger
+  amplitude with realized production held byte-identical. Both say the same thing about
+  the engine: points the manager cannot see coming are worth substantially less.
+* **The lineup is genuinely a weekly decision.** A team now starts 14.8 of its 15
+  players at least once and changes 2.7 starters a week (was 14.0 and 2.0). The
+  marginal point at the 15th roster spot is now resolvable (+0.0046, z = 4.05) where it
+  previously sat right at the threshold — a deep bench player earns his value in the
+  weeks conditions favour him, which the model previously could not represent.
+* **Rival ownership matters when rivals differ in fit** (+0.0104, z = 4.86, focus
+  scoring identical to the last decimal) and does not when they are interchangeable
+  (+0.0022, z = 1.05). The pair is the finding; either alone would mislead.
+* **Three comparisons do not resolve at this sample size:** `stack` (z = −0.27),
+  `bench-correlation` (z = −1.82) and `handcuff` (z = −0.66). The first two are pure
+  variance effects with `dPts/wk` at zero by construction and need roughly 10x the
+  seasons. `handcuff` is different and worth flagging: its mechanism clearly fires
+  (`dPts/wk` +0.346, z = +12.0) but the CE effect no longer separates. See §9.
+
+### Synthetic-fantasy findings — there are none
+
+Every effect size above is a property of the invented parameters in `synthetic.py`.
+None of it is an estimate of anything about real football, and no auction decision
+should be derived from any number in this section. The separation matters most exactly
+where the numbers look most quotable: "concentration is worth 0.09 CE" is a statement
+about an exponential decay curve someone made up.
 
 ---
 
@@ -213,210 +264,289 @@ MacBook, Python 3.9.6, NumPy 2.0.2, single-threaded.
 ```
   seasons   chunk   seconds   seasons/s  ms/season    CE(T1)        SE     +/-95%
 ---------------------------------------------------------------------------------
-    1,000      64      0.66       1,518      0.659    0.0880   0.00896    0.01756
-    4,000      64      2.65       1,507      0.664    0.0900   0.00452    0.00887
-   16,000      64     10.47       1,528      0.655    0.0892   0.00225    0.00442
-   64,000      64     42.23       1,516      0.660    0.0904   0.00113    0.00222
+      250      64      0.19       1,312      0.762    0.0960   0.01863    0.03652
+    1,000      64      0.76       1,324      0.755    0.1010   0.00953    0.01868
+    4,000      64      3.12       1,282      0.780    0.1008   0.00476    0.00933
+   16,000      64     12.09       1,324      0.755    0.0981   0.00235    0.00461
 ```
 
-Throughput is flat from 500 to 64,000 seasons — the pipeline is O(n) with no growing
-allocation. A *paired* comparison costs two runs plus nothing else, so a 16,000-season
-A/B is about 21s.
+Throughput is flat across the range — the pipeline is O(n) with no growing allocation.
+A *paired* comparison costs two runs and nothing else, so a 16,000-season A/B is ~24s
+and the full 23-comparison laboratory is 588s.
 
 **Per-stage profile at 2,000 seasons:**
 
 | Stage | Time | Share |
 |---|---:|---:|
-| world generation | 0.994s | 75.7% |
-| lineup + scoring | 0.302s | 23.0% |
-| standings | 0.011s | 0.8% |
-| schedule | 0.005s | 0.4% |
+| world generation | 1.191s | 78.6% |
+| lineup + scoring | 0.307s | 20.3% |
+| standings | 0.010s | 0.7% |
+| schedule | 0.004s | 0.3% |
 | playoffs | 0.002s | 0.1% |
 
-**Bottleneck, precisely.** World generation dominates, and inside it the cost is
-memory bandwidth over `(seasons × 180 players × 17 weeks)` float64 arrays, plus the
-transcendentals in the normal and exponential draws. Standings and playoffs are free.
-
-**What was optimised (after the correctness tests passed, not before):**
-
-* `normal()` now takes both Box-Muller uniforms from the two halves of a *single*
-  64-bit hash. The old version used a trailing sub-coordinate, which forced a second
-  mixing round at full array size. **1,205 → 1,490 seasons/s.**
-* `hash_coords()` does one mixing round per coordinate instead of two.
-* Draws are skipped entirely when the corresponding parameters are all zero, which
-  makes the inert laboratory and test leagues much cheaper.
-* `DEFAULT_CHUNK` 256 → 64. The pipeline is bandwidth-bound and a 64-season batch keeps
-  the working set in cache: 1,680 vs 1,490 at 256 and 1,270 at 2,048. Results are
-  chunk-invariant (tested), so this is purely a performance knob.
-* The §7 correctness fix then cost 9% (1,680 → 1,520). That was the right trade.
+**Cost of this pass: 1,520 → 1,324 seasons/s, about 13%.** It buys two new full-size
+`(seasons × 180 × 17)` draws — the observable signal and the stochastic weekly state —
+and world generation was already 76% of runtime, so the arithmetic is unsurprising.
+Removing the zero floor and the `floored_mean` transform gave a little back. This was
+the right trade: the alternative was a model that could not answer the aggregate-roster
+question and that turned lucky touchdowns into projections.
 
 **What was deliberately *not* done.** Float32 transcendentals were measured at 2.7x
-faster, which would have put throughput near 2,100 seasons/s. They also cap the normal
-at about 5.8σ. In a model whose entire purpose is measuring tail-driven championship
-outcomes, silently truncating the tail to buy speed is the wrong trade, so the math
-stays float64.
+faster but cap the normal at about 5.8σ. In a model whose purpose is measuring
+tail-driven championship outcomes, truncating the tail to buy speed is the wrong trade,
+so the math stays float64.
 
-**The honest headroom statement.** If CE is ever needed inside a live auction, the
-remaining wins are (a) trimming the pool to the ~60 players a decision actually
-touches, (b) simulating only the weeks that discriminate, and (c) multiprocessing over
-seasons, which is embarrassingly parallel here because seasons share no state. None of
-these were needed tonight.
+**Headroom, honestly.** If CE is ever needed inside a live auction the remaining wins
+are (a) trimming the pool to the ~60 players a decision touches, (b) simulating only the
+weeks that discriminate, and (c) multiprocessing over seasons, which is embarrassingly
+parallel here because seasons share no state. None were needed for this pass.
 
 ---
 
 ## 7. Important modelling choices
 
-**The projection is expected *points*, not the latent mean.** This was a real bug,
-found by an experiment rather than by a test. Realized scores are floored at zero, so a
-player's expected output is `E[max(0, X)]`, which exceeds his latent mean by an amount
-growing with his weekly SD: **+1.3 points/week for a replacement-tier WR at 4.0 with a
-weekly SD of 7.2**, and under 0.05 for an 18-point WR at the same SD. The engine had
-been projecting the latent mean, which systematically under-projected exactly the
-low-mean, high-variance players a 15-for-8 portfolio holds for optionality — biasing
-every bench and flex decision against them. The symptom that exposed it: the volatility
-experiment showed the volatile arm scoring 0.8 pts/week *more* at equal `base_mean`,
-which is a level difference wearing a volatility costume. Fixed in `stats.py` /
-`worlds.py`; the volatility experiment is now exactly scoring-neutral.
+**`base_mean` is expected fantasy points.** Not a latent parameter, not a median of a
+truncated distribution — the thing a projection source publishes. That is only true
+because the zero floor is gone, and it is what makes real-data ingestion a substitution
+rather than a reinterpretation.
 
-**The information filtration is a Gaussian conjugate filter on realized residuals**, not
-a parametric "learning schedule". Week *w*'s projection uses the mean residual of weeks
-strictly before *w*, shrunk by `week_var / season_var`. This gives the right behaviour
-for free: a genuine persistent level gets learned over the season, while heavy-tailed
-spike weeks are shrunk away and do **not** become future projection.
+**Weekly scores can be negative, and negative projections are allowed.** The lineup
+optimiser handles a negative projection correctly: it benches such a player, but still
+starts him rather than leave a slot unfilled, which is the right decision.
 
-**Role changes are the one channel through which a surprise creates future value.** A
-role change takes effect in week `wc` and becomes observable in `wc + reveal_lag`
-(default 1). Realized scores move immediately; projections and therefore lineups move
-one week later. Tested directly.
+**Two information barriers, enforced differently.** No same-week clairvoyance is
+arithmetic — a cumulative sum shifted one week. No learning from unforecastable noise
+is structural — `_build_pregame` has no realized parameter. The second is the one that
+was broken, and structure was the only fix worth making: an arithmetic fix would have
+had to be re-verified every time a new component was added to a realized score.
 
-**All correlation goes through one mechanism.** `ShockLoading(group_id, beta)` puts a
-player in a named weekly shock group. Team environments, QB/pass-catcher stacks,
-negative correlation (opposite-signed betas) and arbitrary user-defined structure are
-all the same object, so a real factor model drops in without touching the engine.
+**One channel for learning, one for weekly conditions, and they do not overlap.**
+`SignalBatch` observes the persistent latent level only. `weekly_state` carries what is
+knowable about *this* week. Role changes go through `observed_role_delta`. Each
+component reaches the projection through exactly one route, which is what makes the
+role-change identity exact rather than approximately right.
 
-**The schedule is permuted per season.** A fixed round robin with weeks 12–14 recycling
-rounds 1–3 would make some teams' repeated opponents structurally different. Permuting
-team → schedule slot each season removes that, and under CRN the same permutation is
-used in both arms so schedule luck cancels. The 12-identical-teams chi-square test is
-what catches any leak here.
+**The forecastable share is carved out of `week_sd`, not added to it.** Adding it would
+have made every synthetic player quietly more volatile and made the numbers below
+incomparable to anything measured before. `_split_weekly_sd` preserves the marginal
+weekly distribution and reclassifies part of it as knowable.
 
-**Correlation experiments hold marginals fixed.** When an experiment adds a shock
-loading, the idiosyncratic SD is reduced so total weekly variance is unchanged to
-machine precision. Otherwise "correlation" would just be "more variance".
+**Two experiments exist to be controls, and each belongs to a pair.**
+`aggregate-lineup-spot` carries an arm whose realized production is byte-identical to
+the treatment, differing only in pregame observability — without it the result reads as
+"variance is free". `opponent-placement` and `rival-fit` ask the same question of
+interchangeable and non-interchangeable rivals; without the second, the first reads as
+a general claim about auctions, which it is not.
+
+**All correlation still goes through one mechanism.** `ShockLoading(group_id, beta)`.
+Team environments, QB/pass-catcher stacks, negative correlation and arbitrary
+user-defined structure are the same object, so a real factor model drops in without
+touching the engine.
+
+**The schedule is still permuted per season**, and the 12-identical-teams chi-square
+test is what would catch any leak there.
 
 ---
 
 ## 8. Simplifications
 
-Full list in `SPEC.md` §10. The ones that actually matter:
+Full list in `SPEC.md` §11. The ones that actually matter:
 
-1. **No waivers, no FAAB, no trades.** The drafted 15 are the 15 in week 17. This is the
-   largest structural simplification, and its direction is known: it **overstates** the
-   cost of injuries and **understates** the value of roster spots held as lottery
-   tickets. Both biases are largest at the bottom of the roster — exactly where $1–$3
-   auction decisions live.
-2. **Points are modelled directly**, not built from stat lines. `scoring.py` holds the
-   real half-PPR rules for when stat-level data arrives.
-3. **All 12 managers play the projection-optimal lineup every week** and never err. This
-   understates the value of a roster that is easy to set and overstates the value of a
-   deep bench needing correct weekly decisions.
-4. **The injury model is a two-parameter hazard/duration process**, independent across
-   players, memoryless, with no re-injury correlation, no age and no "questionable"
-   state.
-5. **Byes are drawn per synthetic NFL team in weeks 5–14.** The real bye schedule is
-   known in advance and should replace this.
-6. **Synthetic parameters are invented** and calibrated only to be plausible in shape.
-7. **Opponent rosters are exogenous** — changing yours does not change theirs.
-8. **No week-17 resting-starters effect.**
+1. **No waivers, no FAAB, no trades.** The drafted 15 are the 15 in week 17. This is
+   the largest structural simplification, and its bias does **not** point one way —
+   an earlier version of this document claimed it did:
+   * it **overvalues** static drafted depth and handcuffs as injury protection,
+     because in reality a comparable replacement is usually available on waivers, so
+     much of what the model prices as insurance covers a risk you could have covered
+     later for free;
+   * it **undervalues** churnable lottery-ticket roster spots, because a failed bet
+     here occupies a spot for seventeen weeks instead of being cut in week 4;
+   * it **overstates** the damage from injuries, because the real fallback is the
+     waiver wire rather than whoever you happen to own.
+
+   A handcuff and a lottery ticket are biased in *opposite* directions by the same
+   simplification, which is why "it understates bench depth" was the wrong summary.
+2. **Points are modelled directly**, not built from stat lines. `scoring.py` now holds
+   the complete rule set, including the two-point conversions and individual
+   special-teams touchdowns it was missing.
+3. **The observable-information channel is one Gaussian signal per played week.** Real
+   managers read snaps, targets, routes, depth charts and Vegas lines, each with its
+   own precision and lag. The *shape* is the modelling claim; `signal_noise_sd` is
+   uncalibrated and defaults to a conservative placeholder.
+4. **All 12 managers play the projection-optimal lineup every week** and never err.
+5. **The injury model is a two-parameter hazard/duration process**, independent across
+   players, memoryless, with no re-injury correlation, age or "questionable" state.
+6. **Byes are drawn per synthetic NFL team in weeks 5–14.**
+7. **Synthetic parameters are invented** and calibrated only to be plausible in shape.
+8. **Opponent rosters are exogenous** — and `rival-fit` shows this one has teeth.
+9. **No week-17 resting-starters effect.**
 
 ---
 
-## 9. Open questions
+## 9. Which previous conclusions were invalidated or materially changed
 
-Full catalogue with change instructions in `OPEN_QUESTIONS.md`. The three that block
-the most downstream work:
+Night 1's `HANDOFF.md` §5 drew seven readings from the laboratory. Here is what
+survived, what moved, and what was never a valid reading in the first place.
 
-* **B3 — is winner-take-all right?** CE is `P(win the league)`. If your league pays 2nd
-  and 3rd, the objective is a payout-weighted mix, which changes how much variance is
-  worth and therefore changes every number the model produces. `made_final`,
-  `made_playoffs` and `has_bye` are already tracked per season, so this is a small
-  change in `ce.py` — but it needs your payout structure.
-* **B2 — should the model include in-season roster change?** Draft-day value and value
-  net of the waiver wire are different numbers, and the gap is widest exactly at the
-  bottom of the roster.
-* **B5 — what CE resolution does pricing need?** A $1 decision may be worth less CE than
-  16,000 seasons can resolve. This sets the simulation budget per candidate roster and
-  therefore whether a live-auction tool is feasible at all.
+### Invalidated — the reading was wrong, not just the number
 
-Data-blocked items: real per-week means and the shape of replacement level (A1),
-whether weekly variance scales with the mean (A2, almost certainly yes and currently
-modelled as constant per position), real injury hazards (A3), the real correlation
-matrix (A4), and how accurate published weekly projections actually are (A5 — this one
-calibrates the *entire* value of forecastability).
+**"A rival's roster composition does not affect you."** Night 1 reported the
+`opponent-placement` control at delta-CE ≈ 0 and read it as a general statement. It is
+not one. That experiment swaps a player between two *near-duplicate* rival rosters for
+his own counterpart at the same position, so it can only ever measure exchangeability —
+a property of the schedule and standings code. The new `rival-fit` experiment asks the
+same question of rivals who differ in how well they can use the player and gets a
+clearly non-zero answer. Both are now in the suite, the control is labelled as one, and
+each interpretation points at the other.
 
+**"The filter partially recovers the loss from unforecastable spikes."** Night 1's
+`spikes` reading said the residual filter slowly learns a spiky player's elevated level.
+It did — and that was the bug, not a feature. Unforecastable production was becoming
+forecast. Beliefs now update from the observable-signal channel, which never sees a
+spike, so the loss is not recovered at all and the measured gap is the full price of
+unforecastability.
+
+**"One real modelling bug was found and fixed by an experiment"** — Night 1 §7, the
+`floored_mean` projection change. That "fix" was a correct response to a defect that
+should not have existed: the zero floor itself. Both are now gone. The claim that
+projecting through the floor was a correctness improvement is removed from `SPEC.md`
+and from this document.
+
+### Materially changed — the reading holds, the number does not
+
+**Everything measured on the synthetic league.** Two changes move every number in the
+table: removing the zero floor changes what `base_mean` means and therefore every
+realized mean, and carving `weekly_state_sd` out of `week_sd` changes what fraction of
+weekly variation is knowable. Any effect size quoted from the Night 1 run should be
+treated as superseded, not adjusted.
+
+**`concentration` specifically.** Its Night 1 note conceded that "about 0.8" of the
+scoring gap was the zero floor rather than the lineup effect, and that figure was
+accurate: under the floor the 18/6/6 arm expected 31.53 pts/week against 10/10/10's
+30.72, because each 6.0 player gained 0.76 from the floor while the 18.0 player gained
+0.01. What changed is that the caveat is no longer needed — the arms now expect exactly
+30.0 either way, so the entire delta is the lineup effect and the experiment measures
+what its title says.
+
+**`volatility` specifically.** Night 1 equalised the arms by inverting `floored_mean`
+numerically. They are now equal because equal `base_mean` means equal expected points,
+full stop. The conclusion ("at matched expected points, volatility is roughly CE-neutral
+in this format") is unchanged in kind, but it now rests on an identity rather than on a
+bisection search.
+
+**Two readings lost their statistical support entirely.** Both had `dPts/wk`
+significant and `dCE` significant on Night 1; both now have `dPts/wk` significant and
+`dCE` not. Neither is a broken mechanism — they are effects that shrank relative to
+noise once the rest of the roster gained forecastable weekly variation:
+
+* **`handcuff`: "contingency timing has real value beyond expected points" (+0.0098,
+  z = 4.16) is now +0.0016 in the *opposite* direction at z = −0.66,** while the
+  mechanism still fires hard (`dPts/wk` +0.346, z = +12.0). The plausible reading is
+  that when every other rostered player's projection moves week to week, a hole in the
+  lineup has better alternatives than it used to, so the *timing* of the handcuff's
+  points is worth less. That is a hypothesis, not a measurement: what the run supports
+  is only that the CE effect is no longer resolvable at 16,000 seasons.
+* **`bench-correlation`: "correlated bench upside is worth less than independent"
+  (−0.0133, z = −3.81) is now −0.0063 at z = −1.82.** Same sign, half the size, below
+  resolution. It joins `stack` as a pure-variance comparison needing far more seasons.
+
+**One reading flipped sign without becoming significant.** The `second-qb` QB-thin arm
+went from +0.0013 (z = +1.07) to −0.0026 (z = −1.77). Night 1 read it as "on a QB-thin
+roster the two are indistinguishable", which is still the right reading — but the
+scoring delta is now clearly negative (−0.106, z = −8.6), so the honest statement is
+that even on a QB-thin roster the WR is marginally the better asset here, not that the
+two are equivalent.
+
+### Unchanged in substance
+
+The marginal point declining down the roster, the `second-qb` sign flip with roster
+context (−0.087 on a QB-deep roster), the cost of availability risk scaling
+super-linearly with hazard, and `stack` not resolving at this sample size — all still
+hold, with different numbers. The `second-qb` sign flip remains the single strongest
+argument in the run against a positional modifier and for per-roster CE.
+
+One reading got *stronger*: the marginal point at the **15th roster spot** went from
++0.0021 (z = 1.96, right at the threshold) to +0.0046 (z = 4.05). That is the
+forecastable-weekly-state channel doing exactly what it was added for — the last man on
+the roster now has weeks in which he is knowably the right start.
+
+### A note on what "invalidated" means here
+
+None of these were football claims, and none of them should be read as ones now. The
+laboratory establishes that the engine responds to structural changes in a measurable,
+correctly signed, resolvable way. The three items above are cases where the *engine's
+response* was wrong or where the *reading of a control* was wrong. Effect sizes remain
+statements about invented parameters throughout.
 ---
 
 ## 10. Known weaknesses
 
-1. **The `stack` experiment does not resolve** at 16,000 seasons (z = −1.1). Pure
-   variance effects with zero scoring delta need roughly 10x more seasons. Not a bug,
-   but it means the model currently cannot say whether stacking is worth anything in
-   this format.
-2. **The residual filter is biased for players near the zero floor.** It forms its
-   posterior against the latent mean while realized points are floored, so for players
-   whose mean sits within ~1.5 weekly SDs of zero the residuals are systematically
-   positive. Affects the deep bench, which is where it matters least for CE and most for
-   $1 pricing.
-3. **Synthetic team strengths span only 95–102 projected points** across the 12 rosters.
-   Real auction leagues are probably more dispersed, and CE is convex in roster strength
-   (a 7-point spread in projections produces a 2.6x CE ratio here), so effect sizes
-   measured on this baseline may not transfer.
-4. **Single-threaded.** 64,000 seasons takes 42s. Fine for offline work, likely not fine
-   for a live auction with a 30-second clock.
-5. **`week_sd` is constant within a position** regardless of rank. A 4-point WR almost
-   certainly does not have the same weekly SD as a 17-point WR, and this directly
-   affects the floor correction in §7 and therefore every bench valuation.
-6. **No opponent correlation.** Your player and your weekly opponent's player in the
+1. **`signal_noise_sd` is the least-grounded parameter in the model.** It sets how fast
+   a genuinely improved player becomes startable, which is most of what makes a
+   mid-season breakout worth anything, and its default ("one week of usage ≈ one
+   observed score") is a placeholder chosen to be conservative rather than an estimate.
+   Every result involving learning is conditional on it. `OPEN_QUESTIONS.md` A5 says
+   what would settle it.
+2. **The forecastable share of weekly variance is also invented.** How much of a
+   player's week-to-week movement is knowable before kickoff decides how much of the
+   roster is a live weekly decision, and therefore how much a deep bench is worth. The
+   current ~40% share is a guess with real leverage on the `aggregate-lineup-spot`
+   result.
+3. **The observable signal is one Gaussian channel about the persistent level only.**
+   Real information also arrives about *this week* specifically (a beat writer's
+   Friday report), and about role changes before they take effect (a trade). The
+   first has no channel; the second would need a negative `role_reveal_lag`.
+4. **`week_sd` is constant within a position** regardless of rank. A 4-point WR almost
+   certainly does not have the same weekly SD as a 17-point WR, and this now affects
+   the forecastable/unforecastable split as well as the level.
+5. **Synthetic team strengths span a narrow band** across the 12 rosters. Real auction
+   leagues are probably more dispersed, and CE is convex in roster strength — which
+   `rival-fit` now demonstrates directly — so effect sizes measured on this baseline
+   may not transfer.
+6. **Single-threaded.** Fine for offline work, likely not fine for a live auction with
+   a 30-second clock.
+7. **No opponent correlation.** Your player and your weekly opponent's player in the
    same NFL game are independent here. This affects head-to-head variance but not the
-   median result, so it is a second-order error in this format.
-7. **The laboratory measures one focus team on one baseline league.** Every effect size
-   quoted in §5 is conditional on `Team01`'s specific roster shape. The `second-qb`
-   sign flip is the proof that this conditioning matters.
+   median result, so it is second-order in this format.
+8. **The laboratory measures one focus team on one baseline league.** Every effect size
+   is conditional on `Team01`'s specific roster shape. The `second-qb` sign flip is the
+   proof that this conditioning matters.
 
 ---
 
 ## 11. Exact recommended next step
 
+Unchanged from Night 1, and now on a foundation that can carry it:
+
 **Build the marginal-CE curve for a single roster slot, and use it to find out whether
 CE differences are resolvable at the resolution auction pricing needs.**
 
-Concretely: pick the focus team's flex slot. Sweep a candidate player's `base_mean` from
-replacement level to elite in ~1-point steps, holding everything else fixed and sharing
-a `crn_key` across the sweep. At each step run a paired comparison against the
-replacement-level baseline. That produces `CE(level)` — the curve every pricing scheme
-is a transformation of.
+Pick the focus team's flex slot. Sweep a candidate's `base_mean` from replacement level
+to elite in ~1-point steps, holding everything else fixed and sharing a `crn_key`
+across the sweep. At each step run a paired comparison against the replacement-level
+baseline. That produces `CE(level)` — the curve every pricing scheme is a
+transformation of.
 
-Do this **before** anything else, for three reasons:
+Three reasons it comes first:
 
-1. **It is the smallest thing that answers question B5.** The curve's slope near
-   replacement level tells you the CE value of one projected point at the bottom of the
-   roster, which is the smallest quantity pricing must resolve. If that slope is smaller
-   than the standard error you can afford, you learn tonight that live pricing needs a
-   different approach — variance reduction beyond CRN, or a surrogate model — rather
-   than discovering it after building the pricing layer.
-2. **It needs no new data.** Everything required is in the repo. It is one new
-   experiment in `experiments.py` (a sweep rather than a pair) plus a plot.
+1. **It is the smallest thing that answers `OPEN_QUESTIONS.md` B4.** The curve's slope
+   near replacement level is the CE value of one projected point at the bottom of the
+   roster, which is the smallest quantity pricing must resolve. If that slope is
+   smaller than the standard error you can afford, you learn it before building the
+   pricing layer rather than after.
+2. **It needs no new data.** One new experiment (a sweep rather than a pair) plus a
+   plot.
 3. **It is the natural input to pricing.** Marginal CE per dollar is
-   `dCE/dlevel × dlevel/ddollar`. Tonight's engine produces the first factor exactly.
-   The second is the auction problem and is explicitly out of scope.
+   `dCE/dlevel × dlevel/ddollar`; this engine produces the first factor exactly, and
+   the second is the auction problem, which is out of scope.
 
-Expected effort: two to three hours, most of it deciding how to hold the *rest* of the
-roster fixed while the slot varies — which is itself the first real modelling question
-of the pricing layer, since a player's CE contribution depends on what else you own.
-The `second-qb` sign flip in §5 is the warning that this is not a detail.
+Expect most of the effort to go into deciding how to hold the *rest* of the roster
+fixed while the slot varies — itself the first real modelling question of the pricing
+layer, since a player's CE contribution depends on what else you own. The `second-qb`
+sign flip is the warning that this is not a detail.
 
-**Do not start with** real player data ingestion. The interface for it
-(`PlayerSpec`, and `weekly_projection_override` for published projections) is already
-built and tested, so ingestion is mechanical work that can happen any time. The curve
-above tells you whether the engine is *usable* for pricing, which is the question that
-should gate everything else.
+**Do not start with** real player data ingestion. The interface for it (`PlayerSpec`,
+`weekly_projection_override`) is built and tested, so ingestion is mechanical work that
+can happen any time. Two parameters it would newly need calibrating —
+`signal_noise_sd` and `weekly_state_sd` — are called out in `OPEN_QUESTIONS.md` A2 and
+A5, and both matter more than the means do for anything at the bottom of the roster.
