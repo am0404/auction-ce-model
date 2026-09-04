@@ -221,3 +221,4 @@ __marimo__/
 # Local raw player data -- never committed (this repo is public)
 local_data/
 *.csv.local
+local_data/unresolved_identities.json

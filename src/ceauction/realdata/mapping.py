@@ -108,6 +108,14 @@ class PlayerSpecMappingConfig:
     solve is cached per dispersion shape rather than run per player, so the
     cost is paid a handful of times and finite-sample error stops mattering."""
 
+    injury_calibration_sims: int = 4_000
+    """Simulations behind an injury solve. Much smaller than
+    ``calibration_sims`` on purpose: the level solve is cached per dispersion
+    shape and runs a handful of times, while an injury solve runs per distinct
+    (probability, games-missed, bye) triple and drives a 2-D search. 6,000 puts
+    the standard error on a rate near 0.35 at about 0.006, well inside the
+    tolerance the feasibility check applies."""
+
     calibration_seed: int = 20260904
     games_basis: float = 17.0
     """Games the source's season total spans: the full NFL regular season."""
@@ -292,34 +300,98 @@ class InjuryCalibration:
         return self.achieved_games_missed - self.target_games_missed
 
 
-def _simulate_availability(hazard: float, mean_weeks: float, bye_index: int,
-                           weeks: int, sims: int, seed: int
-                           ) -> Tuple[float, float]:
+def _simulate_availability(hazard, mean_weeks, bye_index: int,
+                           weeks: int, sims: int, seed: int):
     """``(P(any injury), E[games missed])`` under the engine's own process.
+
+    ``hazard`` and ``mean_weeks`` may be arrays, in which case the whole grid is
+    simulated at once and the returns have the grid's shape. That matters: the
+    calibration inverts this function, and inverting it one player at a time
+    was the difference between seconds and minutes.
 
     This mirrors ``worlds._draw_availability`` exactly, including that a week
     which is both a bye and an absence costs no *game* -- the player was not
     playing that week anyway. Conflating calendar weeks with scheduled games
     here would bias every duration estimate.
     """
-    s = np.arange(sims, dtype=np.int64).reshape(sims, 1)
-    w = np.arange(weeks, dtype=np.int64).reshape(1, weeks)
-    onset_u = rng.uniform(seed, rng.Kind.INJURY_ONSET, s, w)
-    dur_e = rng.exponential(seed, rng.Kind.INJURY_DURATION, s, w)
+    hazard = np.atleast_1d(np.asarray(hazard, dtype=np.float64))
+    mean_weeks = np.atleast_1d(np.asarray(mean_weeks, dtype=np.float64))
+    grid_shape = np.broadcast(hazard, mean_weeks).shape
+    h = np.broadcast_to(hazard, grid_shape)[..., None]
+    d = np.broadcast_to(mean_weeks, grid_shape)[..., None]
 
-    out_until = np.full(sims, -1, dtype=np.int64)
-    ever = np.zeros(sims, dtype=bool)
-    missed_games = np.zeros(sims, dtype=np.float64)
+    s_idx = np.arange(sims, dtype=np.int64).reshape(1, sims)
+    out_until = np.full(grid_shape + (sims,), -1, dtype=np.int64)
+    ever = np.zeros(grid_shape + (sims,), dtype=bool)
+    missed = np.zeros(grid_shape + (sims,), dtype=np.float64)
+
     for week in range(weeks):
+        wk = np.full((1, 1), week, dtype=np.int64)
+        onset_u = rng.uniform(seed, rng.Kind.INJURY_ONSET, s_idx, wk).reshape(1, sims)
+        dur_e = rng.exponential(seed, rng.Kind.INJURY_DURATION, s_idx, wk).reshape(1, sims)
         healthy = out_until < week
-        onset = healthy & (onset_u[:, week] < hazard)
+        onset = healthy & (onset_u < h)
         ever |= onset
-        duration = np.maximum(1, np.rint(dur_e[:, week] * mean_weeks).astype(np.int64))
+        duration = np.maximum(1, np.rint(dur_e * d).astype(np.int64))
         out_until = np.where(onset, week + duration - 1, out_until)
-        injured = out_until >= week
         if week != bye_index:          # a bye week costs no scheduled game
-            missed_games += injured
-    return float(ever.mean()), float(missed_games.mean())
+            missed += (out_until >= week)
+
+    prob = ever.mean(axis=-1)
+    miss = missed.mean(axis=-1)
+    if grid_shape == (1,):
+        return float(prob[0]), float(miss[0])
+    return prob, miss
+
+
+#: Search grid for the injury inverse. Log-spaced in both axes because the
+#: targets are far more sensitive at the low end of each. Deliberately coarse:
+#: its only job is to localise the solution so the refinement below starts in
+#: the right basin, and a fine grid would cost far more than the refinement it
+#: replaces.
+_HAZARD_GRID = np.geomspace(1e-4, 0.60, 24)
+_DURATION_GRID = np.geomspace(0.5, 30.0, 20)
+_GRID_CACHE: Dict[Tuple, Tuple[np.ndarray, np.ndarray]] = {}
+
+
+#: Bye week used when building the localisation grid. The grid's only job is to
+#: put the refinement in the right basin, and moving the bye shifts expected
+#: games missed by well under one game -- far less than the grid's own spacing.
+#: The refinement rounds below use each player's ACTUAL bye, so accuracy is not
+#: affected; this just avoids rebuilding the grid ten times over.
+_GRID_REFERENCE_BYE = 8
+
+
+def _availability_grid(bye_index: int, weeks: int, sims: int, seed: int):
+    """``(prob, missed)`` over the whole (hazard, duration) grid, cached."""
+    bye_index = _GRID_REFERENCE_BYE
+    key = (bye_index, weeks, sims, seed)
+    hit = _GRID_CACHE.get(key)
+    if hit is not None:
+        return hit
+    h = _HAZARD_GRID[:, None]
+    d = _DURATION_GRID[None, :]
+    prob, miss = _simulate_availability(h, d, bye_index, weeks, sims, seed)
+    _GRID_CACHE[key] = (prob, miss)
+    return prob, miss
+
+
+def _invert_grid(prob: np.ndarray, miss: np.ndarray, target_prob: float,
+                 target_missed: float) -> Tuple[float, float, float, float]:
+    """Grid point minimising relative error on both targets simultaneously.
+
+    Relative rather than absolute, so a 0.05 probability and a 4-game absence
+    are weighted comparably instead of the larger number dominating.
+    """
+    pe = (prob - target_prob) / max(target_prob, 1e-6)
+    me = (miss - target_missed) / max(target_missed, 1e-6)
+    cost = pe ** 2 + me ** 2
+    i, j = np.unravel_index(int(np.argmin(cost)), cost.shape)
+    return (float(_HAZARD_GRID[i]), float(_DURATION_GRID[j]),
+            float(prob[i, j]), float(miss[i, j]))
+
+
+_INJURY_CACHE: Dict[Tuple, "InjuryCalibration"] = {}
 
 
 def calibrate_injury(injury_prob: Optional[float],
@@ -341,33 +413,49 @@ def calibrate_injury(injury_prob: Optional[float],
     """
     weeks = config.settings.total_weeks
     scheduled = weeks - 1                      # one bye inside the horizon
-    sims = config.calibration_sims
+    sims = config.injury_calibration_sims
     seed = config.calibration_seed
 
+    cache_key = (
+        None if injury_prob is None else round(float(injury_prob), 4),
+        None if proj_games_missed is None else round(float(proj_games_missed), 3),
+        int(bye_index), weeks, sims, seed, config.injury_model,
+        config.missing_injury_fallback,
+        None if positional_miss_rate is None else round(float(positional_miss_rate), 6),
+        position,
+    )
+    cached = _INJURY_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _cache(result: "InjuryCalibration") -> "InjuryCalibration":
+        _INJURY_CACHE[cache_key] = result
+        return result
+
     if config.injury_model == "none":
-        return InjuryCalibration(
+        return _cache(InjuryCalibration(
             0.0, 2.5, "unmodelled", feasible=True,
             note="availability unmodelled by configuration; this is NOT a claim "
-                 "of perfect health")
+                 "of perfect health"))
 
     have_individual = (injury_prob is not None and proj_games_missed is not None
                        and injury_prob > 0 and proj_games_missed > 0)
 
     if config.injury_model == "positional" or not have_individual:
         if config.missing_injury_fallback == "none" and not have_individual:
-            return InjuryCalibration(
+            return _cache(InjuryCalibration(
                 0.0, 2.5, "unmodelled", feasible=True,
                 note="no individual profile and fallback disabled; availability "
-                     "unmodelled, NOT healthy")
+                     "unmodelled, NOT healthy"))
         rate = positional_miss_rate
         if rate is None:
-            return InjuryCalibration(
+            return _cache(InjuryCalibration(
                 0.0, 2.5, "unmodelled", feasible=False,
                 note=f"no individual profile and no positional rate for "
-                     f"{position!r}; availability unmodelled, NOT healthy")
+                     f"{position!r}; availability unmodelled, NOT healthy"))
         prob, missed = _simulate_availability(rate, 2.5, bye_index, weeks,
                                               sims, seed)
-        return InjuryCalibration(
+        return _cache(InjuryCalibration(
             weekly_injury_hazard=rate, injury_mean_weeks=2.5,
             source="positional_all_cause",
             achieved_injury_prob=prob, achieved_games_missed=missed,
@@ -375,57 +463,61 @@ def calibrate_injury(injury_prob: Optional[float],
             note="ALL-CAUSE availability rate fitted from historical weekly "
                  "results: it counts benching, rest and trades as well as "
                  "injury, and is not an injury-only hazard. Duration is the "
-                 "engine default, not fitted.")
+                 "engine default, not fitted."))
 
     # Scale the vendor's 17-game figure onto the 16-game fantasy horizon.
     target_missed = float(proj_games_missed) * (scheduled / config.games_basis)
     target_prob = float(injury_prob)
 
-    # Hazard drives P(any onset); duration drives games missed given onset. The
-    # two are close to separable, so alternate one-dimensional solves.
-    hazard, mean_weeks = 0.02, 2.5
-    for _ in range(12):
-        lo, hi = 1e-5, 0.9
-        for _ in range(40):
-            mid = 0.5 * (lo + hi)
-            prob, _ = _simulate_availability(mid, mean_weeks, bye_index, weeks,
-                                             sims, seed)
-            if prob < target_prob:
-                lo = mid
-            else:
-                hi = mid
-        hazard = 0.5 * (lo + hi)
+    # Invert the engine's own availability process over a precomputed grid.
+    # Hazard drives P(any onset) and duration drives games missed, but the two
+    # interact -- being absent blocks new onsets -- so both targets are matched
+    # jointly rather than one after the other.
+    grid_prob, grid_miss = _availability_grid(bye_index, weeks, sims, seed)
+    hazard, mean_weeks, prob, missed = _invert_grid(
+        grid_prob, grid_miss, target_prob, target_missed)
 
-        lo_d, hi_d = 0.1, 40.0
-        for _ in range(40):
-            mid = 0.5 * (lo_d + hi_d)
-            _, missed = _simulate_availability(hazard, mid, bye_index, weeks,
-                                               sims, seed)
-            if missed < target_missed:
-                lo_d = mid
-            else:
-                hi_d = mid
-        mean_weeks = 0.5 * (lo_d + hi_d)
+    # Polish off the grid. The coarse grid localises the solution; two rounds
+    # of a tighter local grid then remove the discretisation error, which would
+    # otherwise be mistaken for the two targets being incompatible. Both rounds
+    # are vectorised -- refining by scalar bisection was the difference between
+    # milliseconds and seconds per player.
+    for span in (3.0, 1.35):
+        h_axis = np.geomspace(max(hazard / span, 1e-5),
+                              min(hazard * span, 0.95), 12)
+        d_axis = np.geomspace(max(mean_weeks / span, 0.05),
+                              mean_weeks * span, 12)
+        prob_g, miss_g = _simulate_availability(
+            h_axis[:, None], d_axis[None, :], bye_index, weeks, sims, seed)
+        pe = (prob_g - target_prob) / max(target_prob, 1e-6)
+        me = (miss_g - target_missed) / max(target_missed, 1e-6)
+        i, j = np.unravel_index(int(np.argmin(pe ** 2 + me ** 2)), pe.shape)
+        hazard, mean_weeks = float(h_axis[i]), float(d_axis[j])
+        prob, missed = float(prob_g[i, j]), float(miss_g[i, j])
 
-    prob, missed = _simulate_availability(hazard, mean_weeks, bye_index, weeks,
-                                          sims, seed)
     prob_err = abs(prob - target_prob)
     missed_err = abs(missed - target_missed)
+    # Tolerances are set against the calibration's own Monte Carlo noise: at
+    # 6,000 draws the standard error on a rate near 0.35 is about 0.006, so
+    # 0.02 is roughly three of them. Anything outside that is structure, not
+    # sampling.
     feasible = prob_err <= 0.02 and missed_err <= 0.15
     note = ""
     if not feasible:
-        note = (f"the two targets could not be jointly reproduced: "
-                f"P(injury) {prob:.3f} vs {target_prob:.3f}, games missed "
-                f"{missed:.2f} vs {target_missed:.2f}. The engine's process "
-                f"ties duration and frequency together, so a very low injury "
-                f"probability with many games missed (or the reverse) has no "
-                f"solution.")
-    return InjuryCalibration(
+        note = (f"targets not jointly reproduced within tolerance: P(injury) "
+                f"{prob:.3f} vs {target_prob:.3f} (err {prob_err:.3f}), games "
+                f"missed {missed:.2f} vs {target_missed:.2f} (err "
+                f"{missed_err:.3f}). The engine's process ties frequency and "
+                f"duration together -- an absence blocks new onsets -- so a low "
+                f"injury probability combined with many games missed, or the "
+                f"reverse, has no solution. The fitted parameters are the "
+                f"closest available and both errors are reported.")
+    return _cache(InjuryCalibration(
         weekly_injury_hazard=hazard, injury_mean_weeks=mean_weeks,
         source="individual",
         target_injury_prob=target_prob, achieved_injury_prob=prob,
         target_games_missed=target_missed, achieved_games_missed=missed,
-        feasible=feasible, note=note)
+        feasible=feasible, note=note))
 
 
 # ---------------------------------------------------------------------------
@@ -537,6 +629,14 @@ def map_contract_to_playerspecs(
         points = (row.get("season_points") or {}).get("points")
         if points is None:
             skipped.append(f"{row.get('player_key')}: no recomputed points")
+            continue
+        if float(points) <= 0.0:
+            # A non-positive season total would produce a non-positive level
+            # and therefore a negative standard deviation. Skipping is honest;
+            # clamping would invent a player.
+            skipped.append(
+                f"{row.get('player_key')}: season points {float(points):.2f} "
+                f"is not positive")
             continue
 
         cv = (row.get("cohort_dispersion") or {}).get("weekly_cv")

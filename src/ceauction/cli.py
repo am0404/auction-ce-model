@@ -6,6 +6,7 @@
     ce-lab run <key>     run one experiment (or --all)
     ce-lab curve         marginal CE curve for one roster slot, + resolution report
     ce-lab ingest        validate real player sources; write the contract locally
+    ce-lab calibrate     map the contract to PlayerSpecs; CE smoke + sensitivity
     ce-lab bench         runtime benchmarks and Monte Carlo uncertainty
 
 Everything it touches is SYNTHETIC data (see ``synthetic.py``).
@@ -34,7 +35,7 @@ from .experiments import EXPERIMENTS, run_all, run_experiment
 from .realdata.contract import GAMES_BASIS, TARGET_LEAGUE_CONFIG_ID
 from .realdata.pipeline import IngestionPaths, ingest, write_outputs
 from .realdata.scoring import FUMBLE_INTERPRETATIONS
-from .realdata.sources import SyntheticSourceRefused
+from .realdata.sources import SyntheticSourceRefused, load_dispersion_fits
 from .lineup import select_lineup
 from .simulate import DEFAULT_CHUNK, pregame_week, simulate_seasons
 from .synthetic import make_synthetic_league
@@ -320,6 +321,101 @@ def cmd_ingest(args) -> int:
     return 0 if outcome.ok else 1
 
 
+def cmd_calibrate(args) -> int:
+    """Map the contract into PlayerSpecs, smoke-test CE, sweep the assumptions.
+
+    Prints only sanitized aggregates. Real specs stay in memory; nothing with
+    a player row in it is written unless an ignored path is supplied.
+    """
+    import json as _json
+
+    from .realdata.coverage import coverage_by_band
+    from .realdata.mapping import (PlayerSpecMappingConfig,
+                                   map_contract_to_playerspecs)
+    from .realdata.sensitivity import format_sensitivity, run_sensitivity
+    from .realdata.smoke import build_test_rosters, run_smoke_checks
+
+    contract_path = Path(args.contract)
+    if not contract_path.exists():
+        print(f"contract not found: {contract_path}. Run `ce-lab ingest` first.",
+              file=sys.stderr)
+        return 2
+    payload = _json.loads(contract_path.read_text(encoding="utf-8"))
+
+    fits_cv, fits_miss = {}, {}
+    if args.fits:
+        fits, _ = load_dispersion_fits(Path(args.fits))
+        fits_cv, fits_miss = fits.weekly_cv, fits.weekly_miss
+
+    print(BANNER)
+
+    # --- coverage by depth band ------------------------------------------
+    bands, unresolved = coverage_by_band(payload)
+    print("COVERAGE BY DEPTH BAND")
+    head = (f"  {'band':<12}{'n':>6}{'team%':>8}{'bye%':>8}{'injury%':>9}"
+            f"{'disp%':>8}{'unresolved':>12}")
+    print(head)
+    print("  " + "-" * (len(head) - 2))
+    for b in bands:
+        d = b.to_dict()
+        print(f"  {d['band']:<12}{d['players']:>6}{d['team_pct']:>8}"
+              f"{d['bye_pct']:>8}{d['injury_pct']:>9}{d['dispersion_pct']:>8}"
+              f"{d['unresolved_identities']:>12}")
+    print("\n  The full-pool number is not the decision-relevant one: a 12-team,")
+    print("  15-man league consumes 180 players and churn reaches perhaps 300.")
+
+    if args.unresolved_out:
+        Path(args.unresolved_out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.unresolved_out).write_text(
+            _json.dumps(unresolved, indent=2), encoding="utf-8")
+        print(f"\n  unresolved identities written to {args.unresolved_out} "
+              f"(names: local only)")
+
+    # --- mapping and calibration -----------------------------------------
+    cfg = PlayerSpecMappingConfig(
+        target=args.target, forecastable_share=args.forecastable_share,
+        season_sd_fraction=args.season_sd, injury_model=args.injury_model)
+    t0 = time.perf_counter()
+    mapped = map_contract_to_playerspecs(
+        payload, cfg, positional_miss=fits_miss, positional_cv=fits_cv,
+        limit=args.limit)
+    print(f"\nMAPPED {len(mapped.players)} PlayerSpecs in "
+          f"{time.perf_counter() - t0:.1f}s  [{cfg.label()}]")
+    print(_json.dumps(mapped.calibration_summary(), indent=2))
+    for w in mapped.warnings:
+        print(f"  WARN {w}")
+
+    # --- CE smoke test -----------------------------------------------------
+    rosters = build_test_rosters(mapped.specs, settings=cfg.settings)
+    checks = run_smoke_checks(rosters, mapped.specs, n_sims=args.sims)
+    print(f"\nREAL-DATA CE SMOKE TEST  ok={checks.ok}")
+    print("\n".join(checks.lines()))
+    if not checks.ok:
+        print(f"  FAILURES: {checks.failures()}", file=sys.stderr)
+
+    # --- sensitivity -------------------------------------------------------
+    if args.sensitivity:
+        payloads = {"exclude": payload}
+        if args.contract_fumbles_lost and Path(args.contract_fumbles_lost).exists():
+            payloads["lost"] = _json.loads(
+                Path(args.contract_fumbles_lost).read_text(encoding="utf-8"))
+        grid = run_sensitivity(payloads, fits_miss, fits_cv, limit=args.limit,
+                               n_sims=args.sims, seed=args.seed)
+        print()
+        print(format_sensitivity(grid))
+        if args.report_out:
+            Path(args.report_out).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.report_out).write_text(
+                _json.dumps(grid.summary(), indent=2), encoding="utf-8")
+            print(f"\nwrote sanitized sensitivity report: {args.report_out}")
+
+    print("\nREMINDER: no dollar value, opening bid, live bid or auction "
+          "behaviour\nfollows from any of this. The twelve rosters are a "
+          "deterministic snake\nbuilt only so the engine has legal teams to "
+          "simulate.")
+    return 0 if checks.ok else 1
+
+
 def cmd_bench(args) -> int:
     print(BANNER)
     counts = args.counts or [250, 1000, 4000, 16000]
@@ -408,6 +504,32 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--league-config-id", default=TARGET_LEAGUE_CONFIG_ID,
                    help="names the target league; the 12-team superflex league")
     s.set_defaults(func=cmd_ingest)
+
+    s = sub.add_parser(
+        "calibrate", help="map the contract to PlayerSpecs; CE smoke + sensitivity")
+    s.add_argument("--contract", required=True,
+                   help="normalized contract JSON from `ce-lab ingest`")
+    s.add_argument("--contract-fumbles-lost", default=None,
+                   help="a second contract built with --fumbles lost, for the "
+                        "fumble sensitivity arm")
+    s.add_argument("--fits", default=None,
+                   help="fitted positional dispersion/availability JSON")
+    s.add_argument("--limit", type=int, default=300,
+                   help="map only the top N by recomputed season points")
+    s.add_argument("--target", default="median_target",
+                   choices=["median_target", "mean_target"])
+    s.add_argument("--forecastable-share", type=float, default=0.0)
+    s.add_argument("--season-sd", type=float, default=0.0)
+    s.add_argument("--injury-model", default="individual",
+                   choices=["individual", "positional", "none"])
+    s.add_argument("--sims", type=int, default=2000)
+    s.add_argument("--sensitivity", action="store_true",
+                   help="sweep every unresolved assumption")
+    s.add_argument("--report-out", default=None,
+                   help="sanitized sensitivity JSON (safe to commit)")
+    s.add_argument("--unresolved-out", default=None,
+                   help="unresolved identity names; LOCAL ONLY, must be ignored")
+    s.set_defaults(func=cmd_calibrate)
 
     s = sub.add_parser("bench", help="runtime benchmarks")
     s.add_argument("--counts", type=int, nargs="+", default=None)

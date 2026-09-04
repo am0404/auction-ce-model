@@ -33,6 +33,41 @@ the ones that now block populating the engine.
 These were settled by the user during the ingestion phase and are recorded here
 so the settlement itself is auditable.
 
+### D0. What the source actually is — RESOLVED against official documentation
+
+Read `winwithodds.com/about` and `/season_long_full_stats`, 2026-09-04. Three
+things this project had wrong or unknown are now settled, and one of them
+reverses a claim carried in an earlier phase.
+
+**Games basis: 17, and for the right reason.** Season totals are built from
+preseason season-long sportsbook props covering the full NFL regular season, so
+a total is spread over 17 played games. An earlier revision justified 17 as
+"14 regular-season weeks plus a 3-week bracket" — the right number by
+coincidence, and it would have broken if either the league's shape or the NFL's
+changed.
+
+**The fantasy horizon is shorter than the projection.** This engine simulates
+weeks 1–17. The NFL season runs 18 calendar weeks with one bye in weeks 5–14,
+so of a player's 17 games only **16 fall inside the horizon**. The 17th is in
+week 18 and must never contribute to championship equity. The engine already
+produced this; the smoke test now asserts it.
+
+**The total is not a median.** The source derives its categories two ways:
+continuous categories (yards, receptions) take the over/under line, which it
+calls "an accurate median amount"; discrete categories (touchdowns,
+interceptions) are devigged into implied probabilities and turned into
+probability-weighted expectations. A total summed from both is a **hybrid
+market-location estimate** — neither a proven mean nor a proven median. Both
+readings are carried as calibration targets and neither is asserted.
+
+**The source is not full-health.** It states projections "do not fully capture
+a player's current health, so an injured player can look more valuable than the
+market treats him", and injury designations are applied manually — so a known
+injury may already have depressed a given projection. Recorded as
+`partially_health_agnostic`. Neither availability reading is safe to assume.
+
+---
+
 ### D1. The target league is the 12-team superflex league — SETTLED
 
 `SPEC.md` is definitive. The previous model's 10-team non-superflex

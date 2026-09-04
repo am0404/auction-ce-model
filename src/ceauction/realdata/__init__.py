@@ -24,12 +24,21 @@ See ``docs/PLAYER_DATA_INVENTORY.md`` for what each source actually contains and
 from __future__ import annotations
 
 from .contract import (
+    FANTASY_SCHEDULED_GAMES,
     FUMBLE_INTERPRETATIONS,
     GAMES_BASIS,
     UNSUPPORTED_SCORING_CATEGORIES,
     build_contract,
 )
+from .coverage import AliasBook, coverage_by_band, load_alias_book
 from .identity import IdentityIndex, MatchReport, normalize_name
+from .mapping import (
+    PlayerSpecMappingConfig,
+    calibrate_injury,
+    calibrate_level,
+    map_contract_to_playerspecs,
+)
+from .smoke import build_test_rosters, run_smoke_checks
 from .report import build_report, format_report, numeric_summary
 from .scoring import ScoringBreakdown, season_points_from_components
 from .sources import (
@@ -49,6 +58,16 @@ from .validate import ValidationError, ValidationResult, validate_contract
 __all__ = [
     "FUMBLE_INTERPRETATIONS",
     "GAMES_BASIS",
+    "FANTASY_SCHEDULED_GAMES",
+    "PlayerSpecMappingConfig",
+    "calibrate_level",
+    "calibrate_injury",
+    "map_contract_to_playerspecs",
+    "build_test_rosters",
+    "run_smoke_checks",
+    "coverage_by_band",
+    "load_alias_book",
+    "AliasBook",
     "UNSUPPORTED_SCORING_CATEGORIES",
     "build_contract",
     "IdentityIndex",

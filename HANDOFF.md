@@ -121,13 +121,14 @@ src/ceauction/
   playoffs.py               fixed 6-team bracket; zero randomness
   simulate.py               the pipeline, batched
   ce.py                     CE estimation + paired comparison
-  realdata/                 real-player ingestion: sources, identity, scoring,
-                            contract, validation, sanitized report
+  realdata/                 real-player ingestion and PlayerSpec calibration:
+                            sources, identity, scoring, contract, validation,
+                            mapping, coverage, smoke, sensitivity, reports
   curve.py                  marginal CE curve + Monte Carlo resolution report
   experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      374 tests
+tests/                      427 tests
 ```
 
 `stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
@@ -143,7 +144,7 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 374 tests, ~3 min
+.venv/bin/python -m pytest              # 427 tests, ~4 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
@@ -159,7 +160,7 @@ Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev depend
 
 ## 4. Test results
 
-**374 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
+**427 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
 `flaky` markers. 146 at the start of Phase 1, 46 added there, 39 in Phase 2, and 24 in the Phase 2 audit-correction pass.
 
@@ -167,6 +168,7 @@ Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw,
 |---|---:|---|
 | `test_real_player_input_schema.py` | 24 | **NEW (inventory phase).** the real-player contract's shape: nulls mean *not projected*; a missing scoring category can only be recorded as absent; the expert grades are pinned as non-distributional; raw source fields are required and non-empty; sources are identified by content hash; and a fabricated two-player fixture validates, one of them deliberately sparse |
 | `test_realdata_ingestion.py` | 84 | **NEW.** the ingestion layer on fabricated data: scoring arithmetic, median metadata, both availability readings, injury field separation, fumble exclusion, missing categories absent, identity matching and its four failure modes, refusal of the synthetic pool, schema failures, vendor-total and grade-to-variance prevention, determinism |
+| `test_playerspec_mapping.py` | 53 | **NEW.** the mapping on fabricated data: no assumption outside the config; the level solve is exact and proportional; both targets supported and agreeing under symmetry; injury solved against both targets with the week/game distinction and infeasibility reported; the variance split preserves total dispersion; unsupported fields are named placeholders; coverage bands; aliases carry reasons; deterministic |
 | `test_curve.py` | 62 | **NEW (Phase 2).** exact-zero identical arms; order independence; CRN preserved across every level; agreement with a direct paired comparison; genuinely paired adjacent slopes; monotone shape within uncertainty; chunk determinism; the resolution report's `1/sqrt(n)` arithmetic; CSV schema; the isotonic column changing nothing; CLI |
 | `test_experiments.py` | 35 | every experiment builds a legal league and runs paired; the rival-placement **control** reads zero and `rival-fit` does not; the aggregate-spot arms and their byte-identical control; the floor helpers cannot return; every documented `ce-lab` command exits 0 |
 | `test_worlds.py` | 21 | byes, injury hazard/duration, latent persistence, **negative realized scores**, **realized mean == base_mean**, unavailable weeks still zero, spike mean-neutrality, correlation, contingency, role reveal lag, belief convergence, chunk independence across **all seven layers**, `crn_key` sharing |
@@ -847,43 +849,143 @@ deterministic output.
 
 ---
 
-## 13. Exact recommended next phase
+## 13. PlayerSpec calibration and the real-data CE smoke test
 
-**Answer the three blocking questions, then decide how a median becomes a mean.**
+`ceauction.realdata.mapping` turns the contract into `PlayerSpec` objects.
+Nothing it produces is a settled estimate: every quantity is either calibrated
+numerically against a stated target with its error reported, or a labelled
+**sensitivity scenario**. `PlayerSpecMappingConfig` holds every assumption so
+none can hide in a constant.
 
-The ingestion layer is built and validates cleanly, but it deliberately produces
-a contract that **cannot yet populate `PlayerSpec`**, because four things stand
-between the two and none of them is a coding problem.
+`ce-lab calibrate --contract … --fits … --sensitivity` runs the whole thing.
 
-1. **Q1, the games basis.** Interpretation A divides by 17. If the source
-   projects a different window, every `base_mean` is scaled by a constant and
-   nothing in this repository would notice.
-2. **Q2, the fumble column.** 22.8% of players carry a fumble figure worth
-   between −2 and −8 points of season scoring, currently excluded. Total or
-   lost is a roughly 2× difference in the penalty.
-3. **Q3, the availability treatment.** Both readings are computed. Picking
-   wrongly either double-counts injuries or ignores them.
-4. **The median-to-mean gap, which is not an open question but an unhandled
-   consequence.** `base_mean` is an expected value; the projections are medians
-   on the user's assertion. For right-skewed categories the median sits below
-   the mean, by an amount that varies by position. Populating `base_mean`
-   directly from a median biases every player low, unevenly.
+### Source semantics, corrected against official documentation
 
-Q1 and Q3 are best answered together, and the same evidence settles both:
-compare the projections against realised per-game rates for players with known
-absences. If the projections already discount for absence, B is right and the
-effective window is not 17.
+Reading `winwithodds.com/about` and `/season_long_full_stats` settled three
+things and reversed one claim this repository was carrying:
 
-The median-to-mean gap needs either vendor documentation or an adjustment
-fitted from historical weekly distributions by position. **Do not invent one** —
-that is the same class of move as mapping a boom/bust grade to a standard
-deviation, and it would be invisible in every test here.
+* **17 games, for the right reason.** The projection is a full NFL
+  regular-season total from preseason season-long props. An earlier revision
+  justified 17 as "14 regular-season weeks plus a 3-week bracket" — the right
+  number by coincidence.
+* **The fantasy horizon holds 16 of those games.** One bye falls inside weeks
+  1–17, and the 17th game is in week 18, outside the horizon entirely.
+* **The total is a hybrid, not a median.** Continuous categories take the
+  over/under line (market medians); discrete categories are devigged into
+  probability-weighted expectations (means). Recorded as
+  `hybrid_market_location`.
+* **The source is not full-health.** It says projections "do not fully capture
+  a player's current health", and injury designations are applied manually, so
+  a known injury may already have depressed one.
 
-**Then, and only then**, write the `PlayerSpec` mapping. It will populate
-identity, `position`, `bye_week`, `base_mean` and a cohort-average `week_sd`,
-and it will leave ten parameters uncalibrated. That gap is the honest state of
-the model and should be reported with every result built on it.
+### What is calibrated, and how well
 
-**Still not next:** pricing. It needs the "best alternative use of $p" term,
-which is a roster-completion problem over the remaining board, and it needs
-inputs that mean something first.
+**Level.** Solved against an explicit target rather than assigned. The season
+total is exactly homogeneous in the per-game level, so the solve is a division
+by a simulated unit-level statistic — residual **0.0** for all 300 players.
+
+The finding: with the fields this source can populate every component is
+symmetric, so median and mean targets both return `season_total / 17` to within
+0.01%. The calibration confirms that rather than assuming it, and would diverge
+the moment a skewed component were populated.
+
+**Injury.** `weekly_injury_hazard` and `injury_mean_weeks` are solved jointly
+against both supplied targets by inverting the engine's own availability
+process. Median error **0.003** on a probability and **0.009** on a game.
+**2 of 240** could not be jointly reproduced — a high injury probability with
+very few projected games missed has no solution when frequency and duration are
+tied — and are reported rather than quietly fitted. The vendor's 17-game
+games-missed figure is scaled to the 16-game horizon, and a week that is both a
+bye and an absence costs no scheduled game.
+
+**60 of 300 players have no individual profile** and fall back to the fitted
+positional rate, labelled **all-cause availability** — it counts benching, rest
+and trades. Silent perfect health is not an option the config offers.
+
+### Coverage, by the band that matters
+
+```
+  top_180   team 100.0%  bye 100.0%  injury 91.7%   unresolved 0
+  top_240   team 100.0%  bye  99.6%  injury 88.3%   unresolved 1
+  top_300   team 100.0%  bye  98.3%  injury 80.0%   unresolved 5
+  full pool team  95.6%  bye  87.6%  injury 54.5%   unresolved 68
+```
+
+The alarming 54.5% is almost entirely the undrafted tail. Both top-240 gaps are
+closed: one by a reviewed alias, one documented as genuinely unresolvable (a
+free agent has no team and therefore no bye).
+
+### The smoke test passes on real data
+
+All 18 checks, including that lineups are **maximal** rather than always eight
+— real byes cluster, and 97.4% of team-weeks fill all eight with a minimum of
+five. An earlier version of that check asserted eight always and failed; the
+check was wrong, not the engine.
+
+### Sensitivity: the ordering is the finding
+
+| Axis | Max CE shift | Basis |
+|---|---:|---|
+| `season_sd` | **+0.0405** | **none — pure scenario** |
+| `forecastable_share` | **+0.0275** | **none — pure scenario** |
+| `injury_model` | +0.0170 | individual vs all-cause fallback |
+| `fumbles` | +0.0100 | excluded vs lost |
+| `target` | **+0.0005** | median vs mean |
+
+**The two axes that move CE most are the two with no data behind them at all.**
+And the median-versus-mean question — the most fraught semantic issue going in
+— moves CE by 0.0005, which is below the ~0.0015 paired standard error the
+curve work measured. It is empirically almost irrelevant here, exactly as the
+symmetry argument predicts.
+
+Full sanitized detail in `docs/CALIBRATION_AUDIT.md`.
+
+---
+
+## 14. Exact remaining blockers before auction values
+
+The engine now runs end to end on real data and its invariants hold. What
+stands between here and an auction value is not code.
+
+**1. Two uncalibrated scenario parameters dominate CE.** `season_sd` (+0.0405)
+and `forecastable_share` (+0.0275) move championship equity more than any
+question about the source's semantics, and **neither has any empirical basis**.
+Until they are estimated, every CE number carries a swing larger than most of
+the differences a pricing layer would try to resolve.
+
+* `forecastable_share` needs archived **weekly** projections joined to weekly
+  outcomes; the R² of that join is the parameter.
+* `season_sd` needs preseason projections joined to realised season means
+  across several seasons; the residual spread is the parameter.
+
+Both need a weekly or multi-season data feed this project does not have.
+
+**2. Availability treatment (Q3) is still open.** The source is documented as
+neither reliably full-health nor reliably availability-adjusted. Both readings
+are carried and neither is preferred. Choosing wrongly either double-counts
+injuries or ignores them.
+
+**3. The best-alternative term does not exist.** Pricing is
+`CE(roster with X at p) − CE(best alternative use of $p)`. The second term is a
+roster-completion problem over the remaining board, and nothing here computes
+it. The twelve smoke-test rosters are a deterministic snake, explicitly not an
+allocation algorithm.
+
+**4. Resolution.** `docs/example_curve_output.txt` puts a paired CE difference
+at ~0.0015 standard error at 16,000 seasons, ~8.6s per comparison. A live
+auction decision is several comparisons. That pilot was measured on synthetic
+data and should be re-measured on real specs before anyone relies on it.
+
+**Not blockers:** fumbles (+0.0100, excluded is the right default), and the
+median-versus-mean reading (+0.0005).
+
+### The next phase
+
+**Estimate `forecastable_share` and `season_sd`, or bound the error they
+impose.** They are the largest source of uncertainty in every real-data CE
+number this engine now produces, and they are the two things a pricing layer
+would be most misled by. If the data to estimate them cannot be obtained, the
+honest alternative is to carry the full scenario range through to any price and
+report it as a band rather than a point.
+
+Only after that does the best-alternative term become worth building.
