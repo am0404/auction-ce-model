@@ -147,3 +147,44 @@ def simulate_seasons(
         seed=seed_arr,
         starters_filled=filled_arr,
     )
+
+
+def pregame_week(
+    world: WorldBatch,
+    rosters: RosterSet,
+    team: int,
+    week: int,
+    sim: int = 0,
+) -> "PregameWeek":
+    """Build the explainable, scalar pregame view for one team-week.
+
+    This is the human-readable counterpart of the vectorised path and is what
+    the CLI prints.  It carries projections and availability only -- there is
+    no channel through which a realized score could reach a lineup decision.
+    """
+    from .pregame import Availability, PregameEntry, PregameWeek
+    from .league import Position
+
+    index = rosters.id_to_index
+    entries = []
+    for pid in rosters.rosters[team].player_ids:
+        i = index[pid]
+        spec = rosters.pool[i]
+        if world.availability.on_bye[sim, i, week]:
+            status = Availability.BYE
+        elif world.availability.injured[sim, i, week]:
+            status = Availability.INJURED
+        else:
+            status = Availability.ACTIVE
+        entries.append(
+            PregameEntry(
+                player_id=pid,
+                name=spec.name,
+                position=Position(int(spec.position)),
+                projection=float(world.pregame.projection[sim, i, week]),
+                availability=status,
+                observed_role_delta=float(world.pregame.observed_role_delta[sim, i, week]),
+                contingency_bonus=float(world.pregame.contingency_bonus[sim, i, week]),
+            )
+        )
+    return PregameWeek(week=week + 1, entries=tuple(entries))

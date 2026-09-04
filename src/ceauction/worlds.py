@@ -82,6 +82,7 @@ class PoolArrays:
     injury_mean_weeks: np.ndarray # (P,)
     spike_rate: np.ndarray        # (P,)
     spike_scale: np.ndarray       # (P,)
+    spike_demean: np.ndarray      # (P,) 1.0 if the spike mean is subtracted
     role_prob: np.ndarray         # (P,)
     role_mean: np.ndarray         # (P,)
     role_sd: np.ndarray           # (P,)
@@ -167,6 +168,9 @@ def build_pool_arrays(
         injury_mean_weeks=col("injury_mean_weeks"),
         spike_rate=col("spike_rate"),
         spike_scale=col("spike_scale"),
+        spike_demean=np.array(
+            [1.0 if s.spike_mean_removed else 0.0 for s in specs], dtype=np.float64
+        ),
         role_prob=col("role_change_prob"),
         role_mean=col("role_change_mean"),
         role_sd=col("role_change_sd"),
@@ -381,7 +385,9 @@ def _draw_realized(
     # unforecastable spikes" experiment a clean comparison.
     hit = rng.uniform(seed, rng.Kind.SPIKE_HIT, sims, keys, weeks) < pool.spike_rate.reshape(1, p, 1)
     size = rng.exponential(seed, rng.Kind.SPIKE_SIZE, sims, keys, weeks) * pool.spike_scale.reshape(1, p, 1)
-    spike = hit * size - (pool.spike_rate * pool.spike_scale).reshape(1, p, 1)
+    spike = hit * size - (
+        pool.spike_rate * pool.spike_scale * pool.spike_demean
+    ).reshape(1, p, 1)
 
     raw = (
         pool.base_mean.reshape(1, p, 1)

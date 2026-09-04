@@ -110,9 +110,18 @@ class PlayerSpec:
     """Probability of a spike week.  Spikes are *not* in the projection."""
 
     spike_scale: float = 0.0
-    """Mean size of a spike, in points, conditional on one happening.
-    The unconditional spike mean is removed, so ``spike_rate`` changes the
-    *shape* of the distribution without changing its mean."""
+    """Mean size of a spike, in points, conditional on one happening."""
+
+    spike_mean_removed: bool = True
+    """When ``True`` (the default) the unconditional spike mean is subtracted,
+    so ``spike_rate`` changes the *shape* of the weekly distribution without
+    changing its mean -- the right setting for asking "does volatility help?".
+
+    When ``False`` the spikes add ``spike_rate * spike_scale`` to the player's
+    true mean **without** appearing in his projection.  That is the right
+    setting for asking "is a point of forecastable production worth more than a
+    point of unforecastable production?", which is the fourth CE laboratory
+    experiment."""
 
     # --- observable role change ----------------------------------------------
     role_change_prob: float = 0.0
