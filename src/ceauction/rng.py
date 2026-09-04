@@ -69,6 +69,7 @@ class Kind:
     GROUP_SHOCK = 110
     PROJ_NOISE = 111
     SCHEDULE_PERM = 112
+    SIGNAL_NOISE = 113
 
 
 def mix64(x: np.ndarray) -> np.ndarray:

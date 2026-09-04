@@ -381,9 +381,12 @@ def exp_spikes(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
             "This is the cleanest statement of the information rule. The spiky player "
             "produces the same total points, but a share of them land in weeks he was "
             "benched, where they are worth exactly zero. The gap is the price of "
-            "unforecastability. Note the engine's filter does slowly learn the spiky "
-            "player's elevated level from his residuals, which recovers part -- but "
-            "only part -- of the loss."
+            "unforecastability -- and it is the full price, because the spikes reach "
+            "no future projection either. Beliefs update from the observable-signal "
+            "channel, which reads the persistent level and never the realized score, "
+            "so no amount of spiking teaches the manager anything. An earlier "
+            "revision filtered on realized residuals and did partially recover the "
+            "loss, which was the bug: it let unforecastable scoring become forecast."
         ),
     )
 

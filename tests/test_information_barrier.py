@@ -49,6 +49,7 @@ def test_lineups_are_invariant_to_realized_scores(league):
     tampered = type(world)(
         sim_start=world.sim_start, n_sims=world.n_sims, pool=world.pool,
         latent=world.latent, availability=world.availability,
+        signals=world.signals,
         realized=type(world.realized)(points=shuffled, spike=world.realized.spike,
                                       group_effect=world.realized.group_effect),
         pregame=world.pregame,
@@ -88,7 +89,7 @@ def test_benched_surprise_points_are_worth_exactly_zero():
         boosted[0, rm[0, r], 0] += 1000.0
     tampered = type(world)(
         sim_start=0, n_sims=1, pool=world.pool, latent=world.latent,
-        availability=world.availability,
+        availability=world.availability, signals=world.signals,
         realized=type(world.realized)(points=boosted, spike=world.realized.spike,
                                       group_effect=world.realized.group_effect),
         pregame=world.pregame,
@@ -112,24 +113,37 @@ def test_projection_for_week_w_ignores_week_w_and_later_outcomes():
     assert np.allclose(world.pregame.n_observed, expected)
 
 
-def test_a_late_season_outcome_cannot_move_an_early_projection():
+def test_a_late_season_signal_cannot_move_an_early_projection():
     league = make_synthetic_league()
     pool = build_pool_arrays(league.pool, league.settings)
     w = generate_world(pool, SEED, 0, 2)
-    proj = w.pregame.projection
-    # Rebuild the posterior by hand from weeks < w and confirm it matches, which
-    # is only possible if nothing later leaked in.
-    known = (pool.base_mean.reshape(1, -1, 1)
-             + w.latent.observed_role_delta + w.pregame.contingency_bonus)
-    resid = np.where(w.availability.available, w.realized.points - known, 0.0)
-    cum = np.zeros_like(resid)
-    cum[:, :, 1:] = np.cumsum(resid[:, :, :-1], axis=2)
+    # Rebuild the posterior by hand from the *signals* of weeks < w and confirm
+    # it matches, which is only possible if nothing later leaked in.
+    sig = np.where(w.signals.observed, w.signals.level_signal, 0.0)
+    cum = np.zeros_like(sig)
+    cum[:, :, 1:] = np.cumsum(sig[:, :, :-1], axis=2)
     n = w.pregame.n_observed
     ratio = np.where(pool.season_sd > 0,
-                     (pool.week_sd ** 2) / np.maximum(pool.season_sd ** 2, 1e-9),
+                     (pool.signal_noise_sd ** 2) / np.maximum(pool.season_sd ** 2, 1e-9),
                      np.inf).reshape(1, -1, 1)
     posterior = np.where(np.isinf(ratio), 0.0, cum / (ratio + n))
     assert np.allclose(posterior, w.pregame.posterior_mean)
+
+
+def test_build_pregame_has_no_realized_parameter():
+    """Type-level enforcement of the *second* barrier.
+
+    The no-same-week-clairvoyance rule is arithmetic. The no-learning-from-
+    unforecastable-noise rule is structural: there is no argument through which
+    a realized score could reach the projection builder at all.
+    """
+    import inspect
+
+    from ceauction.worlds import _build_pregame
+
+    params = set(inspect.signature(_build_pregame).parameters)
+    assert "signals" in params
+    assert not params & {"realized", "points", "scores"}
 
 
 def test_observable_role_change_moves_future_lineups_not_past_ones():

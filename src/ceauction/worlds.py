@@ -1,24 +1,56 @@
 """Simulation worlds: latent state, availability, realized scores, pregame info.
 
 This module is where the **information barrier** is built.  A world is
-generated in four layers, and the layers are kept in four separate objects so
-that it is structurally obvious which of them a lineup decision may read:
+generated in five layers, kept in five separate objects so that it is
+structurally obvious which of them a lineup decision may read:
 
 ======================  =========================  ==================
 Layer                   Object                     Lineup may read?
 ======================  =========================  ==================
 persistent latent       :class:`LatentState`       no
 health / availability   :class:`AvailabilityBatch` **yes**
+observable signals      :class:`SignalBatch`       **yes** (weeks < w)
 realized performance    :class:`RealizedBatch`     no
 pregame information     :class:`PregameBatch`      **yes**
 ======================  =========================  ==================
 
-Realized scores for every week are drawn before pregame information is built.
-That is an implementation convenience, not a leak: ``build_pregame`` forms
-week *w*'s belief from a cumulative sum over weeks strictly less than *w*, so
-week *w*'s own outcome is arithmetically absent from week *w*'s projection.
-``tests/test_information_barrier.py`` verifies this by permuting the realized
-array and asserting the starter masks are unchanged.
+Two barriers, not one
+---------------------
+
+**No same-week clairvoyance.** ``_build_pregame`` forms week *w*'s belief from
+a cumulative sum over weeks strictly less than *w*, so week *w*'s own outcome
+is arithmetically absent from week *w*'s projection.
+
+**No learning from unforecastable noise.**  ``_build_pregame`` does not receive
+the realized array *at all*.  Beliefs update from :class:`SignalBatch` -- a
+distinct observable process standing in for usage, snaps, routes, targets and
+depth-chart reporting -- which observes the persistent latent level and nothing
+else.  A random touchdown, a heavy-tailed spike week and a hidden team shock
+therefore move that week's score and *only* that week's score.  They cannot
+reach a future projection, because there is no argument through which they
+could arrive.
+
+The four things a week's score is made of
+-----------------------------------------
+
+They are distinct quantities and each is added exactly once:
+
+============================  ============================  ==================
+Component                     Realized score                Projection
+============================  ============================  ==================
+persistent player level       ``base_mean + season_shift``   ``base_mean`` plus
+                                                             the posterior from
+                                                             observed signals
+observable role change        ``true_role_delta``            ``observed_role_delta``
+                              (from the change week)         (from the reveal week)
+forecastable weekly state     ``contingency_bonus``          the same value
+unforecastable realized       group shock + idiosyncratic    absent
+noise                         noise + spikes
+============================  ============================  ==================
+
+The pregame side never re-derives one component from another, which is what
+keeps a role change from being counted once as "unexplained good play" before
+it is revealed and again as an explicit delta afterwards.
 
 All arrays are shaped ``(n_sims, n_players, n_weeks)`` unless noted.
 """
@@ -38,6 +70,7 @@ __all__ = [
     "PoolArrays",
     "LatentState",
     "AvailabilityBatch",
+    "SignalBatch",
     "RealizedBatch",
     "PregameBatch",
     "WorldBatch",
@@ -87,6 +120,7 @@ class PoolArrays:
     role_mean: np.ndarray         # (P,)
     role_sd: np.ndarray           # (P,)
     role_lag: np.ndarray          # (P,) int
+    signal_noise_sd: np.ndarray   # (P,) observable-signal precision
     proj_noise_sd: np.ndarray     # (P,)
     contingency_on: np.ndarray    # (P,) pool index or -1
     contingency_bonus: np.ndarray # (P,)
@@ -175,6 +209,16 @@ def build_pool_arrays(
         role_mean=col("role_change_mean"),
         role_sd=col("role_change_sd"),
         role_lag=col("role_reveal_lag", np.int64),
+        # `signal_noise_sd=None` means "usage tells you about as much per week
+        # as one observed score would have"; see PlayerSpec.signal_noise_sd.
+        signal_noise_sd=np.maximum(
+            np.array(
+                [s.week_sd if s.signal_noise_sd is None else s.signal_noise_sd
+                 for s in specs],
+                dtype=np.float64,
+            ),
+            _EPS,
+        ),
         proj_noise_sd=col("proj_noise_sd"),
         contingency_on=cont_on,
         contingency_bonus=cont_bonus,
@@ -220,7 +264,46 @@ class AvailabilityBatch:
 
 
 # --------------------------------------------------------------------------
-# Layer 3 -- realized performance (never visible to a lineup decision)
+# Layer 3 -- the observable-information channel
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SignalBatch:
+    """Weekly observable signals about a player's persistent latent level.
+
+    This is the seam a real information source plugs into.  ``level_signal``
+    stands for whatever a manager actually watches week to week -- snap share,
+    route participation, target or carry share, depth-chart reporting, the
+    drift of a published projection -- expressed on the fantasy-points scale
+    as a noisy reading of the player's persistent deviation from consensus:
+
+    .. code-block:: none
+
+        level_signal[p, w] = season_shift[p] + signal_noise_sd[p] * xi[p, w]
+
+    Three properties are deliberate.
+
+    * It observes **only** the persistent latent level.  Idiosyncratic weekly
+      noise, spike weeks and shared team shocks are absent by construction, so
+      no amount of unforecastable scoring can move a future projection.
+    * It is drawn from its own RNG stream, independent of every realized-score
+      stream.  Perturbing realized noise leaves the signals bit-identical,
+      which is what the adversarial tests exploit.
+    * A signal exists only for weeks the player actually played (``observed``),
+      because usage is not observed for a player who did not appear.
+
+    Calibrating this against real data replaces ``signal_noise_sd`` and nothing
+    else: a small value is a league where usage tells you the truth in two
+    weeks, a large value one where it never quite does.
+    """
+
+    level_signal: np.ndarray  # (S, P, W)
+    observed: np.ndarray      # (S, P, W) bool
+
+
+# --------------------------------------------------------------------------
+# Layer 4 -- realized performance (never visible to a lineup decision)
 # --------------------------------------------------------------------------
 
 
@@ -234,7 +317,7 @@ class RealizedBatch:
 
 
 # --------------------------------------------------------------------------
-# Layer 4 -- pregame information (the only thing a lineup may read)
+# Layer 5 -- pregame information (the only thing a lineup may read)
 # --------------------------------------------------------------------------
 
 
@@ -245,8 +328,9 @@ class PregameBatch:
     projection: np.ndarray           # (S, P, W)
     observed_role_delta: np.ndarray  # (S, P, W)
     contingency_bonus: np.ndarray    # (S, P, W)
-    posterior_mean: np.ndarray       # (S, P, W) belief about season_shift
-    n_observed: np.ndarray           # (S, P, W) games used to form that belief
+    posterior_mean: np.ndarray       # (S, P, W) belief about season_shift,
+                                     # formed from observable signals only
+    n_observed: np.ndarray           # (S, P, W) signals used to form that belief
 
 
 @dataclass(frozen=True)
@@ -258,6 +342,7 @@ class WorldBatch:
     pool: PoolArrays
     latent: LatentState
     availability: AvailabilityBatch
+    signals: SignalBatch
     realized: RealizedBatch
     pregame: PregameBatch
 
@@ -369,6 +454,38 @@ def _contingency_bonus(
     return bonus
 
 
+def _draw_signals(
+    pool: PoolArrays,
+    seed: int,
+    sims: np.ndarray,
+    keys: np.ndarray,
+    n_weeks: int,
+    latent: LatentState,
+    avail: AvailabilityBatch,
+) -> SignalBatch:
+    """Draw the observable-information process.  See :class:`SignalBatch`.
+
+    Its own RNG stream (``Kind.SIGNAL_NOISE``) is the whole point: nothing here
+    shares a draw with a realized score, so realized noise and these signals
+    are independent by construction rather than by careful bookkeeping.
+    """
+    s, p = sims.shape[0], keys.shape[1]
+    weeks = np.arange(n_weeks, dtype=np.int64).reshape(1, 1, n_weeks)
+
+    if pool.season_sd.max() <= 0.0:
+        # Nothing persistent to learn, so the signal carries no information and
+        # the posterior is identically zero.  Skip the draw entirely.
+        return SignalBatch(
+            level_signal=np.zeros((s, p, n_weeks), dtype=np.float64),
+            observed=avail.available,
+        )
+
+    noise = rng.normal(seed, rng.Kind.SIGNAL_NOISE, sims, keys, weeks)
+    noise *= pool.signal_noise_sd.reshape(1, p, 1)
+    level_signal = latent.season_shift.reshape(s, p, 1) + noise
+    return SignalBatch(level_signal=level_signal, observed=avail.available)
+
+
 def _draw_realized(
     pool: PoolArrays,
     seed: int,
@@ -441,48 +558,64 @@ def _build_pregame(
     n_weeks: int,
     latent: LatentState,
     avail: AvailabilityBatch,
-    realized: RealizedBatch,
+    signals: SignalBatch,
     contingency: np.ndarray,
 ) -> PregameBatch:
-    """Project week *w* using only weeks strictly before *w*.
+    """Project week *w* from information available before week *w*.
 
-    A Gaussian conjugate update on the residuals of played weeks.  The manager
-    knows ``base_mean``, the *revealed* role state and the contingency status;
-    everything left over is treated as season-level signal plus observation
-    noise.  Because spikes are heavy-tailed and enter as noise, a spike week
-    moves the posterior only slightly -- spikes do not become future
-    projection, which is exactly the behaviour the specification requires.
+    Note the signature: there is **no realized argument**.  Beliefs are formed
+    from :class:`SignalBatch` -- a separate observable process that reads the
+    persistent latent level and nothing else -- so realized idiosyncratic
+    noise, spike weeks and shared team shocks have no path into a projection.
+    That is a structural guarantee, not a property of the arithmetic below.
+
+    Week *w*'s projection sums three quantities, each contributed by exactly
+    one source:
+
+    ``base_mean + posterior``
+        the persistent player level.  ``posterior`` is a Gaussian conjugate
+        update on the signals of weeks strictly before *w*, with prior mean 0
+        and prior SD ``season_sd``.
+    ``observed_role_delta``
+        the revealed part of a role change, in full, from its reveal week.
+        Because the signal channel cannot see role changes, an unrevealed one
+        does **not** first appear as an inflated persistent level and then get
+        added a second time on reveal.
+    ``contingency_bonus``
+        the forecastable uplift from a depth-chart superior being out.
     """
     s, p = sims.shape[0], keys.shape[1]
     weeks = np.arange(n_weeks, dtype=np.int64).reshape(1, 1, n_weeks)
 
-    known = (
-        pool.base_mean.reshape(1, p, 1) + latent.observed_role_delta + contingency
-    )
-    played = avail.available
-    resid = np.where(played, realized.points - known, 0.0)
+    observed = signals.observed
+    sig = np.where(observed, signals.level_signal, 0.0)
 
     # Shift by one week: week w sees weeks 0..w-1 and nothing else.
-    cum_resid = np.zeros_like(resid)
-    cum_n = np.zeros(resid.shape, dtype=np.float64)
-    np.cumsum(resid[:, :, :-1], axis=2, out=cum_resid[:, :, 1:])
-    np.cumsum(played[:, :, :-1].astype(np.float64), axis=2, out=cum_n[:, :, 1:])
+    cum_sig = np.zeros_like(sig)
+    cum_n = np.zeros(sig.shape, dtype=np.float64)
+    np.cumsum(sig[:, :, :-1], axis=2, out=cum_sig[:, :, 1:])
+    np.cumsum(observed[:, :, :-1].astype(np.float64), axis=2, out=cum_n[:, :, 1:])
 
-    # posterior = tau_obs * S / (tau_0 + n * tau_obs), prior mean 0.
-    # Written as S / (week_sd^2 / season_sd^2 + n) so season_sd == 0 gives 0.
+    # posterior = tau_sig * S / (tau_0 + n * tau_sig), prior mean 0.
+    # Written as S / (signal_noise_sd^2 / season_sd^2 + n) so season_sd == 0
+    # gives exactly 0 -- consensus is then known to be right and nothing is
+    # learnable.
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio = np.where(
             pool.season_sd > 0.0,
-            (pool.week_sd ** 2) / np.maximum(pool.season_sd ** 2, _EPS),
+            (pool.signal_noise_sd ** 2) / np.maximum(pool.season_sd ** 2, _EPS),
             np.inf,
         ).reshape(1, p, 1)
-        posterior = np.where(np.isinf(ratio), 0.0, cum_resid / (ratio + cum_n))
+        posterior = np.where(np.isinf(ratio), 0.0, cum_sig / (ratio + cum_n))
 
-    # The projection is the conditional mean of the week's score given
-    # everything observable.  Because realized scores are not floored, that
-    # conditional mean is exactly the level -- no distributional correction of
-    # any kind is applied, and none is needed.
-    projection = known + posterior
+    # The conditional mean of the week's score given everything observable.
+    # Scores are not floored, so no distributional correction belongs here.
+    projection = (
+        pool.base_mean.reshape(1, p, 1)
+        + posterior
+        + latent.observed_role_delta
+        + contingency
+    )
     if pool.proj_noise_sd.max() > 0.0:
         projection = projection + (
             rng.normal(seed, rng.Kind.PROJ_NOISE, sims, keys, weeks)
@@ -521,9 +654,11 @@ def generate_world(
     latent = _draw_latent(pool, seed, sims, keys, w)
     avail = _draw_availability(pool, seed, sims3, keys3, w)
     contingency = _contingency_bonus(pool, avail.available)
+    signals = _draw_signals(pool, seed, sims3, keys3, w, latent, avail)
     realized = _draw_realized(pool, seed, sims3, keys3, w, latent, avail, contingency)
+    # `realized` is deliberately not passed to `_build_pregame`.
     pregame = _build_pregame(
-        pool, seed, sims3, keys3, w, latent, avail, realized, contingency
+        pool, seed, sims3, keys3, w, latent, avail, signals, contingency
     )
     return WorldBatch(
         sim_start=sim_start,
@@ -531,6 +666,7 @@ def generate_world(
         pool=pool,
         latent=latent,
         availability=avail,
+        signals=signals,
         realized=realized,
         pregame=pregame,
     )

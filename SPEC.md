@@ -118,24 +118,27 @@ Every simulated season follows this pipeline exactly once, in this order:
 1.  drafted rosters                 (input; 12 x 15 disjoint players)
 2.  latent player / season state    worlds.draw_latent_state
 3.  availability                    worlds.draw_availability   (byes, injuries)
-4.  realized weekly scores          worlds.draw_realized       (weeks 1..17)
-5.  pregame-observable information  worlds.build_pregame       (filtration, week w
-                                                                sees only weeks < w)
-6.  lineup decision                 lineup_vec.select_lineups  (pregame only)
-7.  team weekly score               simulate.team_scores       (realized of starters)
-8.  standings                       standings.regular_season
-9.  playoffs                        playoffs.run_bracket
-10. champion                        one team index per simulated season
+4.  observable signals              worlds.draw_signals        (usage / role, one
+                                                                per played week)
+5.  realized weekly scores          worlds.draw_realized       (weeks 1..17)
+6.  pregame-observable information  worlds.build_pregame       (signals of weeks
+                                                                < w only; realized
+                                                                is not an argument)
+7.  lineup decision                 lineup_vec.select_lineups  (pregame only)
+8.  team weekly score               simulate.team_scores       (realized of starters)
+9.  standings                       standings.regular_season
+10. playoffs                        playoffs.run_bracket
+11. champion                        one team index per simulated season
 ```
 
-Steps 2–4 create the *world*. Step 5 projects the world onto what a manager could
-know. Step 6 may read **only** step 5's output.
+Steps 2–5 create the *world*. Step 6 projects the world onto what a manager could
+know. Step 7 may read **only** step 6's output.
 
 Note on ordering: realized scores for **all** weeks are drawn before pregame
-information is built. This is an implementation convenience, not an information leak:
-`build_pregame` for week *w* is a function of realized scores in weeks strictly less
-than *w* only, enforced by construction (a shifted cumulative sum) and asserted by
-tests.
+information is built. This is an implementation convenience, not an information leak.
+`build_pregame` for week *w* is a function of the **observable signals** of weeks
+strictly less than *w*, enforced by construction (a shifted cumulative sum), and it
+does not receive the realized array at any point.
 
 ---
 
@@ -144,27 +147,50 @@ tests.
 **Rule.** A lineup for week *w* may depend only on information observable before
 kickoff of week *w*.
 
+There are really **two** rules here, and they fail in different ways.
+
+### 3.1 No same-week clairvoyance
+
+A lineup for week *w* may not use week *w*'s outcome.
+
 **Enforcement.** Three independent mechanisms:
 
 1. *Type-level.* The scalar lineup API consumes `PregameEntry` objects, which have
    **no field** capable of holding a realized score. The vectorized optimizer's
    signature accepts `(projection, available, position)` arrays and never receives
    the realized array.
-2. *Construction.* `build_pregame` computes week *w*'s belief from `cumsum` of
-   residuals shifted one week, so week *w*'s own realized score is arithmetically
-   absent.
+2. *Construction.* `build_pregame` computes week *w*'s belief from a `cumsum` shifted
+   one week, so week *w*'s own outcome is arithmetically absent.
 3. *Test.* `test_information_barrier.py` randomly permutes the realized array and
    asserts the chosen starter masks are bit-identical, and asserts a benched player
    given +1000 realized points still contributes nothing.
 
+### 3.2 No learning from unforecastable noise
+
+A projection for week *w* may not be moved by information that was never
+forecastable in the first place — a lucky touchdown, a heavy-tailed spike week, a
+shared team shock that happened to break the player's way.
+
+This is the harder rule, and the original design broke it. Beliefs were a Gaussian
+conjugate filter on **realized residuals**, which cannot distinguish "this player is
+better than we thought" from "this player got lucky". Injecting 100 points into one
+prior week raised the following week's projection by roughly half of them.
+
+**Enforcement.** `build_pregame` has no realized argument. Beliefs update from a
+distinct process — `SignalBatch`, §4.6 — which observes the persistent latent level
+and nothing else. The guarantee is structural: there is no channel through which
+realized noise could arrive, so no arithmetic needs to be trusted.
+
 **Consequences that the model reproduces:**
 
-* A benched player who unexpectedly scores 30 provides **zero** team value that week.
-* That performance creates future value only through the *observable* channel: it
-  moves the manager's posterior on the player's persistent season level, and/or a
-  separately generated **observable role change** makes him a better projection going
-  forward. Pure spike weeks (§5.5) are drawn from a distribution the manager cannot
-  forecast and are correctly discounted by the filter.
+* A benched player who unexpectedly scores 30 provides **zero** team value that week,
+  **and** changes no future projection. Both halves matter.
+* A performance creates future value only through an observable channel: a shift in
+  the usage/role signal that indicates a genuinely higher persistent level, or a
+  separately generated **observable role change** (§4.3) revealed at its reveal week.
+* Realized idiosyncratic noise, spike weeks and shared team shocks are invisible to
+  every future decision. `test_observable_signals.py` holds the signals fixed, varies
+  each of those in turn, and asserts projections and starter masks are bit-identical.
 
 ---
 
@@ -174,11 +200,29 @@ Five concepts are kept in distinct places in the data model.
 
 | # | Concept | Where it lives | Visible to lineup? |
 |---|---|---|---|
-| 1 | Persistent latent season state | `LatentState.season_shift`, `role_delta`, `role_change_week` | no (only through §4.3) |
+| 1 | Persistent latent season state | `LatentState.season_shift`, `role_size`, `role_week` | no (only through §4.3 / §4.6) |
 | 2 | Health and availability | `Availability.available[p, w]`, `out_reason` (bye / injury / active) | **yes** |
 | 3 | Pregame-observable role and projection | `Pregame.projection[p, w]`, `observed_role_delta[p, w]` | **yes** |
 | 4 | Realized weekly performance | `Realized.points[p, w]` | **no** |
-| 5 | Information available in future weeks | `Pregame.posterior_mean[p, w]`, built from realized weeks `< w` | **yes** (for weeks > the reveal) |
+| 5 | Observable information channel | `SignalBatch.level_signal[p, w]` (§4.6) | **yes** (weeks `< w`) |
+
+### 4.0 The four things a week's score is made of
+
+The generative model separates four quantities that the original design partially
+conflated. Each is added **exactly once** on each side:
+
+| Component | In the realized score | In the projection |
+|---|---|---|
+| Persistent player level | `base_mean + season_shift` | `base_mean` + posterior on `season_shift` from observed signals |
+| Observable role change | `true_role_delta`, from the change week | `observed_role_delta`, from the reveal week |
+| Forecastable weekly state | `contingency_bonus[p, w]` | the same value |
+| Unforecastable realized noise | group shock + idiosyncratic noise + spikes | absent |
+
+The pregame side never re-derives one component from another. That is what stops an
+unrevealed role change from being read as "unexplained good play" (inflating the
+persistent-level posterior) and then added a **second** time as an explicit delta on
+reveal — a bug that projected a 10-point player with a revealed +20 role change at
+roughly 38 instead of 30.
 
 ### 4.1 `PlayerSpec` — the reversible interface
 
@@ -221,11 +265,18 @@ chosen week `wc` in weeks 2..13, of size `Normal(role_change_mean, role_change_s
 
 * The change affects **realized** scoring from week `wc` onward.
 * It becomes **observable** from week `wc + role_reveal_lag` onward (default lag 1),
-  modelling "the market learns the new role after it shows up".
-* Once revealed it is fully and permanently in the projection.
+  modelling "the market learns the new role after it shows up". `role_reveal_lag = 0`
+  models an *announced* change — a trade, a benching — that is known before it ever
+  appears in a box score.
+* Once revealed it is fully and permanently in the projection, and it enters there
+  **only** through `observed_role_delta`. The signal channel (§4.6) cannot see role
+  changes at all, so the weeks between `wc` and the reveal cannot produce a second,
+  implicit copy of the same change.
 
 This is the mechanism by which a surprising performance can legitimately create future
-value.
+value, and `tests/test_observable_signals.py` pins it as an exact identity: with no
+other source of variation, a 10-point player with a revealed +20 role change projects
+exactly 10.0 before the reveal and exactly 30.0 from the reveal onward.
 
 ### 4.4 Contingency (handcuffs)
 
@@ -246,6 +297,39 @@ This single mechanism covers:
 * **arbitrary custom correlation** — any user-defined group.
 
 Group shocks are drawn from streams keyed by `group_id`, so they are stable under CRN.
+
+They enter **realized scores only**. They are invisible pregame, which is what makes
+correlated bench upside a genuinely different asset from independent bench upside.
+
+### 4.6 The observable-information channel
+
+`SignalBatch.level_signal[p, w]` is the only route by which past weeks change future
+projections:
+
+```
+level_signal[p, w] = season_shift[p] + signal_noise_sd[p] * xi[p, w]
+observed[p, w]     = available[p, w]        # no usage is seen for a player who
+                                            # did not appear
+```
+
+`xi` comes from its own RNG stream (`Kind.SIGNAL_NOISE`), so it is independent of
+every realized-score draw by construction rather than by bookkeeping.
+
+**What it stands for.** Whatever a real manager actually watches week to week: snap
+share, route participation, target or carry share, depth-chart reporting, the drift of
+a published weekly projection. It is expressed on the fantasy-points scale as a noisy
+reading of the player's persistent deviation from consensus, so calibrating it against
+real data means estimating one number, `signal_noise_sd`, and changing nothing else.
+
+**What it deliberately excludes.** Idiosyncratic weekly noise, spike weeks, shared team
+shocks, and role changes. The first three are unforecastable and must not become
+forecast. The fourth has its own exact channel (§4.3) and would be double counted here.
+
+**Calibration.** `signal_noise_sd = None` (the default) falls back to `week_sd`: one
+week of observed usage is about as informative as one observed score would have been.
+That is a deliberately conservative placeholder, not an estimate. A small value is a
+league where usage reveals the truth in two weeks; a large value is one where it never
+quite does. `OPEN_QUESTIONS.md` A5 says what would settle it.
 
 ---
 
@@ -296,27 +380,39 @@ correction (§5.7).
 
 ### 5.6 Pregame projection
 
-The manager knows `base_mean`, the observed role state, contingency status and
-availability. He does **not** know `season_shift`, the team shock, the idiosyncratic
-noise or the spike. He filters:
+The manager knows `base_mean`, the observed role state, contingency status,
+availability, and the observable signals of every week already played. He does **not**
+know `season_shift`, the team shock, the idiosyncratic noise, the spike, or an
+unrevealed role change. He filters **the signals**:
 
 ```
-resid[p, u]      = points[p, u] - base_mean[p] - observed_role_delta[p, u]
-                                 - contingency_bonus[p, u]        (played weeks only)
-S[p, w]          = sum over u < w of resid[p, u] * played[p, u]
-n[p, w]          = sum over u < w of played[p, u]
-posterior[p, w]  = tau_obs * S[p, w] / (tau_0 + n[p, w] * tau_obs)      # prior mean 0
-level[p, w]      = base_mean[p] + observed_role_delta[p, w]
-                 + contingency_bonus[p, w] + posterior[p, w]
-projection[p, w] = E[max(0, Normal(level[p, w], week_sd[p]))]
+S[p, w]          = sum over u < w of level_signal[p, u] * observed[p, u]
+n[p, w]          = sum over u < w of observed[p, u]
+posterior[p, w]  = tau_sig * S[p, w] / (tau_0 + n[p, w] * tau_sig)      # prior mean 0
+projection[p, w] = base_mean[p] + posterior[p, w]
+                 + observed_role_delta[p, w] + contingency_bonus[p, w]
                  + proj_noise_sd[p] * nu[p, w]
 ```
 
-with `tau_0 = 1 / season_sd^2` and `tau_obs = 1 / week_sd^2` — a Gaussian conjugate
-update, treating the (heavy-tailed, non-Gaussian) spikes as if they were part of the
-observation noise. This is exactly right for the intended behaviour: a spike week does
-move the posterior a little, but is heavily shrunk, so **spikes do not turn into
-reliable future projection**, while a genuine persistent level does get learned.
+with `tau_0 = 1 / season_sd^2` and `tau_sig = 1 / signal_noise_sd^2` — a Gaussian
+conjugate update on a Gaussian channel, which is the exact posterior rather than an
+approximation to one. `season_sd = 0` gives `posterior = 0` identically: consensus is
+known to be right and there is nothing to learn.
+
+**Why the filter moved off realized residuals.** The original design filtered
+`points - known`, which cannot separate "better than we thought" from "got lucky", so
+every unforecastable component fed straight into future projections. Two failures
+followed directly:
+
+* Injecting 100 points into one prior week raised the next projection by ~50.
+* An unrevealed role change was absorbed as a higher persistent level and then added
+  again on reveal, projecting ~38 where 30 was correct.
+
+Filtering a channel that observes only the persistent level fixes both at once, and
+fixes them structurally: `build_pregame` no longer takes the realized array.
+
+Note that the projection is the conditional mean of the week's score given everything
+observable, with no distributional transform applied — see §5.7.
 
 ### 5.7 No distributional correction sits between the level and the projection
 
@@ -470,9 +566,12 @@ output across repeated runs and across different chunk sizes.
 2. **Synthetic player parameters are invented.** They are labelled `SYNTHETIC` and are
    calibrated only to be *plausible in shape* (QB > RB ≈ WR > TE means, QB lower
    variance). No claim is made about real football.
-3. **Gaussian conjugate filtering** approximates the manager's learning. Real managers
-   use richer information (snap counts, target share, vegas lines). The residual filter
-   is a stand-in for all of it.
+3. **The observable-information channel is a single Gaussian signal per played week.**
+   Real managers read snap counts, target share, route participation, depth-chart
+   reporting and Vegas lines, each with its own precision and its own lag.
+   `SignalBatch` compresses all of that into one noisy reading of the persistent level
+   with one parameter, `signal_noise_sd` (§4.6). The *shape* of the channel is the
+   modelling claim; its precision is uncalibrated (`OPEN_QUESTIONS.md` A5).
 4. **Projection = conditional mean + noise.** No manager optimism/pessimism bias, no
    vendor disagreement, no start/sit expected-value adjustments for tail-seeking.
 5. **No waivers, no FAAB, no trades, no in-season roster change of any kind.** The

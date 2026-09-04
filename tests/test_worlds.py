@@ -217,8 +217,12 @@ def test_role_change_is_delayed_before_it_becomes_observable():
         assert w.latent.observed_role_delta[s, 0, wc + 2] == pytest.approx(8.0)
 
 
-def test_filter_learns_a_persistent_level_but_barely_reacts_to_one_spike():
-    """Persistent signal is learned; unforecastable noise is shrunk away."""
+def test_the_belief_converges_on_the_persistent_level_as_signals_accumulate():
+    """Persistent state is learned; unforecastable noise is never seen at all.
+
+    ``test_observable_signals.py`` pins the channel itself; this checks that
+    the world wires it up.
+    """
     specs = [flat_spec(0, Position.WR, 10.0, week_sd=6.0, season_sd=4.0)]
     _, w = _world(specs, n_sims=4000)
     shift = w.latent.season_shift[:, 0]
@@ -226,8 +230,12 @@ def test_filter_learns_a_persistent_level_but_barely_reacts_to_one_spike():
     late = w.pregame.posterior_mean[:, 0, W - 1]
     assert float(np.corrcoef(shift, late)[0, 1]) > float(np.corrcoef(shift, early)[0, 1])
     assert float(np.corrcoef(shift, late)[0, 1]) > 0.75
-    # A single week's residual is shrunk by roughly week_var/season_var.
+    # An early belief is shrunk hard toward the prior mean of zero.
     assert float(np.abs(early).mean()) < float(np.abs(late).mean())
+    # The belief is a function of the signals alone: it is uncorrelated with
+    # the realized noise of the weeks it was formed from.
+    resid = w.realized.points[:, 0, :] - 10.0 - shift[:, None]
+    assert abs(float(np.corrcoef(late, resid[:, :W - 1].sum(axis=1))[0, 1])) < 0.05
 
 
 def test_projection_override_replaces_the_model():

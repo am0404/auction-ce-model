@@ -17,8 +17,13 @@ different places:
  2   Health and availability              ``Availability`` (worlds.py)
  3   Pregame-observable role/projection   ``Pregame`` (worlds.py) / pregame.py
  4   Realized weekly performance          ``Realized`` (worlds.py)
- 5   Information available in future       ``Pregame.posterior_mean``
+ 5   Observable information channel       ``SignalBatch`` (worlds.py)
 ===  ===================================  ====================================
+
+Concept 5 is a *separate observable process*, not a re-reading of concept 4.
+Beliefs update from simulated observable signals -- usage, role, underlying
+performance indicators -- and never from realized fantasy-point noise, so an
+unforecastable scoring spike cannot become future projection.
 """
 
 from __future__ import annotations
@@ -130,6 +135,30 @@ class PlayerSpec:
     role_reveal_lag: int = 1
     """Weeks between a role change taking effect and becoming observable."""
 
+    # --- the observable-information channel -----------------------------------
+    signal_noise_sd: Optional[float] = None
+    """Noise on the weekly **observable signal** about this player's persistent
+    season level.
+
+    This is the *only* channel through which past weeks change future
+    projections.  It is deliberately not the realized fantasy score: a manager
+    updating on scoring noise would turn a random touchdown into a permanent
+    projection increase, which is exactly the error this field exists to
+    prevent.
+
+    Read it as the precision of whatever a real manager actually watches --
+    snap share, route participation, target share, carry share, depth-chart
+    reporting, or the week-to-week movement of a published projection.  Small
+    values mean usage tells you the truth quickly; large values mean it barely
+    tells you anything.  ``None`` (the default) falls back to ``week_sd``, so
+    one week of observed usage is about as informative as one observed score
+    would have been -- a deliberately conservative placeholder that should be
+    replaced by a real calibration (see ``OPEN_QUESTIONS.md`` A5).
+
+    Note what this does *not* carry: the signal observes the persistent latent
+    level only.  Role changes reach the projection through
+    ``observed_role_delta``, exactly once, from their reveal week."""
+
     # --- structure ------------------------------------------------------------
     shock_loadings: Tuple[ShockLoading, ...] = ()
     contingency: Optional[Contingency] = None
@@ -170,6 +199,8 @@ class PlayerSpec:
             raise ValueError("injury_mean_weeks must be positive")
         if self.role_reveal_lag < 0:
             raise ValueError("role_reveal_lag must be non-negative")
+        if self.signal_noise_sd is not None and self.signal_noise_sd < 0:
+            raise ValueError("signal_noise_sd must be non-negative")
 
     @property
     def stream_key(self) -> int:
