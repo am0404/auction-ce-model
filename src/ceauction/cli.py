@@ -24,6 +24,7 @@ from .ce import team_report
 from .curve import (
     DEFAULT_RESOLUTION_TARGETS,
     LIVE_AUCTION_BUDGET_SECONDS,
+    level_grid,
     sweep_marginal_curve,
     weakest_flex_slot,
 )
@@ -192,15 +193,26 @@ def cmd_curve(args) -> int:
         print("--max-level must be >= --min-level", file=sys.stderr)
         return 2
 
-    n_steps = int(round((args.max_level - args.min_level) / args.step))
-    levels = [args.min_level + k * args.step for k in range(n_steps + 1)]
+    # `level_grid` never overshoots --max-level: it shortens the final step
+    # instead, so `--min-level 4 --max-level 10 --step 4` is 4, 8, 10.
+    levels = level_grid(args.min_level, args.max_level, args.step)
     baseline = args.baseline if args.baseline is not None else args.min_level
+
+    steps = {round(b - a, 9) for a, b in zip(levels, levels[1:])}
+    if len(steps) > 1:
+        final = levels[-1] - levels[-2]
+        step_note = (f"steps of {args.step:g} with a final step of {final:g} "
+                     f"(the range is not a whole number of steps)")
+    elif steps:
+        step_note = f"steps of {steps.pop():g}"
+    else:
+        step_note = "a single level"
 
     print(BANNER)
     print(f"sweeping {spec.name} ({spec.position.label}, base_mean "
           f"{spec.base_mean:.2f}) -- {chosen}")
-    print(f"{len(levels)} levels from {levels[0]:.2f} to {levels[-1]:.2f} in steps of "
-          f"{args.step:g}, {args.sims:,} seasons each\n")
+    print(f"{len(levels)} levels from {levels[0]:g} to {levels[-1]:g} in "
+          f"{step_note}, {args.sims:,} seasons each\n")
 
     t0 = time.perf_counter()
     curve = sweep_marginal_curve(
@@ -214,8 +226,10 @@ def cmd_curve(args) -> int:
         chunk=args.chunk,
         isotonic=args.isotonic,
         live_auction_budget_seconds=args.live_budget,
-        notes=(f"only base_mean varies; position, variance, injury profile, "
-               f"weekly state, signal precision and crn_key are held fixed"),
+        notes=("only the player's projected level varies -- base_mean, and "
+               "any weekly_projection_override shifted by the same delta; "
+               "position, variance, injury profile, weekly state, signal "
+               "precision and crn_key are held fixed"),
     )
     dt = time.perf_counter() - t0
     print(curve.format())
@@ -288,7 +302,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="replacement-level anchor (default: --min-level)")
     s.add_argument("--csv", default=None, help="also write the curve to this path")
     s.add_argument("--isotonic", action="store_true",
-                   help="add a monotone display column; raw estimates are kept")
+                   help="add a display column that IMPOSES monotonicity; raw "
+                        "estimates are kept and remain primary")
     s.add_argument("--live-budget", type=float, default=LIVE_AUCTION_BUDGET_SECONDS,
                    help="seconds available per decision in a live auction")
     s.set_defaults(func=cmd_curve)

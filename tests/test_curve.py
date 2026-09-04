@@ -279,6 +279,197 @@ def test_slopes_are_expressed_per_projected_point(league, target):
 
 
 # --------------------------------------------------------------------------
+# 5b. Published weekly projections move with the level.
+# --------------------------------------------------------------------------
+
+
+def _override_spec(base_mean=10.0, **kw):
+    """A player carrying real published weekly projections."""
+    from ceauction.players import PlayerSpec
+
+    weeks = DEFAULT_LEAGUE.total_weeks
+    # A deliberately lumpy shape: a bye-ish trough and a late ramp, so a pure
+    # level shift is distinguishable from any rescaling.
+    override = tuple(base_mean + (-4.0 if w == 6 else 0.35 * w - 2.0)
+                     for w in range(weeks))
+    params = dict(week_sd=6.0, season_sd=0.0, weekly_injury_hazard=0.0,
+                  spike_rate=0.0, role_change_prob=0.0, proj_noise_sd=0.0,
+                  shock_loadings=(), contingency=None, bye_week=0,
+                  nfl_team="TST", weekly_projection_override=override)
+    params.update(kw)
+    return PlayerSpec(player_id=4242, name="OVR", position=Position.WR,
+                      base_mean=base_mean, **params)
+
+
+def test_an_override_shifts_by_exactly_the_level_delta():
+    """The published shape is preserved; only its level moves."""
+    from ceauction.curve import _candidate
+
+    spec = _override_spec(base_mean=10.0)
+    for level in (4.0, 10.0, 17.5, 22.0):
+        cand = _candidate(spec, level)
+        delta = level - spec.base_mean
+        assert cand.base_mean == level
+        assert len(cand.weekly_projection_override) == DEFAULT_LEAGUE.total_weeks
+        for before, after in zip(spec.weekly_projection_override,
+                                 cand.weekly_projection_override):
+            assert after == pytest.approx(before + delta, abs=1e-12)
+        # Shape preserved exactly: every week-to-week difference is unchanged.
+        d_before = np.diff(np.array(spec.weekly_projection_override))
+        d_after = np.diff(np.array(cand.weekly_projection_override))
+        assert np.allclose(d_before, d_after, atol=1e-12)
+
+
+def test_the_shift_is_measured_from_the_original_base_mean_not_chained():
+    """Each candidate is built from the original spec, so deltas never compound."""
+    from ceauction.curve import _candidate
+
+    spec = _override_spec(base_mean=10.0)
+    a = _candidate(spec, 15.0)
+    b = _candidate(_candidate(spec, 12.0), 15.0)
+    assert a.weekly_projection_override == pytest.approx(
+        b.weekly_projection_override
+    )
+    assert a.base_mean == b.base_mean == 15.0
+
+
+def test_pregame_projections_shift_by_the_level_delta():
+    """The point of the fix: the manager's view moves with the player.
+
+    Without it, `base_mean` would move realized scoring while the override kept
+    every level's pregame projection identical -- so the lineup decision would
+    be the same at every level and the sweep would measure the value of
+    unforecastable production instead of projected production.
+    """
+    from ceauction.curve import _candidate
+    from ceauction.worlds import build_pool_arrays, generate_world
+
+    spec = _override_spec(base_mean=10.0)
+    proj = {}
+    for level in (6.0, 10.0, 18.0):
+        pool = build_pool_arrays([_candidate(spec, level)], DEFAULT_LEAGUE)
+        proj[level] = generate_world(pool, SEED, 0, 4).pregame.projection[:, 0, :]
+
+    for level in (6.0, 18.0):
+        shift = proj[level] - proj[10.0]
+        assert np.allclose(shift, level - 10.0, atol=1e-9), (
+            f"projections did not shift by {level - 10.0}"
+        )
+    # And the realized conditional mean moved by the same amount, so projection
+    # and scoring stay consistent with each other.
+    means = {}
+    for level in (6.0, 18.0):
+        pool = build_pool_arrays([_candidate(spec, level)], DEFAULT_LEAGUE)
+        w = generate_world(pool, SEED, 0, 3000)
+        means[level] = float(w.realized.points[:, 0, :].mean())
+    assert means[18.0] - means[6.0] == pytest.approx(12.0, abs=0.3)
+
+
+def test_the_override_shift_changes_nothing_else_about_the_player():
+    """CRN key and every non-level characteristic survive the shift."""
+    from ceauction.curve import _candidate
+
+    spec = _override_spec(base_mean=10.0, crn_key=99)
+    cand = _candidate(spec, 19.0)
+    assert cand.stream_key == spec.stream_key == 99
+    assert cand.player_id == spec.player_id
+    for field in ("position", "week_sd", "season_sd", "weekly_injury_hazard",
+                  "injury_mean_weeks", "spike_rate", "spike_scale", "bye_week",
+                  "shock_loadings", "contingency", "proj_noise_sd",
+                  "weekly_state_sd", "weekly_state_pattern",
+                  "hidden_weekly_pattern", "signal_noise_sd",
+                  "role_change_prob", "role_reveal_lag", "data_source"):
+        assert getattr(cand, field) == getattr(spec, field), field
+
+
+def test_a_player_without_an_override_is_unaffected_by_the_fix(league, target):
+    """The synthetic pool carries no overrides, so nothing there changes."""
+    from ceauction.curve import _candidate
+
+    assert target.weekly_projection_override is None
+    cand = _candidate(target, 17.0)
+    assert cand.weekly_projection_override is None
+    assert cand.base_mean == 17.0
+    assert cand.stream_key == target.stream_key
+
+
+def test_an_override_sweep_produces_a_rising_curve(league, target):
+    """End to end: give the swept slot an override and the curve still rises.
+
+    Before the fix this curve would have been flat in CE, because every level
+    shared one pregame projection and therefore one set of lineup decisions.
+    """
+    from ceauction.players import with_overrides
+
+    weeks = DEFAULT_LEAGUE.total_weeks
+    override = tuple(target.base_mean + 0.2 * w for w in range(weeks))
+    with_ovr = league.with_pool_player(
+        with_overrides(target, weekly_projection_override=override,
+                       crn_key=target.stream_key)
+    )
+    c = sweep_marginal_curve(with_ovr, TEAM, target.player_id,
+                             baseline_level=4.0, levels=[4.0, 12.0, 20.0],
+                             n_sims=SIMS, seed=SEED)
+    ce = [p.championship_equity for p in c.points]
+    assert ce[-1] > ce[0], f"override curve did not rise: {ce}"
+    assert c.points[-1].delta_ce > 0.0
+    assert c.points[-1].points_per_week > c.points[0].points_per_week
+
+
+# --------------------------------------------------------------------------
+# 5c. The level grid never overshoots the requested maximum.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("lo,hi,step,expected", [
+    # Exactly divisible.
+    (4.0, 10.0, 2.0, [4.0, 6.0, 8.0, 10.0]),
+    (4.0, 22.0, 1.0, [4.0 + k for k in range(19)]),
+    # Not divisible: the FINAL step shortens, and the maximum is never exceeded.
+    (4.0, 10.0, 4.0, [4.0, 8.0, 10.0]),
+    (4.0, 9.0, 2.0, [4.0, 6.0, 8.0, 9.0]),
+    (0.0, 5.0, 3.0, [0.0, 3.0, 5.0]),
+    # Step larger than the whole range.
+    (4.0, 4.5, 1.0, [4.0, 4.5]),
+    # Decimal steps.
+    (4.0, 5.0, 0.25, [4.0, 4.25, 4.5, 4.75, 5.0]),
+    (4.0, 5.0, 0.3, [4.0, 4.3, 4.6, 4.9, 5.0]),
+    # A single level.
+    (7.0, 7.0, 1.0, [7.0]),
+])
+def test_level_grid_covers_the_range_without_overshooting(lo, hi, step, expected):
+    from ceauction.curve import level_grid
+
+    grid = level_grid(lo, hi, step)
+    assert grid == pytest.approx(expected, abs=1e-9)
+    assert grid[0] == pytest.approx(lo)
+    assert grid[-1] == hi, "the endpoint must be exact, not accumulated"
+    assert max(grid) <= hi + 1e-12, f"grid exceeded max_level: {grid}"
+    assert grid == sorted(grid)
+    assert len(set(grid)) == len(grid)
+
+
+def test_level_grid_rejects_a_bad_range():
+    from ceauction.curve import level_grid
+
+    with pytest.raises(ValueError, match="step must be positive"):
+        level_grid(4.0, 10.0, 0.0)
+    with pytest.raises(ValueError, match="step must be positive"):
+        level_grid(4.0, 10.0, -1.0)
+    with pytest.raises(ValueError, match=">= min_level"):
+        level_grid(10.0, 4.0, 1.0)
+
+
+def test_level_grid_endpoint_is_not_a_floating_point_accumulation():
+    """0.1 twenty times is not 2.0; the endpoint must still be exact."""
+    from ceauction.curve import level_grid
+
+    grid = level_grid(0.0, 2.0, 0.1)
+    assert grid[-1] == 2.0
+    assert len(grid) == 21
+
+
+# --------------------------------------------------------------------------
 # 6. Shape: scoring rises, CE broadly rises.
 # --------------------------------------------------------------------------
 
@@ -293,10 +484,15 @@ def test_average_points_per_week_increases_with_level(curve):
 
 
 def test_championship_equity_is_broadly_monotonic_within_uncertainty(curve):
-    """CE cannot fall with level in truth; noise can still make it dip.
+    """The curve should rise, but monotonicity is not guaranteed a priori.
 
-    The test therefore checks two things: the curve rises strongly end to end,
-    and no individual adjacent *decrease* is statistically significant.
+    Raising a player's level changes which players the manager starts, which
+    changes team scores, the league median, records and the bracket, so a local
+    decline is not automatically noise. What this test asserts is the weaker,
+    honest thing: the curve rises strongly end to end, and no individual
+    adjacent decrease on *this* synthetic roster is statistically significant.
+    A significant decrease would be a finding to investigate, not a failure of
+    the estimator.
     """
     ce = [p.championship_equity for p in curve.points]
     assert ce[-1] > ce[0] + 0.05, f"curve did not rise: {ce}"
@@ -360,25 +556,50 @@ def test_the_resolution_report_scales_as_one_over_root_n(curve):
     assert needed == sorted(needed)
 
 
-def test_a_target_beyond_the_live_budget_is_called_impractical(league, target):
+def test_a_target_beyond_the_live_budget_is_called_over_budget(league, target):
     """The report must say so in words, not leave the reader to compare numbers."""
     c = _sweep(league, target, [8.0, 12.0], live_auction_budget_seconds=0.001)
     verdicts = [t.verdict(0.001) for t in c.resolution.targets]
     assert all(not t.live_auction_feasible for t in c.resolution.targets)
-    assert any("IMPRACTICAL" in v or "offline only" in v for v in verdicts)
+    assert all("over budget" in v for v in verdicts)
 
     generous = _sweep(league, target, [8.0, 12.0],
                       live_auction_budget_seconds=1e9)
     assert all(t.live_auction_feasible for t in generous.resolution.targets)
-    assert all("feasible live" in t.verdict(1e9) for t in generous.resolution.targets)
+    assert all("within budget" in t.verdict(1e9)
+               for t in generous.resolution.targets)
 
 
-def test_the_resolution_section_is_rendered(curve):
+def test_every_verdict_is_scoped_to_this_pilot(league, target):
+    """No verdict may read as a general capability claim about the engine.
+
+    Paired variance tracks the discordance rate, which differs between
+    comparisons, so "0.005 is resolvable live" is not something any single
+    sweep can establish. Every row must say "in this pilot".
+    """
+    for budget in (0.001, 1e9):
+        c = _sweep(league, target, [8.0, 12.0], live_auction_budget_seconds=budget)
+        for t in c.resolution.targets:
+            assert "in this pilot" in t.verdict(budget), t.verdict(budget)
+            assert "IMPRACTICAL" not in t.verdict(budget)
+            assert "feasible live" not in t.verdict(budget)
+
+
+def test_the_resolution_section_is_rendered_and_honestly_scoped(curve):
     text = curve.format()
     assert "MONTE CARLO RESOLUTION" in text
     for t in DEFAULT_RESOLUTION_TARGETS:
         assert f"{t:.4f}" in text
-    assert "CONSERVATIVE" in text
+
+    # It must present itself as a scenario-specific pilot...
+    assert "PILOT ESTIMATE, SCOPED TO THIS COMPARISON" in text
+    assert "DISCORDANCE RATE" in text
+    assert "own pilot run" in text and "adaptive rule" in text
+    # ...and must NOT claim the extrapolation is a bound or conservative.
+    assert "neither a bound nor conservative" in text
+    lowered = text.lower()
+    assert "are therefore conservative" not in lowered
+    assert "somewhat fewer simulations" not in lowered
 
 
 # --------------------------------------------------------------------------
@@ -477,8 +698,33 @@ def test_isotonic_display_never_overwrites_a_raw_estimate(league, target):
 
     iso = [p.ce_isotonic for p in fitted.points]
     assert iso == sorted(iso)
-    assert "CE(iso)" in fitted.format()
-    assert "raw CE, its interval and every" in fitted.format()
+    text = fitted.format()
+    assert "CE(iso)" in text
+    assert "raw CE" in text and "unchanged by it" in text
+
+
+def test_the_isotonic_column_is_described_as_an_imposed_assumption(league, target):
+    """It must not be presented as noise removal.
+
+    The manager sets lineups from noisy projections, so raising a player's
+    level changes start decisions and therefore team scores, the league median,
+    records and the bracket. A local decline in raw CE may be a real pathwise
+    effect, so the fit imposes an assumption rather than revealing one.
+    """
+    from ceauction.curve import isotonic_fit
+
+    fitted = _sweep(league, target, [6.0, 9.0, 12.0], isotonic=True)
+    text = fitted.format()
+    assert "IMPOSES monotonicity" in text
+    assert "does not test for it" in text
+    assert "may be a real pathwise effect rather than noise" in text
+
+    doc = isotonic_fit.__doc__
+    assert "imposes an assumption" in doc
+    assert "not** automatically Monte" in doc
+    # The old, wrong justification must not come back.
+    assert "as a matter of theory" not in doc
+    assert "cannot reduce championship equity" not in doc
 
 
 # --------------------------------------------------------------------------
@@ -539,6 +785,44 @@ def test_cli_curve_accepts_an_explicit_player_and_isotonic_flag(league, capsys):
     out = capsys.readouterr().out
     assert "requested explicitly" in out
     assert "CE(iso)" in out
+
+
+@pytest.mark.parametrize("lo,hi,step,expected", [
+    ("4", "10", "2", [4.0, 6.0, 8.0, 10.0]),      # divisible
+    ("4", "10", "4", [4.0, 8.0, 10.0]),           # NOT divisible -> short last step
+    ("4", "5", "0.5", [4.0, 4.5, 5.0]),           # decimal
+    ("6", "6", "1", [6.0]),                       # single level
+])
+def test_cli_curve_grid_never_exceeds_max_level(lo, hi, step, expected,
+                                                tmp_path, capsys):
+    """`--min-level 4 --max-level 10 --step 4` must be 4, 8, 10 -- not 4, 8, 12."""
+    from ceauction.cli import main
+
+    path = tmp_path / f"g{lo}_{hi}_{step}.csv"
+    argv = ["curve", "--sims", "40", "--min-level", lo, "--max-level", hi,
+            "--step", step, "--csv", str(path)]
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+
+    rows = list(csv.DictReader(io.StringIO(path.read_text(encoding="utf-8"))))
+    levels = [float(r["level"]) for r in rows]
+    assert levels == pytest.approx(expected)
+    assert max(levels) <= float(hi) + 1e-12
+
+    # The printed header must describe the grid that was actually run.
+    assert f"{len(expected)} levels from {float(lo):g} to {float(hi):g}" in out
+
+
+def test_cli_reports_a_shortened_final_step(capsys):
+    """When the range is not a whole number of steps, say so rather than lie."""
+    from ceauction.cli import main
+
+    assert main(["curve", "--sims", "40", "--min-level", "4",
+                 "--max-level", "10", "--step", "4"]) == 0
+    out = capsys.readouterr().out
+    assert "3 levels from 4 to 10" in out
+    assert "final step of 2" in out
+    assert "not a whole number of steps" in out
 
 
 def test_cli_curve_rejects_a_bad_range(capsys):

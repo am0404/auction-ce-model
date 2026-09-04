@@ -46,11 +46,18 @@ would turn a resolved slope into an unresolved one.
 
 The resolution report
 ---------------------
-:class:`ResolutionReport` answers the question that gates every downstream
-decision: *can this engine tell a 0.002 CE difference from zero, and how long
-would that take?*  It extrapolates the measured paired standard error as
-``se ∝ 1/sqrt(n)`` and prices the answer in seconds using throughput measured
-during the sweep itself, not a hardcoded constant.
+:class:`ResolutionReport` sizes the question that gates every downstream
+decision: *how much simulation would it take to tell a 0.002 CE difference from
+zero, and how long would that run?*  It extrapolates the measured paired
+standard error as ``se ∝ 1/sqrt(n)`` and prices the answer in seconds using
+throughput measured during the sweep itself, not a hardcoded constant.
+
+It is a **pilot estimate scoped to the comparison that produced it**, not a
+capability claim about the engine.  Paired variance tracks the discordance rate
+-- how often the focus team's outcome actually flips -- which varies between
+comparisons, and helping and hurting seasons cancel in the mean while both
+adding to the variance.  A decision that must actually be resolved needs its
+own pilot or an adaptive stopping rule; see :class:`ResolutionReport`.
 """
 
 from __future__ import annotations
@@ -76,6 +83,7 @@ __all__ = [
     "ResolutionReport",
     "MarginalCurve",
     "sweep_marginal_curve",
+    "level_grid",
     "weakest_flex_slot",
     "isotonic_fit",
     "DEFAULT_RESOLUTION_TARGETS",
@@ -164,8 +172,9 @@ class CurvePoint:
     slope_dce_per_point_z: Optional[float] = None
     slope_seasons_ce_differs: Optional[int] = None
 
-    #: Optional isotonic (monotone non-decreasing) display value for
-    #: ``championship_equity``.  Never overwrites the raw estimate.
+    #: Optional isotonic display value for ``championship_equity``, produced by
+    #: *imposing* monotonicity rather than testing for it.  Never overwrites the
+    #: raw estimate; see :func:`isotonic_fit`.
     ce_isotonic: Optional[float] = None
 
     @property
@@ -184,25 +193,60 @@ class ResolutionTarget:
     live_auction_feasible: bool
 
     def verdict(self, budget: float = LIVE_AUCTION_BUDGET_SECONDS) -> str:
+        """A statement about *this pilot*, not a general capability claim.
+
+        The wording is deliberately scoped: what was measured is that one
+        comparison of this shape, on this hardware, at this discordance rate,
+        would take this long.  Whether some other decision resolves in time is
+        a question about that decision, not one this row answers.
+        """
         if self.live_auction_feasible:
-            return (f"feasible live ({self.required_seconds:.0f}s < {budget:.0f}s "
-                    f"budget)")
+            return (f"within budget in this pilot ({self.required_seconds:.0f}s "
+                    f"< {budget:.0f}s)")
         if self.required_seconds < 600:
-            return f"offline only ({self.required_seconds / 60:.1f} min per comparison)"
+            return (f"over budget in this pilot; offline "
+                    f"({self.required_seconds / 60:.1f} min per comparison)")
         if self.required_seconds < 36_000:
-            return f"IMPRACTICAL live ({self.required_seconds / 3600:.1f} h per comparison)"
-        return (f"IMPRACTICAL at any scale here "
+            return (f"far over budget in this pilot "
+                    f"({self.required_seconds / 3600:.1f} h per comparison)")
+        return (f"far over budget in this pilot "
                 f"({self.required_seconds / 86_400:.1f} days per comparison)")
 
 
 @dataclass(frozen=True)
 class ResolutionReport:
-    """Can this engine resolve differences small enough to price with?
+    """A **pilot estimate** of what resolving a small delta-CE would cost.
 
-    Extrapolation assumes the paired standard error falls as ``1/sqrt(n)``,
-    which is exact for a mean of i.i.d. per-season differences.  Runtime uses
-    ``seconds_per_season`` measured during this sweep, so it reflects this
-    machine, this pool size and this build rather than a remembered number.
+    Read every number here as scoped to the comparison that produced it: this
+    synthetic curve, this roster, this hardware, this pool size, and the
+    discordance rate actually observed between these adjacent levels.  It is
+    not a general statement about what the engine can resolve.
+
+    **What the extrapolation assumes.**  That the paired standard error falls
+    as ``1/sqrt(n)``, which is exact for a mean of i.i.d. per-season
+    differences, and that the *per-season variance* of some future comparison
+    resembles the median observed here.  The first assumption is safe.  The
+    second is not, and it does not err in a predictable direction:
+
+    * the paired difference is zero in every season the change did not decide,
+      so its variance tracks the **discordance rate** -- how often the focus
+      team's championship outcome actually flips -- which varies from
+      comparison to comparison and is not a simple function of the effect size;
+    * the difference takes values in ``{-1, 0, +1}``, so seasons where the
+      change helps and seasons where it hurts **cancel in the mean while both
+      adding to the variance**.  A comparison with a small mean and a high flip
+      rate is noisier than one with the same mean and a low flip rate.
+
+    Both push the required sample size in whichever direction that particular
+    comparison happens to sit.  So this is a scenario-specific pilot, not a
+    bound, and certainly not a conservative one.
+
+    **What to do with it.**  Treat it as sizing information for a comparison of
+    this shape.  Any decision that must actually be resolved needs either its
+    own short pilot run to estimate that comparison's discordance rate, or an
+    adaptive stopping rule that simulates until the paired interval excludes
+    zero (or until a wall-clock budget is spent, whichever comes first).
+    Neither is built here.
     """
 
     n_sims: int
@@ -230,12 +274,17 @@ class ResolutionReport:
             f"  smallest adjacent dCE this run resolves at |z|=2: "
             f"{self.smallest_resolved_adjacent_dce:.5f}",
             "",
-            "  A paired difference of two champion indicators is 0 in every season the",
-            "  change did not decide, so its variance is about the rate at which the",
-            "  champion differs -- which itself shrinks with the effect size. The counts",
-            "  below extrapolate the median adjacent SE and are therefore CONSERVATIVE:",
-            "  a genuinely smaller effect differs in fewer seasons and needs somewhat",
-            "  fewer simulations than shown.",
+            "  PILOT ESTIMATE, SCOPED TO THIS COMPARISON. The counts below extrapolate",
+            "  the median adjacent SE observed above as se ~ 1/sqrt(n). That is exact",
+            "  for the sample size, but it assumes a future comparison has similar",
+            "  per-season variance -- and that variance tracks the DISCORDANCE RATE (how",
+            "  often the focus team's outcome actually flips), which differs between",
+            "  comparisons and is not a simple function of effect size. The difference",
+            "  also takes values in {-1, 0, +1}, so helping and hurting seasons cancel",
+            "  in the mean while both add to the variance. These counts are therefore",
+            "  neither a bound nor conservative: they size a comparison of THIS shape.",
+            "  A decision that must actually be resolved needs its own pilot run, or an",
+            "  adaptive rule that simulates until the paired interval excludes zero.",
             "",
             f"  {'target dCE':>10}  {'sims needed':>13}  {'seconds/comparison':>19}   verdict",
             f"  {'-' * 10}  {'-' * 13}  {'-' * 19}   {'-' * 40}",
@@ -391,8 +440,10 @@ class MarginalCurve:
         out.append("seasons, divided by the step. It is not a difference of two baseline")
         out.append("deltas, which would treat two highly correlated estimates as independent.")
         if show_iso:
-            out.append("CE(iso) is a monotone display fit. The raw CE, its interval and every")
-            out.append("delta to its left are unchanged by it.")
+            out.append("CE(iso) IMPOSES monotonicity; it does not test for it. Changing a")
+            out.append("player's level changes which players get started, so a local decline")
+            out.append("in raw CE may be a real pathwise effect rather than noise. The raw CE,")
+            out.append("its interval and every delta to its left are unchanged by it.")
         out.append("")
         out.append(bar)
         out.append("MONTE CARLO RESOLUTION -- can this engine price with these numbers?")
@@ -409,12 +460,25 @@ class MarginalCurve:
 def isotonic_fit(values: Sequence[float], weights: Optional[Sequence[float]] = None) -> List[float]:
     """Pool-adjacent-violators fit, non-decreasing, weighted.
 
-    CE is monotone non-decreasing in a player's level as a matter of theory:
-    more expected points cannot reduce championship equity when nothing else
-    changes.  Monte Carlo noise nonetheless produces local dips, and a reader
-    can mistake one for a real feature of the curve.  This is offered as a
-    *display* aid only; it is never written over the raw estimates, and both
-    are always reported side by side.
+    **This imposes an assumption; it does not reveal one.**  Monotonicity of CE
+    in a player's level is *plausible* but not guaranteed, and it is worth
+    being precise about why.  The simulated manager sets lineups from noisy
+    pregame projections, so raising a player's level changes which players he
+    starts, in which weeks.  Those changed start decisions propagate: a
+    different starter means a different team score, a different league median
+    for all twelve teams, different records, different seeding and a different
+    bracket.  Nothing forces that pathwise chain to be favourable at every
+    level, so a local decline in the raw curve is **not** automatically Monte
+    Carlo noise -- it may be a real feature of this roster and this decision
+    rule.
+
+    Use this as a *display aid* when a monotone reading is what you want, and
+    read it as "the curve under an imposed monotonicity assumption".  It is
+    never written over the raw estimates: :class:`CurvePoint` keeps
+    ``championship_equity``, its interval, every delta and every slope exactly
+    as measured, and the report prints both side by side.  If the fit differs
+    visibly from the raw values, that is information about the assumption, not
+    a correction to the data.
 
     Weighted by ``1 / variance`` when weights are supplied, so a noisy level
     is pulled toward its neighbours more readily than a precise one.
@@ -470,8 +534,67 @@ def _candidate(spec: PlayerSpec, level: float) -> PlayerSpec:
     ``crn_key`` is pinned to the original stream key explicitly rather than
     left to default, so this stays correct even if the caller passes a spec
     that already carried a custom key.
+
+    **Published weekly projections move with the level.**  When a spec carries
+    a ``weekly_projection_override`` -- real published projections, one per
+    simulated week -- that array *replaces* the modelled projection entirely
+    (``worlds._build_pregame``).  Changing ``base_mean`` alone would therefore
+    move the player's realized scoring while leaving the manager's pregame view
+    frozen at the original level, so the sweep would be measuring "a player who
+    quietly got better and whose projections never noticed" rather than "a
+    better player".  Every level of the curve would share one pregame view, the
+    lineup decisions would be identical everywhere, and the measured slope
+    would collapse toward the value of unforecastable production.
+
+    So the override is shifted by the same delta as ``base_mean``::
+
+        delta = level - spec.base_mean
+        override[w] -> override[w] + delta      for every week w
+
+    which preserves the *shape* of the published projection -- its bye weeks,
+    its matchup swings, its in-season drift -- while moving its overall level.
+    That is the intended meaning of "vary this player's projected level".
+
+    A spec with no override is untouched by this, and its projection continues
+    to come from the model as before.
     """
-    return with_overrides(spec, base_mean=float(level), crn_key=spec.stream_key)
+    changes = dict(base_mean=float(level), crn_key=spec.stream_key)
+    if spec.weekly_projection_override is not None:
+        delta = float(level) - float(spec.base_mean)
+        changes["weekly_projection_override"] = tuple(
+            float(v) + delta for v in spec.weekly_projection_override
+        )
+    return with_overrides(spec, **changes)
+
+
+def level_grid(
+    min_level: float, max_level: float, step: float, tol: float = 1e-9
+) -> List[float]:
+    """Levels from ``min_level`` to ``max_level`` in ``step`` increments.
+
+    The endpoint is always included and is **never exceeded**.  When the range
+    is not an exact multiple of the step the final increment is shortened
+    rather than overshooting: ``level_grid(4, 10, 4)`` is ``[4, 8, 10]``, not
+    ``[4, 8, 12]``.
+
+    The last point is snapped to ``max_level`` exactly rather than left as an
+    accumulated ``min + k * step``, so a caller asking for 22.0 gets 22.0 and
+    not 21.999999999999996.
+    """
+    if step <= 0.0:
+        raise ValueError("step must be positive")
+    if max_level < min_level - tol:
+        raise ValueError("max_level must be >= min_level")
+    if max_level <= min_level + tol:
+        return [float(min_level)]
+
+    n_full = int(math.floor((max_level - min_level) / step + tol))
+    levels = [float(min_level) + k * float(step) for k in range(n_full + 1)]
+    if levels[-1] < max_level - tol:
+        levels.append(float(max_level))
+    else:
+        levels[-1] = float(max_level)
+    return levels
 
 
 def _resolution(
@@ -549,7 +672,11 @@ def sweep_marginal_curve(
     player_id:
         The rostered player whose slot is varied.  He must be on ``team``.
         His position, variance, injury profile, correlation loadings, weekly
-        state and signal precision are held fixed; only ``base_mean`` moves.
+        state and signal precision are held fixed.  What moves is his
+        *projected level*: ``base_mean``, and — if he carries real published
+        projections — every ``weekly_projection_override`` entry shifted by the
+        same delta, so the published shape is preserved while its level moves.
+        See :func:`_candidate`.
     baseline_level:
         Replacement-level anchor.  Every ``delta_ce`` is measured against it.
     levels:
@@ -561,18 +688,21 @@ def sweep_marginal_curve(
         As for :func:`ceauction.simulate.simulate_seasons`.  Results are
         identical for any ``chunk``.
     isotonic:
-        Add a monotone display column.  Raw estimates and intervals are
-        retained unchanged; see :func:`isotonic_fit`.
+        Add a display column that *imposes* monotonicity on CE.  It is an
+        assumption, not a measurement -- changing a player's level changes
+        which players get started, so a local decline in the raw curve is not
+        automatically noise.  Raw estimates and intervals are retained
+        unchanged and remain primary; see :func:`isotonic_fit`.
 
     Notes
     -----
-    Every level is the same ``player_id`` with one field changed, so his
+    Every level is the same ``player_id`` at a different projected level, so his
     ``crn_key`` — and therefore his injury, bye, spike, signal, weekly-state
     and idiosyncratic draws — is identical across levels, as is every other
     player's and the schedule permutation.  What legitimately *does* move with
-    his level is his own realized scoring, his team's weekly totals, and hence
-    the league median and every team's record.  That is the effect being
-    measured, not a leak.
+    his level is his own realized scoring, his own pregame projection, his
+    team's weekly totals, and hence the league median and every team's record.
+    That is the effect being measured, not a leak.
     """
     settings = settings or rosters.settings
     if player_id not in rosters.rosters[team].player_ids:
