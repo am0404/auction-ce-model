@@ -32,8 +32,9 @@ and fails with "editable mode currently requires a setuptools-based build".
 .venv/bin/ce-lab lineup --weeks 1 8 14     # why each starter was chosen
 .venv/bin/ce-lab experiments               # list the controlled experiments
 .venv/bin/ce-lab run --all --sims 12000    # the full CE laboratory
+.venv/bin/ce-lab curve --sims 16000        # the marginal CE curve for one slot
 .venv/bin/ce-lab bench                     # runtime + Monte Carlo uncertainty
-.venv/bin/python -m pytest                 # 192 tests
+.venv/bin/python -m pytest                 # 230 tests
 ```
 
 Two of the twelve experiments are **controls** and are meant to read near zero.
@@ -49,6 +50,31 @@ ever makes the first kind.
 | `HANDOFF.md` | What was built, how to run it, results, and the next step |
 | `OPEN_QUESTIONS.md` | Decisions that need real data or your judgement |
 | `docs/example_ce_lab_output.txt` | A full CE-laboratory run |
+
+## The marginal CE curve
+
+```bash
+ce-lab curve --sims 16000 --min-level 4 --max-level 22 --step 1 --csv curve.csv
+```
+
+Sweeps one roster slot's projected points from replacement level to elite,
+holding everything else fixed, and reports `CE(level)` with honest uncertainty
+at every step. This is the object any auction pricing scheme would be a
+transformation of — but pricing itself is **not** built: no dollar values, no
+opening or live max bids, no inflation model, no roster-completion solver.
+
+Every level is the same player with one field changed, so he keeps his
+`crn_key` and therefore his injuries, byes, weekly conditions, signals and
+idiosyncratic draws across the whole sweep; every other player and the schedule
+are untouched. Differences between levels are matched per-season differences,
+including the **adjacent slopes**, which are computed as their own paired
+comparison rather than as a difference of two baseline deltas.
+
+The command also prints a **Monte Carlo resolution report**: the observed
+paired standard error, how many simulations a delta-CE of 0.005 / 0.002 / 0.001
+would need to clear |z| = 2, and — using throughput measured during the sweep —
+how long that would take. It says plainly which targets are out of reach inside
+a live auction clock.
 
 ## The two rules that shape everything
 

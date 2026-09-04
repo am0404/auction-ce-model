@@ -43,15 +43,28 @@ __all__ = [
     "team_report",
     "championship_equity",
     "compare_scenarios",
+    "paired_se",
     "wilson_interval",
 ]
 
 
-def _se_mean(x: np.ndarray) -> float:
-    n = x.shape[0]
+def paired_se(d: np.ndarray) -> float:
+    """Standard error of the mean of a per-season paired difference.
+
+    ``d`` must be the *matched* difference (one entry per simulated season),
+    not two separately averaged quantities.  That is the whole point of the
+    design: seasons in which the change made no difference contribute a zero
+    to ``d`` and shrink the estimate, which differencing two independent means
+    cannot do.
+    """
+    n = d.shape[0]
     if n < 2:
         return float("nan")
-    return float(np.std(x, ddof=1) / math.sqrt(n))
+    return float(np.std(d, ddof=1) / math.sqrt(n))
+
+
+#: Internal alias kept for the existing call sites in this module.
+_se_mean = paired_se
 
 
 def wilson_interval(successes: int, n: int, z: float = 1.96) -> Tuple[float, float]:

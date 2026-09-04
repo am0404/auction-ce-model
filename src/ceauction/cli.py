@@ -4,6 +4,7 @@
     ce-lab lineup        show one team-week's lineup with a reason for every slot
     ce-lab experiments   list the controlled CE experiments
     ce-lab run <key>     run one experiment (or --all)
+    ce-lab curve         marginal CE curve for one roster slot, + resolution report
     ce-lab bench         runtime benchmarks and Monte Carlo uncertainty
 
 Everything it touches is SYNTHETIC data (see ``synthetic.py``).
@@ -20,6 +21,12 @@ import numpy as np
 
 from .benchmark import benchmark, format_table, profile_stages
 from .ce import team_report
+from .curve import (
+    DEFAULT_RESOLUTION_TARGETS,
+    LIVE_AUCTION_BUDGET_SECONDS,
+    sweep_marginal_curve,
+    weakest_flex_slot,
+)
 from .experiments import EXPERIMENTS, run_all, run_experiment
 from .lineup import select_lineup
 from .simulate import DEFAULT_CHUNK, pregame_week, simulate_seasons
@@ -162,6 +169,70 @@ def cmd_run(args) -> int:
     return 0
 
 
+def cmd_curve(args) -> int:
+    """Sweep one roster slot from replacement level to elite.
+
+    The default target is the focus team's weakest FLEX-eligible player,
+    because that is the roster spot a $1-$3 auction decision actually turns
+    on -- and therefore the spot whose marginal CE has to be resolvable if
+    pricing is going to work at the bottom of the roster at all.
+    """
+    rosters = _league(args)
+    if args.player_id is not None:
+        spec = rosters.spec(args.player_id)
+        chosen = "requested explicitly"
+    else:
+        spec = weakest_flex_slot(rosters, args.team)
+        chosen = "weakest FLEX-eligible player on the focus team"
+
+    if args.step <= 0:
+        print("--step must be positive", file=sys.stderr)
+        return 2
+    if args.max_level < args.min_level:
+        print("--max-level must be >= --min-level", file=sys.stderr)
+        return 2
+
+    n_steps = int(round((args.max_level - args.min_level) / args.step))
+    levels = [args.min_level + k * args.step for k in range(n_steps + 1)]
+    baseline = args.baseline if args.baseline is not None else args.min_level
+
+    print(BANNER)
+    print(f"sweeping {spec.name} ({spec.position.label}, base_mean "
+          f"{spec.base_mean:.2f}) -- {chosen}")
+    print(f"{len(levels)} levels from {levels[0]:.2f} to {levels[-1]:.2f} in steps of "
+          f"{args.step:g}, {args.sims:,} seasons each\n")
+
+    t0 = time.perf_counter()
+    curve = sweep_marginal_curve(
+        rosters,
+        team=args.team,
+        player_id=spec.player_id,
+        baseline_level=baseline,
+        levels=levels,
+        n_sims=args.sims,
+        seed=args.seed,
+        chunk=args.chunk,
+        isotonic=args.isotonic,
+        live_auction_budget_seconds=args.live_budget,
+        notes=(f"only base_mean varies; position, variance, injury profile, "
+               f"weekly state, signal precision and crn_key are held fixed"),
+    )
+    dt = time.perf_counter() - t0
+    print(curve.format())
+    print()
+    print(f"total sweep runtime {dt:.1f}s "
+          f"({len(levels)} levels x {args.sims:,} seasons)")
+
+    if args.csv:
+        curve.to_csv(args.csv)
+        print(f"wrote {args.csv}")
+
+    print("\nREMINDER: synthetic inputs. This measures whether the ENGINE can "
+          "resolve\nmarginal CE at a useful scale. It is not a price, and no "
+          "dollar value,\nbid or roster-completion decision follows from it.")
+    return 0
+
+
 def cmd_bench(args) -> int:
     print(BANNER)
     counts = args.counts or [250, 1000, 4000, 16000]
@@ -202,6 +273,25 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--all", action="store_true")
     s.add_argument("--sims", type=int, default=4000)
     s.set_defaults(func=cmd_run)
+
+    s = sub.add_parser("curve",
+                       help="marginal CE curve for one roster slot + resolution report")
+    s.add_argument("--team", type=int, default=0, help="focus team index")
+    s.add_argument("--player-id", type=int, default=None,
+                   help="roster slot to vary (default: the focus team's weakest "
+                        "FLEX-eligible player)")
+    s.add_argument("--sims", type=int, default=16000, help="seasons per level")
+    s.add_argument("--min-level", type=float, default=4.0)
+    s.add_argument("--max-level", type=float, default=22.0)
+    s.add_argument("--step", type=float, default=1.0)
+    s.add_argument("--baseline", type=float, default=None,
+                   help="replacement-level anchor (default: --min-level)")
+    s.add_argument("--csv", default=None, help="also write the curve to this path")
+    s.add_argument("--isotonic", action="store_true",
+                   help="add a monotone display column; raw estimates are kept")
+    s.add_argument("--live-budget", type=float, default=LIVE_AUCTION_BUDGET_SECONDS,
+                   help="seconds available per decision in a live auction")
+    s.set_defaults(func=cmd_curve)
 
     s = sub.add_parser("bench", help="runtime benchmarks")
     s.add_argument("--counts", type=int, nargs="+", default=None)
