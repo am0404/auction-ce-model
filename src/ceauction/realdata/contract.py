@@ -43,6 +43,7 @@ from .scoring import (
     ScoringBreakdown,
     season_points_from_components,
 )
+from .coverage import AliasBook
 from .sources import (
     DispersionFits,
     FantasyProsRow,
@@ -280,6 +281,7 @@ def build_contract(
     league_config_id: str = TARGET_LEAGUE_CONFIG_ID,
     generated_at: Optional[str] = None,
     include_expert_labels: bool = True,
+    aliases: Optional[AliasBook] = None,
 ) -> BuildResult:
     """Join the sources into one normalized, self-describing payload.
 
@@ -298,7 +300,15 @@ def build_contract(
     warnings: List[str] = []
     reports: Dict[str, MatchReport] = {}
 
-    proj_index = IdentityIndex(projections, lambda r: r.name,
+    # Aliases rewrite the key the projection spine joins on. A reviewed
+    # equivalence therefore reaches every other source at once, and those
+    # sources keep their own spellings untouched.
+    book = aliases or AliasBook()
+
+    def joined_key(name: str) -> str:
+        return book.resolve(normalize_name(name))
+
+    proj_index = IdentityIndex(projections, lambda r: book.resolve(r.name),
                                lambda r: r.position, source="projections")
     fp_index = IdentityIndex(fantasypros, lambda r: r.name,
                              lambda r: r.position, source="fantasypros")
@@ -321,7 +331,7 @@ def build_contract(
     players: List[Dict[str, object]] = []
     seen_keys: set = set()
     for row in projections:
-        key = normalize_name(row.name)
+        key = joined_key(row.name)
         if not key:
             continue
         if key in seen_keys:
@@ -343,12 +353,17 @@ def build_contract(
 
         games_missed = prof.proj_games_missed if prof else None
 
+        override = book.override_for(key)
+        team_value = override.get("nfl_team", meta.team if meta else None)
+        bye_value = override.get(
+            "bye_week", meta.bye_week if meta and meta.bye_week else None)
+
         player: Dict[str, object] = {
             "player_key": key.replace(" ", "_"),
             "name": row.name,
             "position": row.position,
-            "nfl_team": (meta.team if meta else None),
-            "bye_week": (meta.bye_week if meta and meta.bye_week else None),
+            "nfl_team": team_value,
+            "bye_week": int(bye_value) if bye_value else None,
             "stat_line": {
                 "pass_yards": row.pass_yards,
                 "pass_tds": row.pass_tds,

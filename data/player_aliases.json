@@ -1,0 +1,13 @@
+{
+  "notes": "Reviewed name equivalences between the projection source and the identity source, plus per-player overrides. Every entry is a human judgement recorded as data. Automatic fuzzy matching is deliberately NOT used: it would resolve these too, and would also silently join two different players with similar names, with no way to notice afterwards. Player names are public facts; no projection value, ranking or other proprietary figure appears in this file. Scope: every unresolved identity affecting the top 240 by recomputed season points.",
+  "aliases": {
+    "Marquise Brown": "Hollywood Brown"
+  },
+  "alias_reasons": {
+    "Marquise Brown": "The identity source lists him under the nickname 'Hollywood Brown'. Same player; verified by position (WR) and by there being exactly one 'Hollywood Brown' and no 'Marquise Brown' in that source."
+  },
+  "overrides": {},
+  "known_unresolvable": {
+    "Tyreek Hill": "Matched successfully, but the identity source lists his team as 'FA' with no bye week. That is a correct description of a free agent, not a join failure: a player with no team has no bye. Supplying one would be fabrication. Revisit once he signs."
+  }
+}

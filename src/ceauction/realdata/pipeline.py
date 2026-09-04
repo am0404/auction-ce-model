@@ -18,6 +18,7 @@ from typing import Dict, Optional
 from ..league import DEFAULT_LEAGUE, LeagueSettings
 from ..scoring import HALF_PPR, ScoringRules
 from .contract import GAMES_BASIS, TARGET_LEAGUE_CONFIG_ID, BuildResult, build_contract
+from .coverage import AliasBook, load_alias_book
 from .report import build_report, format_report
 from .sources import (
     load_dispersion_fits,
@@ -38,6 +39,8 @@ class IngestionPaths:
     fantasypros: Optional[Path] = None
     injuries: Optional[Path] = None
     fits: Optional[Path] = None
+    aliases: Optional[Path] = None
+    """Reviewed name equivalences and per-player overrides."""
 
 
 @dataclass
@@ -89,11 +92,14 @@ def ingest(
     if paths.fits is not None:
         fits, fits_src = load_dispersion_fits(paths.fits)
 
+    book = load_alias_book(paths.aliases)
+
     build = build_contract(
         projections, proj_src, fantasypros, fp_src, injuries, inj_src,
         fits, fits_src, settings=settings, scoring=scoring,
         games_basis=games_basis, fumble_interpretation=fumble_interpretation,
         league_config_id=league_config_id, generated_at=generated_at,
+        aliases=book,
     )
     validation = validate_contract(build.payload)
     report = build_report(build.payload, build.reports, validation,

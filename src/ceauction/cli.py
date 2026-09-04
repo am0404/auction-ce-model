@@ -286,6 +286,7 @@ def cmd_ingest(args) -> int:
         fantasypros=Path(args.fantasypros) if args.fantasypros else None,
         injuries=Path(args.injuries) if args.injuries else None,
         fits=Path(args.fits) if args.fits else None,
+        aliases=Path(args.aliases) if args.aliases else None,
     )
 
     print(BANNER)
@@ -389,6 +390,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--injuries", default=None, help="injury profile JSON")
     s.add_argument("--fits", default=None,
                    help="fitted positional dispersion/availability JSON")
+    s.add_argument("--aliases", default="data/player_aliases.json",
+                   help="reviewed name equivalences and per-player overrides")
     s.add_argument("--contract-out", default=None,
                    help="where to write the contract. Contains real player "
                         "rows, so it must sit under local_data/")
