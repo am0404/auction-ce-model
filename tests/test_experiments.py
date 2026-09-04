@@ -114,3 +114,34 @@ def test_focus_team_players_are_identical_across_the_control_arms(league):
 def test_unknown_experiment_key_is_rejected():
     with pytest.raises(KeyError, match="unknown experiment"):
         run_experiment("does-not-exist", 10, SEED)
+
+
+def test_floored_mean_matches_a_monte_carlo_estimate():
+    from ceauction.experiments import floored_mean
+    rs = np.random.default_rng(11)
+    for mu, sd in ((12.0, 4.0), (12.0, 11.0), (3.0, 7.0), (-2.0, 5.0)):
+        draws = np.maximum(0.0, mu + sd * rs.standard_normal(400_000))
+        assert floored_mean(mu, sd) == pytest.approx(float(draws.mean()), abs=0.03)
+    assert floored_mean(5.0, 0.0) == 5.0
+    assert floored_mean(-5.0, 0.0) == 0.0
+
+
+def test_match_floored_mean_inverts_floored_mean():
+    from ceauction.experiments import floored_mean, match_floored_mean
+    for target, sd in ((12.0, 11.0), (6.0, 7.0), (20.0, 3.0), (1.0, 9.0)):
+        mu = match_floored_mean(target, sd)
+        assert floored_mean(mu, sd) == pytest.approx(target, abs=1e-8)
+
+
+def test_volatility_experiment_holds_realized_scoring_flat(league):
+    """The volatility arms must differ in shape, not in expected points.
+
+    Without the zero-floor correction the volatile arm quietly scores about
+    0.8 pts/week more, and the experiment measures a level difference.
+    """
+    out = run_experiment("volatility", 1500, SEED, base=league)
+    for c in out.comparisons:
+        assert abs(c.delta_points_per_week) < 0.15, (
+            f"{c.label}: arms differ in realized scoring by "
+            f"{c.delta_points_per_week:+.3f} pts/week"
+        )

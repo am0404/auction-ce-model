@@ -28,6 +28,7 @@ from .ce import PairedComparison, compare_scenarios
 from .league import DEFAULT_LEAGUE, LeagueSettings, Position
 from .players import Contingency, PlayerSpec, ShockLoading, with_overrides
 from .roster import Roster, RosterSet
+from .stats import floored_mean, match_floored_mean
 from .synthetic import SyntheticConfig, make_synthetic_league
 
 __all__ = [
@@ -157,10 +158,18 @@ class ExperimentOutput:
             out.append(f"READING: {self.interpretation}")
         return "\n".join(out)
 
-    def summary_rows(self) -> List[Tuple[str, float, float, float]]:
-        """``(label, delta_CE, se, z)`` per comparison, for the summary table."""
+    def summary_rows(self) -> List[Tuple[str, float, float, float, float, float]]:
+        """One row per comparison for the summary table.
+
+        Carries the scoring delta alongside the CE delta: when a CE difference
+        is not significant, the scoring delta says whether the mechanism failed
+        to fire at all or merely produced an effect below the resolution of the
+        chosen sample size.  Those are very different diagnoses.
+        """
         return [
-            (c.label, c.delta_ce, c.delta_ce_se, c.delta_ce_z) for c in self.comparisons
+            (c.label, c.delta_ce, c.delta_ce_se, c.delta_ce_z,
+             c.delta_points_per_week, c.delta_points_se)
+            for c in self.comparisons
         ]
 
 
@@ -229,35 +238,55 @@ def exp_marginal_point(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
 
 
 def exp_second_qb(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
+    """Run the same QB-vs-WR swap on two rosters: one already deep at QB, one not.
+
+    Running it only once would produce a single number that looks like a
+    positional constant.  It is not one, and showing both sides is the point.
+    """
     ranked = roster_by_strength(base, FOCUS_TEAM)
-    victim = ranked[9]  # a mid-bench player
+    victim = ranked[9]
     level = 14.0
     shared = dict(week_sd=6.5, season_sd=2.0, weekly_injury_hazard=0.03,
                   injury_mean_weeks=2.2, proj_noise_sd=1.0)
-    qb = lab_player(LAB_ID_BASE + 1, "LAB-QB2", Position.QB, level,
-                    crn_key=LAB_ID_BASE + 1, **shared)
-    wr = lab_player(LAB_ID_BASE + 2, "LAB-FLEX", Position.WR, level,
-                    crn_key=LAB_ID_BASE + 1, **shared)
-    a = swap_in(base, FOCUS_TEAM, victim.player_id, qb)
-    b = swap_in(base, FOCUS_TEAM, victim.player_id, wr)
+
+    # A roster that is genuinely short at QB: its backup QBs are cut to
+    # replacement level, so the SUPERFLEX has to be filled by a flex player.
+    thin = base
+    backups = [s for s in ranked if s.position is Position.QB][1:]
+    for b in backups:
+        thin = tweak(thin, b.player_id, base_mean=3.0)
+
+    comps = []
+    for tag, root in (("roster already has two startable QBs", base),
+                      ("roster is thin at QB (backups cut to 3.0)", thin)):
+        qb = lab_player(LAB_ID_BASE + 1, "LAB-QB2", Position.QB, level,
+                        crn_key=LAB_ID_BASE + 1, **shared)
+        wr = lab_player(LAB_ID_BASE + 2, "LAB-FLEX", Position.WR, level,
+                        crn_key=LAB_ID_BASE + 1, **shared)
+        comps.append(
+            _run(swap_in(root, FOCUS_TEAM, victim.player_id, qb),
+                 swap_in(root, FOCUS_TEAM, victim.player_id, wr),
+                 f"QB vs WR at {level:.1f} pts/week -- {tag}", n, seed,
+                 f"QB at {level:.1f} pts/week",
+                 f"WR at {level:.1f} pts/week",
+                 notes="identical mean, variance, injury risk and CRN key; the only "
+                       "difference is the position label and therefore slot eligibility")
+        )
     return ExperimentOutput(
         key="second-qb",
         title="A second QB vs an equally priced flex alternative",
         question=("With a superflex that does not require a QB, is a startable second "
                   "QB worth more than a WR with the same mean and variance?"),
-        comparisons=(
-            _run(a, b, f"second QB vs flex WR, both {level:.1f} pts/week", n, seed,
-                 "QB at 14.0 pts/week in the bench slot",
-                 "WR at 14.0 pts/week in the same slot",
-                 notes="identical mean, variance, injury risk and CRN key; the only "
-                       "difference is the position label and therefore slot eligibility"),
-        ),
+        comparisons=tuple(comps),
         interpretation=(
-            "The two players are distributionally identical. Any difference is purely "
-            "positional: a QB can fill QB or SUPERFLEX, a WR can fill WT, FLEX or "
-            "SUPERFLEX. Which is worth more depends entirely on which slot the roster "
-            "is actually short of, which is why this must be measured per roster rather "
-            "than asserted by a positional modifier."
+            "The two players are distributionally identical, so any difference is "
+            "purely positional: a QB fills QB or SUPERFLEX; a WR fills WT, FLEX or "
+            "SUPERFLEX. The sign therefore flips with the roster. On a roster that "
+            "already starts two QBs, a third is nearly worthless while the WR upgrades "
+            "a real flex slot. On a roster thin at QB, the QB claims a SUPERFLEX that "
+            "was being filled by a weak flex player. This is exactly why a positional "
+            "modifier is the wrong shape of answer and a per-roster CE measurement is "
+            "the right one."
         ),
     )
 
@@ -270,20 +299,31 @@ def exp_second_qb(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
 def exp_volatility(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
     ranked = roster_by_strength(base, FOCUS_TEAM)
     comps = []
+    stable_sd, volatile_sd = 4.0, 11.0
     for label, idx in (("starter-level (4th-strongest)", 3), ("flex-level (8th-strongest)", 7)):
         victim = ranked[idx]
         level = victim.base_mean
+        # Scores are floored at zero, so the volatile player would otherwise
+        # realize a *higher* mean than the stable one at the same base_mean.
+        # Solve for the base_mean that equalises expected realized points, so
+        # the experiment measures volatility and nothing else.
+        target = floored_mean(level, stable_sd)
+        volatile_level = match_floored_mean(target, volatile_sd)
         stable = lab_player(LAB_ID_BASE + 10 + idx, f"LAB-STABLE-{idx}", victim.position,
-                            level, week_sd=4.0, crn_key=LAB_ID_BASE + 10 + idx)
+                            level, week_sd=stable_sd, crn_key=LAB_ID_BASE + 10 + idx)
         volatile = lab_player(LAB_ID_BASE + 20 + idx, f"LAB-VOLATILE-{idx}", victim.position,
-                              level, week_sd=11.0, crn_key=LAB_ID_BASE + 10 + idx)
+                              volatile_level, week_sd=volatile_sd,
+                              crn_key=LAB_ID_BASE + 10 + idx)
         comps.append(
             _run(swap_in(base, FOCUS_TEAM, victim.player_id, volatile),
                  swap_in(base, FOCUS_TEAM, victim.player_id, stable),
-                 f"volatile (sd 11.0) vs stable (sd 4.0) at {label}", n, seed,
-                 f"{level:.1f} pts/week, weekly sd 11.0",
-                 f"{level:.1f} pts/week, weekly sd 4.0",
-                 notes="identical means and identical CRN key; only weekly sd differs")
+                 f"volatile (sd {volatile_sd:.1f}) vs stable (sd {stable_sd:.1f}) "
+                 f"at {label}", n, seed,
+                 f"weekly sd {volatile_sd:.1f}, base {volatile_level:.2f}",
+                 f"weekly sd {stable_sd:.1f}, base {level:.2f}",
+                 notes=f"base means differ ({volatile_level:.2f} vs {level:.2f}) "
+                       f"precisely so that expected *realized* points match at "
+                       f"{target:.2f}/week despite the zero floor; identical CRN key")
         )
     return ExperimentOutput(
         key="volatility",
@@ -383,7 +423,10 @@ def exp_concentration(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
                  "18/6/6 vs 10/10/10 across three WR spots", n, seed,
                  "one strong WR (18.0) plus two replacement (6.0)",
                  "three even WRs (10.0 each)",
-                 notes="equal total projection, equal weekly sd, equal injury risk"),
+                 notes="equal total projection (30.0), equal weekly sd, equal injury "
+                       "risk. Note the zero floor gives the 6.0 players a small "
+                       "realized-mean bonus, so about 0.8 of the scoring gap below "
+                       "is the floor rather than the lineup effect"),
         ),
         interpretation=(
             "Only some of these three players start in any given week, so the "
@@ -402,10 +445,12 @@ def exp_concentration(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
 
 def exp_injury(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
     ranked = roster_by_strength(base, FOCUS_TEAM)
-    victim = ranked[2]
-    level = victim.base_mean
+    # Use a genuinely valuable, every-week starter: availability risk on a
+    # marginal player is worth too little to resolve at any sane sample size.
+    victim = ranked[1]
+    level = max(victim.base_mean, 17.0)
     comps = []
-    for hazard_hi in (0.06, 0.10):
+    for hazard_hi in (0.08, 0.16):
         healthy = lab_player(LAB_ID_BASE + 50, "LAB-HEALTHY", victim.position, level,
                              week_sd=7.0, crn_key=LAB_ID_BASE + 50,
                              weekly_injury_hazard=0.02, injury_mean_weeks=2.5)
@@ -443,7 +488,9 @@ def exp_injury(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
 def exp_bench_correlation(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
     ranked = roster_by_strength(base, FOCUS_TEAM)
     victims = [s for s in ranked if s.position in (Position.WR, Position.TE)][-2:]
-    level, total_sd, beta = 9.0, 8.0, 5.0
+    # High enough that these two are genuinely in the weekly decision, and a
+    # large enough loading that the dependence structure has room to matter.
+    level, total_sd, beta = 11.5, 9.0, 7.0
     idio = _matched_variance(total_sd, beta)
 
     def build(group_ids):
@@ -466,9 +513,9 @@ def exp_bench_correlation(base: RosterSet, n: int, seed: int) -> ExperimentOutpu
                   "matter whether their good weeks arrive together?"),
         comparisons=(
             _run(correlated, independent,
-                 "correlated bench pair (rho ~ 0.39) vs independent", n, seed,
-                 "both load 5.0 on one shared shock",
-                 "each loads 5.0 on its own private shock",
+                 "correlated bench pair (rho ~ 0.60) vs independent", n, seed,
+                 "both load 7.0 on one shared shock",
+                 "each loads 7.0 on its own private shock",
                  notes=f"idiosyncratic sd set to {idio:.3f} in both arms so the total "
                        f"weekly sd is exactly {total_sd:.1f} either way"),
         ),
@@ -491,7 +538,7 @@ def exp_stack(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
     qb_victim = [s for s in ranked if s.position is Position.QB][0]
     wr_victim = [s for s in ranked if s.position is Position.WR][0]
     qb_level, wr_level = qb_victim.base_mean, wr_victim.base_mean
-    total_sd, beta = 8.0, 5.0
+    total_sd, beta = 9.0, 7.0
     idio = _matched_variance(total_sd, beta)
 
     def build(qb_group, wr_group):
@@ -512,8 +559,8 @@ def exp_stack(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
         question=("Does starting a QB and his own receiver -- same marginals, shared "
                   "weekly shock -- change championship equity?"),
         comparisons=(
-            _run(stacked, split, "stacked QB+WR vs same players uncorrelated", n, seed,
-                 "QB and WR share one weekly shock (rho ~ 0.39)",
+            _run(stacked, split, "stacked QB+WR vs the same players uncorrelated", n, seed,
+                 "QB and WR share one weekly shock (rho ~ 0.60)",
                  "QB and WR on independent shocks",
                  notes=f"marginals matched exactly: idiosyncratic sd {idio:.3f}, "
                        f"total weekly sd {total_sd:.1f} in both arms"),
@@ -541,24 +588,31 @@ def exp_handcuff(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
     foreign_rb = [s for s in other_rb if s.position is Position.RB][0]
 
     common = dict(week_sd=6.5, weekly_injury_hazard=0.02, injury_mean_weeks=2.2)
-    handcuff = lab_player(LAB_ID_BASE + 80, "LAB-HANDCUFF", Position.RB, 5.0,
+    bonus = 14.0
+    # Both starters are made equally fragile *in both arms*, so the uplift fires
+    # about equally often either way and only its timing differs.  Without this
+    # the effect is real but far too small to resolve.
+    root = tweak(base, own_rb.player_id, weekly_injury_hazard=0.14, injury_mean_weeks=2.6)
+    root = tweak(root, foreign_rb.player_id, weekly_injury_hazard=0.14, injury_mean_weeks=2.6)
+
+    handcuff = lab_player(LAB_ID_BASE + 80, "LAB-HANDCUFF", Position.RB, 4.0,
                           crn_key=LAB_ID_BASE + 80,
-                          contingency=Contingency(own_rb.player_id, 11.0), **common)
-    decoy = lab_player(LAB_ID_BASE + 81, "LAB-DECOY-RB", Position.RB, 5.0,
+                          contingency=Contingency(own_rb.player_id, bonus), **common)
+    decoy = lab_player(LAB_ID_BASE + 81, "LAB-DECOY-RB", Position.RB, 4.0,
                        crn_key=LAB_ID_BASE + 80,
-                       contingency=Contingency(foreign_rb.player_id, 11.0), **common)
+                       contingency=Contingency(foreign_rb.player_id, bonus), **common)
     return ExperimentOutput(
         key="handcuff",
         title="Starting RB / backup RB contingency",
         question=("A backup who erupts when *your* starter is out, vs an identical "
                   "backup who erupts when *someone else's* starter is out."),
         comparisons=(
-            _run(swap_in(base, FOCUS_TEAM, victim.player_id, handcuff),
-                 swap_in(base, FOCUS_TEAM, victim.player_id, decoy),
+            _run(swap_in(root, FOCUS_TEAM, victim.player_id, handcuff),
+                 swap_in(root, FOCUS_TEAM, victim.player_id, decoy),
                  f"handcuff to own {own_rb.name} vs same uplift keyed to a rival's RB",
                  n, seed,
-                 f"+11.0 pts in weeks {own_rb.name} is unavailable",
-                 f"+11.0 pts in weeks {foreign_rb.name} is unavailable",
+                 f"+{bonus:.1f} pts in weeks {own_rb.name} is unavailable",
+                 f"+{bonus:.1f} pts in weeks {foreign_rb.name} is unavailable",
                  notes="both arms have the same unconditional distribution -- the "
                        "uplift fires about as often either way. Only the *timing* "
                        "differs: one fires exactly when the roster needs it."),

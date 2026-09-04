@@ -1,0 +1,858 @@
+ce-lab -- championship-equity laboratory
+SYNTHETIC DATA ONLY. No real player distributions are used anywhere.
+
+12,000 seasons per arm, seed 20260904, paired via common random numbers
+
+
+##############################################################################
+# EXPERIMENT marginal-point: One additional projected point at different lineup positions
+# Q: Is a point of projection worth the same everywhere on the roster?
+##############################################################################
+==============================================================================
++1.00 pt/week to best QB (roster's #1 QB): SYN-QB001
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: only base_mean changes; the player keeps his CRN key, so every other draw in the league is identical
+
+[A] SYN-QB001 base_mean 23.00
+  championship equity     0.1008  +/- 0.0054   (95% CI 0.0955-0.1063)
+  playoff probability     0.5649  +/- 0.0089
+  bye probability         0.1993  +/- 0.0071
+  reached final           0.1960
+  reg. season points     1317.90  (94.14/week, +/- 0.14)
+  above-median rate       0.5270  +/- 0.0030
+  head-to-head win rate   0.5205  +/- 0.0027
+  mean record (of 28)      14.66
+  mean seed                 5.97
+  mean slots filled        7.986 / 8
+
+[B] SYN-QB001 base_mean 22.00
+  championship equity     0.0908  +/- 0.0051   (95% CI 0.0858-0.0961)
+  playoff probability     0.5283  +/- 0.0089
+  bye probability         0.1724  +/- 0.0068
+  reached final           0.1779
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5103  +/- 0.0030
+  head-to-head win rate   0.5088  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.28
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00992  +/- 0.00270   z =  +7.19   SIGNIFICANT
+  delta playoff prob     +0.03658  +/- 0.00336
+  delta bye prob         +0.02692  +/- 0.00290
+  delta points/week      +0.89137  +/- 0.00156
+  delta above-median     +0.01668  +/- 0.00061
+  delta head-to-head     +0.01170  +/- 0.00051
+  seasons with a different champion: 824 (6.87%)
+  CRN variance reduction vs. unpaired: 7.6x (equivalent to 7.6x the seasons)
+
+==============================================================================
++1.00 pt/week to best RB (roster's #1 RB): SYN-RB008
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: only base_mean changes; the player keeps his CRN key, so every other draw in the league is identical
+
+[A] SYN-RB008 base_mean 12.96
+  championship equity     0.1008  +/- 0.0054   (95% CI 0.0956-0.1063)
+  playoff probability     0.5605  +/- 0.0089
+  bye probability         0.1972  +/- 0.0071
+  reached final           0.1953
+  reg. season points     1316.50  (94.04/week, +/- 0.14)
+  above-median rate       0.5252  +/- 0.0030
+  head-to-head win rate   0.5193  +/- 0.0027
+  mean record (of 28)      14.62
+  mean seed                 6.00
+  mean slots filled        7.986 / 8
+
+[B] SYN-RB008 base_mean 11.96
+  championship equity     0.0908  +/- 0.0051   (95% CI 0.0858-0.0961)
+  playoff probability     0.5283  +/- 0.0089
+  bye probability         0.1724  +/- 0.0068
+  reached final           0.1779
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5103  +/- 0.0030
+  head-to-head win rate   0.5088  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.28
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.01000  +/- 0.00264   z =  +7.43   SIGNIFICANT
+  delta playoff prob     +0.03217  +/- 0.00318
+  delta bye prob         +0.02475  +/- 0.00280
+  delta points/week      +0.79170  +/- 0.00372
+  delta above-median     +0.01486  +/- 0.00058
+  delta head-to-head     +0.01052  +/- 0.00049
+  seasons with a different champion: 767 (6.39%)
+  CRN variance reduction vs. unpaired: 8.0x (equivalent to 8.0x the seasons)
+
+==============================================================================
++1.00 pt/week to best WR (roster's #1 WR): SYN-WR003
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: only base_mean changes; the player keeps his CRN key, so every other draw in the league is identical
+
+[A] SYN-WR003 base_mean 16.36
+  championship equity     0.1022  +/- 0.0054   (95% CI 0.0969-0.1077)
+  playoff probability     0.5635  +/- 0.0089
+  bye probability         0.1990  +/- 0.0071
+  reached final           0.1974
+  reg. season points     1317.36  (94.10/week, +/- 0.14)
+  above-median rate       0.5263  +/- 0.0030
+  head-to-head win rate   0.5200  +/- 0.0027
+  mean record (of 28)      14.65
+  mean seed                 5.98
+  mean slots filled        7.986 / 8
+
+[B] SYN-WR003 base_mean 15.36
+  championship equity     0.0908  +/- 0.0051   (95% CI 0.0858-0.0961)
+  playoff probability     0.5283  +/- 0.0089
+  bye probability         0.1724  +/- 0.0068
+  reached final           0.1779
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5103  +/- 0.0030
+  head-to-head win rate   0.5088  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.28
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.01133  +/- 0.00269   z =  +8.27   SIGNIFICANT
+  delta playoff prob     +0.03517  +/- 0.00330
+  delta bye prob         +0.02658  +/- 0.00288
+  delta points/week      +0.85273  +/- 0.00228
+  delta above-median     +0.01592  +/- 0.00059
+  delta head-to-head     +0.01123  +/- 0.00050
+  seasons with a different champion: 819 (6.83%)
+  CRN variance reduction vs. unpaired: 7.7x (equivalent to 7.7x the seasons)
+
+==============================================================================
++1.00 pt/week to 2nd RB (fills RB2): SYN-RB017
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: only base_mean changes; the player keeps his CRN key, so every other draw in the league is identical
+
+[A] SYN-RB017 base_mean 9.24
+  championship equity     0.0985  +/- 0.0053   (95% CI 0.0933-0.1040)
+  playoff probability     0.5583  +/- 0.0089
+  bye probability         0.1946  +/- 0.0071
+  reached final           0.1913
+  reg. season points     1315.42  (93.96/week, +/- 0.14)
+  above-median rate       0.5236  +/- 0.0030
+  head-to-head win rate   0.5183  +/- 0.0027
+  mean record (of 28)      14.59
+  mean seed                 6.03
+  mean slots filled        7.986 / 8
+
+[B] SYN-RB017 base_mean 8.24
+  championship equity     0.0908  +/- 0.0051   (95% CI 0.0858-0.0961)
+  playoff probability     0.5283  +/- 0.0089
+  bye probability         0.1724  +/- 0.0068
+  reached final           0.1779
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5103  +/- 0.0030
+  head-to-head win rate   0.5088  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.28
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00767  +/- 0.00272   z =  +5.52   SIGNIFICANT
+  delta playoff prob     +0.03000  +/- 0.00344
+  delta bye prob         +0.02217  +/- 0.00289
+  delta points/week      +0.71455  +/- 0.01121
+  delta above-median     +0.01329  +/- 0.00066
+  delta head-to-head     +0.00949  +/- 0.00055
+  seasons with a different champion: 866 (7.22%)
+  CRN variance reduction vs. unpaired: 7.4x (equivalent to 7.4x the seasons)
+
+==============================================================================
++1.00 pt/week to marginal starter (8th-strongest player): SYN-WR027
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: only base_mean changes; the player keeps his CRN key, so every other draw in the league is identical
+
+[A] SYN-WR027 base_mean 8.59
+  championship equity     0.0981  +/- 0.0053   (95% CI 0.0929-0.1035)
+  playoff probability     0.5573  +/- 0.0089
+  bye probability         0.1957  +/- 0.0071
+  reached final           0.1922
+  reg. season points     1315.00  (93.93/week, +/- 0.14)
+  above-median rate       0.5232  +/- 0.0030
+  head-to-head win rate   0.5177  +/- 0.0027
+  mean record (of 28)      14.57
+  mean seed                 6.03
+  mean slots filled        7.986 / 8
+
+[B] SYN-WR027 base_mean 7.59
+  championship equity     0.0908  +/- 0.0051   (95% CI 0.0858-0.0961)
+  playoff probability     0.5283  +/- 0.0089
+  bye probability         0.1724  +/- 0.0068
+  reached final           0.1779
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5103  +/- 0.0030
+  head-to-head win rate   0.5088  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.28
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00725  +/- 0.00310   z =  +4.58   SIGNIFICANT
+  delta playoff prob     +0.02900  +/- 0.00382
+  delta bye prob         +0.02325  +/- 0.00334
+  delta points/week      +0.68437  +/- 0.01710
+  delta above-median     +0.01289  +/- 0.00076
+  delta head-to-head     +0.00895  +/- 0.00064
+  seasons with a different champion: 1,098 (9.15%)
+  CRN variance reduction vs. unpaired: 5.7x (equivalent to 5.7x the seasons)
+
+==============================================================================
++1.00 pt/week to first bench player (9th-strongest): SYN-TE010
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: only base_mean changes; the player keeps his CRN key, so every other draw in the league is identical
+
+[A] SYN-TE010 base_mean 8.45
+  championship equity     0.0975  +/- 0.0053   (95% CI 0.0923-0.1029)
+  playoff probability     0.5555  +/- 0.0089
+  bye probability         0.1944  +/- 0.0071
+  reached final           0.1893
+  reg. season points     1314.98  (93.93/week, +/- 0.14)
+  above-median rate       0.5232  +/- 0.0030
+  head-to-head win rate   0.5180  +/- 0.0027
+  mean record (of 28)      14.58
+  mean seed                 6.03
+  mean slots filled        7.986 / 8
+
+[B] SYN-TE010 base_mean 7.45
+  championship equity     0.0908  +/- 0.0051   (95% CI 0.0858-0.0961)
+  playoff probability     0.5283  +/- 0.0089
+  bye probability         0.1724  +/- 0.0068
+  reached final           0.1779
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5103  +/- 0.0030
+  head-to-head win rate   0.5088  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.28
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00667  +/- 0.00319   z =  +4.10   SIGNIFICANT
+  delta playoff prob     +0.02717  +/- 0.00391
+  delta bye prob         +0.02200  +/- 0.00332
+  delta points/week      +0.68271  +/- 0.01722
+  delta above-median     +0.01283  +/- 0.00078
+  delta head-to-head     +0.00920  +/- 0.00067
+  seasons with a different champion: 1,158 (9.65%)
+  CRN variance reduction vs. unpaired: 5.4x (equivalent to 5.4x the seasons)
+
+==============================================================================
++1.00 pt/week to last bench player (15th-strongest): SYN-WR070
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: only base_mean changes; the player keeps his CRN key, so every other draw in the league is identical
+
+[A] SYN-WR070 base_mean 5.46
+  championship equity     0.0921  +/- 0.0052   (95% CI 0.0870-0.0974)
+  playoff probability     0.5352  +/- 0.0089
+  bye probability         0.1755  +/- 0.0068
+  reached final           0.1799
+  reg. season points     1306.99  (93.36/week, +/- 0.14)
+  above-median rate       0.5124  +/- 0.0030
+  head-to-head win rate   0.5102  +/- 0.0027
+  mean record (of 28)      14.32
+  mean seed                 6.24
+  mean slots filled        7.986 / 8
+
+[B] SYN-WR070 base_mean 4.46
+  championship equity     0.0908  +/- 0.0051   (95% CI 0.0858-0.0961)
+  playoff probability     0.5283  +/- 0.0089
+  bye probability         0.1724  +/- 0.0068
+  reached final           0.1779
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5103  +/- 0.0030
+  head-to-head win rate   0.5088  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.28
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00125  +/- 0.00255   z =  +0.96   not significant
+  delta playoff prob     +0.00683  +/- 0.00304
+  delta bye prob         +0.00308  +/- 0.00248
+  delta points/week      +0.11235  +/- 0.01569
+  delta above-median     +0.00210  +/- 0.00061
+  delta head-to-head     +0.00148  +/- 0.00052
+  seasons with a different champion: 716 (5.97%)
+  CRN variance reduction vs. unpaired: 8.2x (equivalent to 8.2x the seasons)
+
+READING: A point added to a player who starts nearly every week converts almost fully into team points; a point added deep on the bench converts only through the weeks that player is actually startable. The engine should show delta-CE decreasing monotonically as the target moves down the roster.
+
+##############################################################################
+# EXPERIMENT second-qb: A second QB vs an equally priced flex alternative
+# Q: With a superflex that does not require a QB, is a startable second QB worth more than a WR with the same mean and variance?
+##############################################################################
+==============================================================================
+QB vs WR at 14.0 pts/week -- roster already has two startable QBs
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: identical mean, variance, injury risk and CRN key; the only difference is the position label and therefore slot eligibility
+
+[A] QB at 14.0 pts/week
+  championship equity     0.1021  +/- 0.0054   (95% CI 0.0968-0.1076)
+  playoff probability     0.5823  +/- 0.0088
+  bye probability         0.2070  +/- 0.0072
+  reached final           0.2018
+  reg. season points     1321.42  (94.39/week, +/- 0.14)
+  above-median rate       0.5319  +/- 0.0030
+  head-to-head win rate   0.5244  +/- 0.0027
+  mean record (of 28)      14.79
+  mean seed                 5.85
+  mean slots filled        7.986 / 8
+
+[B] WR at 14.0 pts/week
+  championship equity     0.1854  +/- 0.0070   (95% CI 0.1786-0.1925)
+  playoff probability     0.7718  +/- 0.0075
+  bye probability         0.3970  +/- 0.0088
+  reached final           0.3367
+  reg. season points     1391.93  (99.42/week, +/- 0.14)
+  above-median rate       0.6218  +/- 0.0029
+  head-to-head win rate   0.5918  +/- 0.0027
+  mean record (of 28)      16.99
+  mean seed                 4.18
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               -0.08333  +/- 0.00667   z = -24.48   SIGNIFICANT
+  delta playoff prob     -0.18958  +/- 0.00747
+  delta bye prob         -0.19000  +/- 0.00750
+  delta points/week      -5.03633  +/- 0.05373
+  delta above-median     -0.08984  +/- 0.00184
+  delta head-to-head     -0.06738  +/- 0.00159
+  seasons with a different champion: 4,142 (34.52%)
+  CRN variance reduction vs. unpaired: 1.7x (equivalent to 1.7x the seasons)
+
+==============================================================================
+QB vs WR at 14.0 pts/week -- roster is thin at QB (backups cut to 3.0)
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: identical mean, variance, injury risk and CRN key; the only difference is the position label and therefore slot eligibility
+
+[A] QB at 14.0 pts/week
+  championship equity     0.0883  +/- 0.0051   (95% CI 0.0834-0.0935)
+  playoff probability     0.5302  +/- 0.0089
+  bye probability         0.1767  +/- 0.0068
+  reached final           0.1770
+  reg. season points     1304.37  (93.17/week, +/- 0.14)
+  above-median rate       0.5109  +/- 0.0030
+  head-to-head win rate   0.5086  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.27
+  mean slots filled        7.986 / 8
+
+[B] WR at 14.0 pts/week
+  championship equity     0.0846  +/- 0.0050   (95% CI 0.0797-0.0897)
+  playoff probability     0.5222  +/- 0.0089
+  bye probability         0.1686  +/- 0.0067
+  reached final           0.1718
+  reg. season points     1301.21  (92.94/week, +/- 0.14)
+  above-median rate       0.5076  +/- 0.0030
+  head-to-head win rate   0.5061  +/- 0.0027
+  mean record (of 28)      14.19
+  mean seed                 6.33
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00375  +/- 0.00258   z =  +2.85   SIGNIFICANT
+  delta playoff prob     +0.00792  +/- 0.00357
+  delta bye prob         +0.00808  +/- 0.00290
+  delta points/week      +0.22529  +/- 0.01827
+  delta above-median     +0.00331  +/- 0.00070
+  delta head-to-head     +0.00251  +/- 0.00059
+  seasons with a different champion: 831 (6.93%)
+  CRN variance reduction vs. unpaired: 7.6x (equivalent to 7.6x the seasons)
+
+READING: The two players are distributionally identical, so any difference is purely positional: a QB fills QB or SUPERFLEX; a WR fills WT, FLEX or SUPERFLEX. The sign therefore flips with the roster. On a roster that already starts two QBs, a third is nearly worthless while the WR upgrades a real flex slot. On a roster thin at QB, the QB claims a SUPERFLEX that was being filled by a weak flex player. This is exactly why a positional modifier is the wrong shape of answer and a per-roster CE measurement is the right one.
+
+##############################################################################
+# EXPERIMENT volatility: Stable vs volatile players with equal mean projections
+# Q: At a fixed mean, does weekly variance help or hurt championship equity?
+##############################################################################
+==============================================================================
+volatile (sd 11.0) vs stable (sd 4.0) at starter-level (4th-strongest)
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: identical means and identical CRN key; only weekly sd differs
+
+[A] 12.5 pts/week, weekly sd 11.0
+  championship equity     0.0888  +/- 0.0051   (95% CI 0.0839-0.0941)
+  playoff probability     0.5420  +/- 0.0089
+  bye probability         0.1761  +/- 0.0068
+  reached final           0.1776
+  reg. season points     1310.32  (93.59/week, +/- 0.14)
+  above-median rate       0.5163  +/- 0.0029
+  head-to-head win rate   0.5128  +/- 0.0027
+  mean record (of 28)      14.41
+  mean seed                 6.17
+  mean slots filled        7.986 / 8
+
+[B] 12.5 pts/week, weekly sd 4.0
+  championship equity     0.0873  +/- 0.0051   (95% CI 0.0824-0.0925)
+  playoff probability     0.5278  +/- 0.0089
+  bye probability         0.1701  +/- 0.0067
+  reached final           0.1753
+  reg. season points     1304.70  (93.19/week, +/- 0.14)
+  above-median rate       0.5102  +/- 0.0030
+  head-to-head win rate   0.5082  +/- 0.0027
+  mean record (of 28)      14.26
+  mean seed                 6.29
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00150  +/- 0.00363   z =  +0.81   not significant
+  delta playoff prob     +0.01425  +/- 0.00498
+  delta bye prob         +0.00600  +/- 0.00386
+  delta points/week      +0.40162  +/- 0.02150
+  delta above-median     +0.00614  +/- 0.00105
+  delta head-to-head     +0.00459  +/- 0.00091
+  seasons with a different champion: 1,707 (14.22%)
+  CRN variance reduction vs. unpaired: 3.9x (equivalent to 3.9x the seasons)
+
+==============================================================================
+volatile (sd 11.0) vs stable (sd 4.0) at flex-level (8th-strongest)
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: identical means and identical CRN key; only weekly sd differs
+
+[A] 7.6 pts/week, weekly sd 11.0
+  championship equity     0.0931  +/- 0.0052   (95% CI 0.0880-0.0984)
+  playoff probability     0.5618  +/- 0.0089
+  bye probability         0.1915  +/- 0.0070
+  reached final           0.1890
+  reg. season points     1316.68  (94.05/week, +/- 0.14)
+  above-median rate       0.5252  +/- 0.0029
+  head-to-head win rate   0.5196  +/- 0.0027
+  mean record (of 28)      14.63
+  mean seed                 5.99
+  mean slots filled        7.986 / 8
+
+[B] 7.6 pts/week, weekly sd 4.0
+  championship equity     0.0810  +/- 0.0049   (95% CI 0.0763-0.0860)
+  playoff probability     0.5090  +/- 0.0089
+  bye probability         0.1615  +/- 0.0066
+  reached final           0.1607
+  reg. season points     1298.72  (92.77/week, +/- 0.13)
+  above-median rate       0.5036  +/- 0.0030
+  head-to-head win rate   0.5038  +/- 0.0027
+  mean record (of 28)      14.10
+  mean seed                 6.43
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.01208  +/- 0.00387   z =  +6.12   SIGNIFICANT
+  delta playoff prob     +0.05283  +/- 0.00544
+  delta bye prob         +0.03000  +/- 0.00417
+  delta points/week      +1.28288  +/- 0.02288
+  delta above-median     +0.02164  +/- 0.00116
+  delta head-to-head     +0.01580  +/- 0.00100
+  seasons with a different champion: 1,966 (16.38%)
+  CRN variance reduction vs. unpaired: 3.4x (equivalent to 3.4x the seasons)
+
+READING: Variance is not one-signed. It hurts the median-result half of the standings (you want to clear the median every week) and helps the single-elimination bracket (you need one big week against a better team). The net sign is an empirical property of this league's format, and this experiment is how you measure it rather than assume it.
+
+##############################################################################
+# EXPERIMENT spikes: Predictable upside vs unforecastable spike weeks
+# Q: Two players average the same points. One's extra production is in the projection every week; the other's arrives as 15%-frequency spikes nobody can forecast. How much is forecastability worth?
+##############################################################################
+==============================================================================
+predictable +3.0 vs unforecastable +3.0 in spikes
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: identical expected points per week; only the spikes are invisible to the lineup decision
+
+[A] 10.4 pts/week, fully projected
+  championship equity     0.1304  +/- 0.0060   (95% CI 0.1245-0.1366)
+  playoff probability     0.6506  +/- 0.0085
+  bye probability         0.2648  +/- 0.0079
+  reached final           0.2470
+  reg. season points     1344.97  (96.07/week, +/- 0.14)
+  above-median rate       0.5633  +/- 0.0029
+  head-to-head win rate   0.5469  +/- 0.0027
+  mean record (of 28)      15.54
+  mean seed                 5.26
+  mean slots filled        7.986 / 8
+
+[B] 7.4 pts/week projected, +3.0 in 15% spikes of 20.0
+  championship equity     0.1108  +/- 0.0056   (95% CI 0.1053-0.1166)
+  playoff probability     0.6118  +/- 0.0087
+  bye probability         0.2267  +/- 0.0075
+  reached final           0.2162
+  reg. season points     1338.90  (95.64/week, +/- 0.14)
+  above-median rate       0.5418  +/- 0.0029
+  head-to-head win rate   0.5340  +/- 0.0027
+  mean record (of 28)      15.06
+  mean seed                 5.60
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.01958  +/- 0.00529   z =  +7.25   SIGNIFICANT
+  delta playoff prob     +0.03883  +/- 0.00607
+  delta bye prob         +0.03817  +/- 0.00556
+  delta points/week      +0.43318  +/- 0.05020
+  delta above-median     +0.02150  +/- 0.00143
+  delta head-to-head     +0.01290  +/- 0.00127
+  seasons with a different champion: 2,895 (24.12%)
+  CRN variance reduction vs. unpaired: 2.4x (equivalent to 2.4x the seasons)
+
+READING: This is the cleanest statement of the information rule. The spiky player produces the same total points, but a share of them land in weeks he was benched, where they are worth exactly zero. The gap is the price of unforecastability. Note the engine's filter does slowly learn the spiky player's elevated level from his residuals, which recovers part -- but only part -- of the loss.
+
+##############################################################################
+# EXPERIMENT concentration: One strong player vs multiple aggregate flex options
+# Q: Three roster spots, 30 projected points to distribute. Is 18/6/6 better or worse than 10/10/10?
+##############################################################################
+==============================================================================
+18/6/6 vs 10/10/10 across three WR spots
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: equal total projection, equal weekly sd, equal injury risk
+
+[A] one strong WR (18.0) plus two replacement (6.0)
+  championship equity     0.2611  +/- 0.0079   (95% CI 0.2533-0.2690)
+  playoff probability     0.8837  +/- 0.0057
+  bye probability         0.5402  +/- 0.0089
+  reached final           0.4426
+  reg. season points     1443.32  (103.09/week, +/- 0.14)
+  above-median rate       0.6852  +/- 0.0027
+  head-to-head win rate   0.6394  +/- 0.0026
+  mean record (of 28)      18.54
+  mean seed                 3.13
+  mean slots filled        7.986 / 8
+
+[B] three even WRs (10.0 each)
+  championship equity     0.1698  +/- 0.0067   (95% CI 0.1631-0.1766)
+  playoff probability     0.7830  +/- 0.0074
+  bye probability         0.3749  +/- 0.0087
+  reached final           0.3236
+  reg. season points     1386.29  (99.02/week, +/- 0.13)
+  above-median rate       0.6211  +/- 0.0028
+  head-to-head win rate   0.5886  +/- 0.0026
+  mean record (of 28)      16.94
+  mean seed                 4.18
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.09133  +/- 0.00759   z = +23.57   SIGNIFICANT
+  delta playoff prob     +0.10067  +/- 0.00654
+  delta bye prob         +0.16525  +/- 0.00805
+  delta points/week      +4.07319  +/- 0.06571
+  delta above-median     +0.06410  +/- 0.00200
+  delta head-to-head     +0.05082  +/- 0.00173
+  seasons with a different champion: 4,505 (37.54%)
+  CRN variance reduction vs. unpaired: 1.9x (equivalent to 1.9x the seasons)
+
+READING: Only some of these three players start in any given week, so the distribution matters even at constant total. Concentration wins when the roster can reliably start the stud; spreading wins when byes, injuries and slot limits mean the third-best of the group gets used often. This is the portfolio question the 15-for-8 roster poses, measured rather than assumed.
+
+##############################################################################
+# EXPERIMENT injury: Different injury probabilities at equal per-week production
+# Q: What does availability risk cost, holding per-week production fixed?
+##############################################################################
+==============================================================================
+weekly injury hazard 8% vs 2%
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: same mean when active, same variance, same CRN key
+
+[A] 17.0 pts/week, hazard 0.08
+  championship equity     0.0948  +/- 0.0052   (95% CI 0.0897-0.1002)
+  playoff probability     0.5677  +/- 0.0089
+  bye probability         0.2018  +/- 0.0072
+  reached final           0.1939
+  reg. season points     1317.89  (94.14/week, +/- 0.14)
+  above-median rate       0.5300  +/- 0.0030
+  head-to-head win rate   0.5212  +/- 0.0027
+  mean record (of 28)      14.72
+  mean seed                 5.93
+  mean slots filled        7.986 / 8
+
+[B] 17.0 pts/week, hazard 0.02
+  championship equity     0.1101  +/- 0.0056   (95% CI 0.1046-0.1158)
+  playoff probability     0.6208  +/- 0.0087
+  bye probability         0.2355  +/- 0.0076
+  reached final           0.2218
+  reg. season points     1335.10  (95.36/week, +/- 0.13)
+  above-median rate       0.5520  +/- 0.0029
+  head-to-head win rate   0.5375  +/- 0.0027
+  mean record (of 28)      15.25
+  mean seed                 5.48
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               -0.01525  +/- 0.00323   z =  -9.26   SIGNIFICANT
+  delta playoff prob     -0.05308  +/- 0.00419
+  delta bye prob         -0.03375  +/- 0.00342
+  delta points/week      -1.22897  +/- 0.03346
+  delta above-median     -0.02201  +/- 0.00090
+  delta head-to-head     -0.01633  +/- 0.00074
+  seasons with a different champion: 1,096 (9.13%)
+  CRN variance reduction vs. unpaired: 5.7x (equivalent to 5.7x the seasons)
+
+==============================================================================
+weekly injury hazard 16% vs 2%
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: same mean when active, same variance, same CRN key
+
+[A] 17.0 pts/week, hazard 0.16
+  championship equity     0.0766  +/- 0.0048   (95% CI 0.0720-0.0815)
+  playoff probability     0.5061  +/- 0.0089
+  bye probability         0.1627  +/- 0.0066
+  reached final           0.1596
+  reg. season points     1297.94  (92.71/week, +/- 0.14)
+  above-median rate       0.5038  +/- 0.0030
+  head-to-head win rate   0.5021  +/- 0.0027
+  mean record (of 28)      14.08
+  mean seed                 6.44
+  mean slots filled        7.986 / 8
+
+[B] 17.0 pts/week, hazard 0.02
+  championship equity     0.1101  +/- 0.0056   (95% CI 0.1046-0.1158)
+  playoff probability     0.6208  +/- 0.0087
+  bye probability         0.2355  +/- 0.0076
+  reached final           0.2218
+  reg. season points     1335.10  (95.36/week, +/- 0.13)
+  above-median rate       0.5520  +/- 0.0029
+  head-to-head win rate   0.5375  +/- 0.0027
+  mean record (of 28)      15.25
+  mean seed                 5.48
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               -0.03350  +/- 0.00432   z = -15.19   SIGNIFICANT
+  delta playoff prob     -0.11467  +/- 0.00590
+  delta bye prob         -0.07283  +/- 0.00485
+  delta points/week      -2.65393  +/- 0.04455
+  delta above-median     -0.04818  +/- 0.00126
+  delta head-to-head     -0.03548  +/- 0.00105
+  seasons with a different champion: 2,072 (17.27%)
+  CRN variance reduction vs. unpaired: 2.9x (equivalent to 2.9x the seasons)
+
+READING: Cost should scale with expected missed weeks, but not linearly: the bench absorbs part of an absence, and with no IR slot the injured player also occupies a roster spot the whole time. Whether the cost is bigger or smaller than the naive 'mean x missed weeks' is exactly what the portfolio structure decides.
+
+##############################################################################
+# EXPERIMENT bench-correlation: Independent vs correlated bench upside
+# Q: Two bench players with identical marginal distributions: does it matter whether their good weeks arrive together?
+##############################################################################
+==============================================================================
+correlated bench pair (rho ~ 0.60) vs independent
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: idiosyncratic sd set to 5.657 in both arms so the total weekly sd is exactly 9.0 either way
+
+[A] both load 7.0 on one shared shock
+  championship equity     0.2100  +/- 0.0073   (95% CI 0.2028-0.2174)
+  playoff probability     0.8297  +/- 0.0067
+  bye probability         0.4453  +/- 0.0089
+  reached final           0.3748
+  reg. season points     1421.65  (101.55/week, +/- 0.14)
+  above-median rate       0.6413  +/- 0.0027
+  head-to-head win rate   0.6109  +/- 0.0025
+  mean record (of 28)      17.53
+  mean seed                 3.70
+  mean slots filled        7.986 / 8
+
+[B] each loads 7.0 on its own private shock
+  championship equity     0.2213  +/- 0.0074   (95% CI 0.2140-0.2288)
+  playoff probability     0.8455  +/- 0.0065
+  bye probability         0.4663  +/- 0.0089
+  reached final           0.3883
+  reg. season points     1421.25  (101.52/week, +/- 0.14)
+  above-median rate       0.6529  +/- 0.0027
+  head-to-head win rate   0.6174  +/- 0.0026
+  mean record (of 28)      17.78
+  mean seed                 3.56
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               -0.01133  +/- 0.00785   z =  -2.83   SIGNIFICANT
+  delta playoff prob     -0.01575  +/- 0.00647
+  delta bye prob         -0.02100  +/- 0.00815
+  delta points/week      +0.02879  +/- 0.07497
+  delta above-median     -0.01159  +/- 0.00213
+  delta head-to-head     -0.00647  +/- 0.00187
+  seasons with a different champion: 4,671 (38.92%)
+  CRN variance reduction vs. unpaired: 1.8x (equivalent to 1.8x the seasons)
+
+READING: Marginals are identical by construction, so any delta is pure dependence structure. Independent bench upside should be worth more: the lineup takes the max over available options, and independent options give the max more chances to be high. Correlated bench players are closer to being one player.
+
+##############################################################################
+# EXPERIMENT stack: QB / pass-catcher positive correlation
+# Q: Does starting a QB and his own receiver -- same marginals, shared weekly shock -- change championship equity?
+##############################################################################
+==============================================================================
+stacked QB+WR vs the same players uncorrelated
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: marginals matched exactly: idiosyncratic sd 5.657, total weekly sd 9.0 in both arms
+
+[A] QB and WR share one weekly shock (rho ~ 0.60)
+  championship equity     0.1000  +/- 0.0054   (95% CI 0.0948-0.1055)
+  playoff probability     0.6277  +/- 0.0086
+  bye probability         0.2207  +/- 0.0074
+  reached final           0.2062
+  reg. season points     1336.47  (95.46/week, +/- 0.14)
+  above-median rate       0.5482  +/- 0.0027
+  head-to-head win rate   0.5369  +/- 0.0026
+  mean record (of 28)      15.19
+  mean seed                 5.50
+  mean slots filled        7.986 / 8
+
+[B] QB and WR on independent shocks
+  championship equity     0.1022  +/- 0.0054   (95% CI 0.0969-0.1077)
+  playoff probability     0.6312  +/- 0.0086
+  bye probability         0.2241  +/- 0.0075
+  reached final           0.2135
+  reg. season points     1336.44  (95.46/week, +/- 0.13)
+  above-median rate       0.5512  +/- 0.0028
+  head-to-head win rate   0.5380  +/- 0.0026
+  mean record (of 28)      15.25
+  mean seed                 5.46
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               -0.00217  +/- 0.00623   z =  -0.68   not significant
+  delta playoff prob     -0.00358  +/- 0.00826
+  delta bye prob         -0.00342  +/- 0.00732
+  delta points/week      +0.00212  +/- 0.07987
+  delta above-median     -0.00299  +/- 0.00228
+  delta head-to-head     -0.00112  +/- 0.00200
+  seasons with a different champion: 4,493 (37.44%)
+  CRN variance reduction vs. unpaired: 1.5x (equivalent to 1.5x the seasons)
+
+READING: Stacking adds variance to the *team* score without changing either player's own distribution. In a format with a weekly median result, extra team variance is costly in the regular season; in single elimination it is valuable. This experiment measures the net, and is the hook a real correlation matrix will plug into unchanged.
+
+##############################################################################
+# EXPERIMENT handcuff: Starting RB / backup RB contingency
+# Q: A backup who erupts when *your* starter is out, vs an identical backup who erupts when *someone else's* starter is out.
+##############################################################################
+==============================================================================
+handcuff to own SYN-RB008 vs same uplift keyed to a rival's RB
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: both arms have the same unconditional distribution -- the uplift fires about as often either way. Only the *timing* differs: one fires exactly when the roster needs it.
+
+[A] +14.0 pts in weeks SYN-RB008 is unavailable
+  championship equity     0.1185  +/- 0.0058   (95% CI 0.1128-0.1244)
+  playoff probability     0.6347  +/- 0.0086
+  bye probability         0.2391  +/- 0.0076
+  reached final           0.2318
+  reg. season points     1338.22  (95.59/week, +/- 0.14)
+  above-median rate       0.5544  +/- 0.0030
+  head-to-head win rate   0.5405  +/- 0.0027
+  mean record (of 28)      15.33
+  mean seed                 5.43
+  mean slots filled        7.986 / 8
+
+[B] +14.0 pts in weeks SYN-RB009 is unavailable
+  championship equity     0.1125  +/- 0.0057   (95% CI 0.1070-0.1183)
+  playoff probability     0.6152  +/- 0.0087
+  bye probability         0.2343  +/- 0.0076
+  reached final           0.2161
+  reg. season points     1334.39  (95.31/week, +/- 0.14)
+  above-median rate       0.5473  +/- 0.0030
+  head-to-head win rate   0.5355  +/- 0.0027
+  mean record (of 28)      15.16
+  mean seed                 5.56
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00600  +/- 0.00522   z =  +2.25   SIGNIFICANT
+  delta playoff prob     +0.01950  +/- 0.00679
+  delta bye prob         +0.00475  +/- 0.00595
+  delta points/week      +0.27334  +/- 0.06125
+  delta above-median     +0.00707  +/- 0.00165
+  delta head-to-head     +0.00499  +/- 0.00139
+  seasons with a different champion: 2,982 (24.85%)
+  CRN variance reduction vs. unpaired: 2.4x (equivalent to 2.4x the seasons)
+
+READING: This isolates contingency value from raw expected points. The two players score the same on average; the handcuff's points simply arrive in the weeks a hole opened in the lineup. If the engine prices timing correctly, the handcuff wins -- and note the uplift is pregame-observable, so the lineup optimiser actually starts him in those weeks.
+
+##############################################################################
+# EXPERIMENT opponent-placement: The same strong player placed on different opposing rosters
+# Q: Your roster is untouched. Does it matter to *you* which rival owns a stud?
+##############################################################################
+==============================================================================
+SYN-QB002 on team 1 vs on team 2
+==============================================================================
+seasons 12,000   seed 20260904   focus team #0 (Team01)
+note: the focus team's 15 players are byte-identical in both arms
+
+[A] SYN-QB002 on Team02, SYN-QB003 on Team03
+  championship equity     0.0908  +/- 0.0051   (95% CI 0.0858-0.0961)
+  playoff probability     0.5283  +/- 0.0089
+  bye probability         0.1724  +/- 0.0068
+  reached final           0.1779
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5103  +/- 0.0030
+  head-to-head win rate   0.5088  +/- 0.0027
+  mean record (of 28)      14.27
+  mean seed                 6.28
+  mean slots filled        7.986 / 8
+
+[B] SYN-QB002 on Team03, SYN-QB003 on Team02
+  championship equity     0.0882  +/- 0.0051   (95% CI 0.0833-0.0935)
+  playoff probability     0.5308  +/- 0.0089
+  bye probability         0.1769  +/- 0.0068
+  reached final           0.1807
+  reg. season points     1305.42  (93.24/week, +/- 0.14)
+  above-median rate       0.5119  +/- 0.0030
+  head-to-head win rate   0.5091  +/- 0.0027
+  mean record (of 28)      14.29
+  mean seed                 6.26
+  mean slots filled        7.986 / 8
+
+PAIRED DIFFERENCES (A - B), common random numbers
+  delta CE               +0.00258  +/- 0.00455   z =  +1.11   not significant
+  delta playoff prob     -0.00250  +/- 0.00454
+  delta bye prob         -0.00450  +/- 0.00379
+  delta points/week      +0.00000  +/- 0.00000
+  delta above-median     -0.00154  +/- 0.00071
+  delta head-to-head     -0.00036  +/- 0.00070
+  seasons with a different champion: 4,635 (38.62%)
+  CRN variance reduction vs. unpaired: 2.5x (equivalent to 2.5x the seasons)
+
+READING: A control. The schedule is re-permuted every season, so both rivals are equally likely to be any of your opponents, and the league median depends on the multiset of rosters rather than their labels. delta-CE should be statistically indistinguishable from zero. A significant result here would indicate a bug -- most likely a schedule that is not exchangeable across teams.
+
+==============================================================================
+SUMMARY -- paired delta CE for the focus team (Team01)
+==============================================================================
+experiment          comparison                                         dCE   +/-95%      z   dPts/wk      z
+-----------------------------------------------------------------------------------------------------------
+marginal-point      +1.00 pt/week to best QB (roster's #1 QB...   +0.00992  0.00270  +7.19   +0.8914 +1122.0
+marginal-point      +1.00 pt/week to best RB (roster's #1 RB...   +0.01000  0.00264  +7.43   +0.7917 +416.9
+marginal-point      +1.00 pt/week to best WR (roster's #1 WR...   +0.01133  0.00269  +8.27   +0.8527 +733.3
+marginal-point      +1.00 pt/week to 2nd RB (fills RB2): SYN...   +0.00767  0.00272  +5.52   +0.7145 +124.9
+marginal-point      +1.00 pt/week to marginal starter (8th-s...   +0.00725  0.00310  +4.58   +0.6844  +78.4
+marginal-point      +1.00 pt/week to first bench player (9th...   +0.00667  0.00319  +4.10   +0.6827  +77.7
+marginal-point      +1.00 pt/week to last bench player (15th...   +0.00125  0.00255  +0.96   +0.1124  +14.0
+second-qb           QB vs WR at 14.0 pts/week -- roster alre...   -0.08333  0.00667 -24.48   -5.0363 -183.7
+second-qb           QB vs WR at 14.0 pts/week -- roster is t...   +0.00375  0.00258  +2.85   +0.2253  +24.2
+volatility          volatile (sd 11.0) vs stable (sd 4.0) at...   +0.00150  0.00363  +0.81   +0.4016  +36.6
+volatility          volatile (sd 11.0) vs stable (sd 4.0) at...   +0.01208  0.00387  +6.12   +1.2829 +109.9
+spikes              predictable +3.0 vs unforecastable +3.0 ...   +0.01958  0.00529  +7.25   +0.4332  +16.9
+concentration       18/6/6 vs 10/10/10 across three WR spots      +0.09133  0.00759 +23.57   +4.0732 +121.5
+injury              weekly injury hazard 8% vs 2%                 -0.01525  0.00323  -9.26   -1.2290  -72.0
+injury              weekly injury hazard 16% vs 2%                -0.03350  0.00432 -15.19   -2.6539 -116.8
+bench-correlation   correlated bench pair (rho ~ 0.60) vs in...   -0.01133  0.00785  -2.83   +0.0288   +0.8
+stack               stacked QB+WR vs the same players uncorr...   -0.00217  0.00623  -0.68   +0.0021   +0.1
+handcuff            handcuff to own SYN-RB008 vs same uplift...   +0.00600  0.00522  +2.25   +0.2733   +8.7
+opponent-placement  SYN-QB002 on team 1 vs on team 2              +0.00258  0.00455  +1.11   +0.0000   +0.0
+-----------------------------------------------------------------------------------------------------------
+total runtime 274.7s
+
+A non-significant dCE with a significant dPts/wk means the mechanism fired
+but the effect is smaller than this sample size can resolve -- raise --sims.
+
+REMINDER: synthetic inputs. These validate the machinery, not any football claim.
+EXIT 0

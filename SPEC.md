@@ -283,8 +283,9 @@ resid[p, u]      = points[p, u] - base_mean[p] - observed_role_delta[p, u]
 S[p, w]          = sum over u < w of resid[p, u] * played[p, u]
 n[p, w]          = sum over u < w of played[p, u]
 posterior[p, w]  = tau_obs * S[p, w] / (tau_0 + n[p, w] * tau_obs)      # prior mean 0
-projection[p, w] = base_mean[p] + observed_role_delta[p, w]
+level[p, w]      = base_mean[p] + observed_role_delta[p, w]
                  + contingency_bonus[p, w] + posterior[p, w]
+projection[p, w] = E[max(0, Normal(level[p, w], week_sd[p]))]
                  + proj_noise_sd[p] * nu[p, w]
 ```
 
@@ -293,6 +294,27 @@ update, treating the (heavy-tailed, non-Gaussian) spikes as if they were part of
 observation noise. This is exactly right for the intended behaviour: a spike week does
 move the posterior a little, but is heavily shrunk, so **spikes do not turn into
 reliable future projection**, while a genuine persistent level does get learned.
+
+### 5.7 The projection is expected *points*, not the latent mean
+
+Realized scores are floored at zero (§5.5), so a player's expected output is
+`E[max(0, X)]`, which exceeds his latent mean by an amount that grows with his weekly
+SD. For a replacement-tier synthetic WR at 4.0 points with a weekly SD of 7.2 the gap
+is **+1.3 points per week**; for an 18-point WR at the same SD it is under 0.05.
+
+The projection therefore reports `floored_mean(level, week_sd)`
+(`ceauction.stats.floored_mean`, using an Abramowitz & Stegun normal CDF so that
+SciPy is not a dependency). Projecting the raw latent mean instead would
+systematically under-project every low-mean, high-variance player and bias every
+bench and flex decision against exactly the players a 15-for-8 portfolio holds for
+optionality. `tests/test_worlds.py::test_projection_is_expected_points_not_the_latent_mean`
+asserts the projection is an unbiased estimate of realized points at both ends of the
+range.
+
+A consequence worth stating plainly: at a fixed *expected-points* level, changing a
+player's volatility changes only the shape of his distribution — which is what makes
+the `volatility` laboratory experiment a clean test rather than a disguised level
+comparison.
 
 If `weekly_projection_override` is supplied (real published projections), it replaces
 the whole right-hand side for that player.
@@ -425,8 +447,11 @@ output across repeated runs and across different chunk sizes.
 3. **Gaussian conjugate filtering** approximates the manager's learning. Real managers
    use richer information (snap counts, target share, vegas lines). The residual filter
    is a stand-in for all of it.
-4. **Projection = conditional mean + noise.** No manager optimism/pessimism bias, no
+4. **Projection = expected points + noise.** No manager optimism/pessimism bias, no
    vendor disagreement, no start/sit expected-value adjustments for tail-seeking.
+   The residual filter forms its posterior against the *latent* mean while realized
+   points are floored at zero, so the filter is slightly biased for players whose mean
+   sits within about 1.5 weekly SDs of zero.
 5. **No waivers, no FAAB, no trades, no in-season roster change of any kind.** The
    drafted 15 are the 15 all season. This understates the value of bench depth and
    overstates the cost of injuries.

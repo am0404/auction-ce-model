@@ -33,6 +33,7 @@ import numpy as np
 from . import rng
 from .league import DEFAULT_LEAGUE, LeagueSettings
 from .players import PlayerSpec
+from .stats import floored_mean
 
 __all__ = [
     "PoolArrays",
@@ -471,7 +472,12 @@ def _build_pregame(
         ).reshape(1, p, 1)
         posterior = np.where(np.isinf(ratio), 0.0, cum_resid / (ratio + cum_n))
 
-    projection = known + posterior
+    # Project *expected points*, not the latent mean.  Scores are floored at
+    # zero, so a volatile player's expected output exceeds his latent mean; a
+    # manager reading a projection is reading the former.  Skipping this would
+    # systematically under-project low-mean, high-variance players and bias
+    # every bench and flex decision against them.
+    projection = floored_mean(known + posterior, pool.week_sd.reshape(1, p, 1))
     if pool.proj_noise_sd.max() > 0.0:
         projection = projection + (
             rng.normal(seed, rng.Kind.PROJ_NOISE, sims, keys, weeks)

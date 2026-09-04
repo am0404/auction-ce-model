@@ -124,15 +124,21 @@ def cmd_run(args) -> int:
     print("\n" + "=" * 78)
     print("SUMMARY -- paired delta CE for the focus team (Team01)")
     print("=" * 78)
-    head = f"{'experiment':<20} {'comparison':<46} {'dCE':>9} {'+/-95%':>8} {'z':>7}"
+    head = (f"{'experiment':<19} {'comparison':<44} {'dCE':>9} {'+/-95%':>8} "
+            f"{'z':>6} {'dPts/wk':>9} {'z':>6}")
     print(head)
     print("-" * len(head))
     for o in outputs:
-        for label, d, se, z in o.summary_rows():
-            short = label if len(label) <= 45 else label[:42] + "..."
-            print(f"{o.key:<20} {short:<46} {d:>+9.5f} {1.96 * se:>8.5f} {z:>+7.2f}")
+        for label, d, se, z, dp, dpse in o.summary_rows():
+            short = label if len(label) <= 43 else label[:40] + "..."
+            zp = dp / dpse if dpse else 0.0
+            print(f"{o.key:<19} {short:<44} {d:>+9.5f} {1.96 * se:>8.5f} "
+                  f"{z:>+6.2f} {dp:>+9.4f} {zp:>+6.1f}")
     print("-" * len(head))
     print(f"total runtime {dt:.1f}s")
+    print("\nA non-significant dCE with a significant dPts/wk means the mechanism "
+          "fired\nbut the effect is smaller than this sample size can resolve -- "
+          "raise --sims.")
     print("\nREMINDER: synthetic inputs. These validate the machinery, "
           "not any football claim.")
     return 0
