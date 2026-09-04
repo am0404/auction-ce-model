@@ -159,6 +159,43 @@ class PlayerSpec:
     level only.  Role changes reach the projection through
     ``observed_role_delta``, exactly once, from their reveal week."""
 
+    # --- forecastable weekly state --------------------------------------------
+    weekly_state_sd: float = 0.0
+    """SD of a per-week, per-player component that is **known before lineup
+    lock**.
+
+    This is the model's representation of knowable weekly conditions: matchup,
+    expected volume, announced usage, weather, pace, a banged-up offensive line.
+    It appears in the pregame projection *and* in the realized score's
+    conditional mean, which is precisely what makes it different from
+    ``proj_noise_sd`` (projection error, which moves the projection but not the
+    score) and from ``week_sd`` (scoring noise, which moves the score but not
+    the projection).
+
+    Without it most players have an effectively static pregame level, so two
+    candidates for one lineup spot can never rotate on knowable conditions and
+    the model cannot represent building a spot in the aggregate.  Draws are
+    independent across players; use ``weekly_state_pattern`` for correlated or
+    deliberately offset weekly structure."""
+
+    weekly_state_pattern: Optional[Tuple[float, ...]] = None
+    """Deterministic forecastable weekly offsets, one per simulated week.
+
+    Added to ``weekly_state_sd``'s stochastic draw.  Because the pattern is
+    supplied per player, any cross-player structure is expressible: identical
+    patterns give perfectly correlated good weeks, negated or rotated patterns
+    give offset ones, and omitting it leaves the players independent."""
+
+    hidden_weekly_pattern: Optional[Tuple[float, ...]] = None
+    """Deterministic weekly offsets that are **not** forecastable.
+
+    Identical in shape to ``weekly_state_pattern`` but applied to the realized
+    score only, never to the projection.  Its purpose is control arms: giving
+    one arm ``weekly_state_pattern`` and the other the same numbers as
+    ``hidden_weekly_pattern`` produces two worlds with byte-identical realized
+    production that differ *only* in whether the good weeks were identifiable
+    before kickoff."""
+
     # --- structure ------------------------------------------------------------
     shock_loadings: Tuple[ShockLoading, ...] = ()
     contingency: Optional[Contingency] = None
@@ -201,6 +238,8 @@ class PlayerSpec:
             raise ValueError("role_reveal_lag must be non-negative")
         if self.signal_noise_sd is not None and self.signal_noise_sd < 0:
             raise ValueError("signal_noise_sd must be non-negative")
+        if self.weekly_state_sd < 0:
+            raise ValueError("weekly_state_sd must be non-negative")
 
     @property
     def stream_key(self) -> int:

@@ -76,6 +76,7 @@ def lab_player(
         spike_rate=0.0,
         spike_scale=0.0,
         role_change_prob=0.0,
+        weekly_state_sd=0.0,
         proj_noise_sd=0.0,
         shock_loadings=(),
         contingency=None,
@@ -440,6 +441,132 @@ def exp_concentration(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
 
 
 # ---------------------------------------------------------------------------
+# 5b. Building a lineup spot in the aggregate
+# ---------------------------------------------------------------------------
+
+
+def offset_patterns(n_weeks: int, n_players: int, amplitude: float) -> List[Tuple[float, ...]]:
+    """``n_players`` mean-zero weekly patterns with disjoint good weeks.
+
+    Player *k* is hot in the weeks where ``w % n_players == k``, and exactly one
+    player is hot in any given week, so the group's per-week total is constant.
+    Each pattern is centred on its own hot-week frequency rather than on
+    ``1/n_players``, which makes every player's season mean exactly zero even
+    when ``n_weeks`` is not divisible by ``n_players`` -- otherwise the arm with
+    the patterns would quietly carry a level difference too.
+    """
+    weeks = np.arange(n_weeks)
+    out: List[Tuple[float, ...]] = []
+    for k in range(n_players):
+        hot = (weeks % n_players == k).astype(np.float64)
+        out.append(tuple(amplitude * (hot - hot.mean())))
+    return out
+
+
+def exp_aggregate_lineup_spot(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
+    """One stable starter vs several cheaper candidates who rotate.
+
+    Three WR/TE roster spots, 30.0 expected points per week to distribute, in
+    three arms that are matched on total *and* on per-player season strength:
+
+    ``stable``       18.0 / 6.0 / 6.0, flat every week.
+    ``forecastable`` 10.0 each, with offset weekly patterns so that in every
+                     week one of them is at 18.0 and the other two at 6.0 --
+                     and the manager can see which, before lock.
+    ``hidden``       the identical numbers, applied through
+                     ``hidden_weekly_pattern`` so they reach the realized score
+                     but never the projection.
+
+    The ``forecastable`` and ``hidden`` arms have **byte-identical realized
+    production**.  They differ in exactly one thing: whether the good weeks
+    were identifiable before kickoff.  That is the control the whole experiment
+    turns on, and it is why this cannot be mistaken for retrospectively picking
+    the players who happened to score.
+    """
+    ranked = roster_by_strength(base, FOCUS_TEAM)
+    victims = [s for s in ranked if s.position in (Position.WR, Position.TE)][-3:]
+    n_weeks = base.settings.total_weeks
+    level, amplitude = 10.0, 12.0
+    concentrated = (18.0, 6.0, 6.0)
+    patterns = offset_patterns(n_weeks, len(victims), amplitude)
+
+    def build(levels, forecastable_patterns=None, hidden_patterns=None):
+        rs = base
+        for k, (v, lvl) in enumerate(zip(victims, levels)):
+            extra = {}
+            if forecastable_patterns is not None:
+                extra["weekly_state_pattern"] = forecastable_patterns[k]
+            if hidden_patterns is not None:
+                extra["hidden_weekly_pattern"] = hidden_patterns[k]
+            rs = swap_in(
+                rs, FOCUS_TEAM, v.player_id,
+                lab_player(LAB_ID_BASE + 90 + k, f"LAB-AGG-SPOT{k}", Position.WR, lvl,
+                           week_sd=7.0, crn_key=LAB_ID_BASE + 90 + k, **extra),
+            )
+        return rs
+
+    stable = build(concentrated)
+    forecastable = build((level,) * 3, forecastable_patterns=patterns)
+    hidden = build((level,) * 3, hidden_patterns=patterns)
+
+    hot = level + amplitude * (1.0 - 1.0 / len(victims))
+    cold = level - amplitude / len(victims)
+    matched = ("all three arms hold 30.0 expected points per week across the "
+               "three spots, and every candidate's season mean is exactly "
+               f"{level:.1f}; the patterns are mean-zero by construction")
+
+    return ExperimentOutput(
+        key="aggregate-lineup-spot",
+        title="One stable starter vs several cheaper candidates who rotate",
+        question=("Three roster spots and 30.0 points per week. Is a single 18.0 "
+                  "starter worth more than three 10.0 candidates whose good and "
+                  "bad weeks are offset -- and does the answer depend on whether "
+                  "the good weeks are visible before kickoff?"),
+        comparisons=(
+            _run(forecastable, stable,
+                 "forecastable rotation vs one stable starter", n, seed,
+                 f"three candidates at {level:.1f}, offset weekly conditions "
+                 f"({hot:.1f} hot / {cold:.1f} cold), visible pregame",
+                 f"one starter at {concentrated[0]:.1f} plus two at "
+                 f"{concentrated[1]:.1f}, flat",
+                 notes=matched + ". The rotating arm presents the same "
+                       "{18, 6, 6} option set every week, so if the model "
+                       "prices knowable weekly conditions correctly this "
+                       "should be roughly a wash"),
+            _run(hidden, stable,
+                 "unforecastable rotation vs one stable starter (CONTROL)", n, seed,
+                 f"three candidates at {level:.1f}, same weekly swings, "
+                 f"invisible pregame",
+                 f"one starter at {concentrated[0]:.1f} plus two at "
+                 f"{concentrated[1]:.1f}, flat",
+                 notes=matched + ". Identical realized production to the "
+                       "arm above; the manager simply cannot see which "
+                       "candidate is hot, so he projects 10.0 for all three "
+                       "and starts whichever roster order happens to favour"),
+            _run(forecastable, hidden,
+                 "the same rotation, forecastable vs not", n, seed,
+                 "offset weekly conditions visible before lock",
+                 "the identical weekly swings, hidden until after kickoff",
+                 notes="the two arms' realized scores are byte-identical, so "
+                       "delta-CE here is purely the value of being able to "
+                       "identify the good weeks in advance -- nothing is "
+                       "selected retrospectively"),
+        ),
+        interpretation=(
+            "This is the aggregate-roster question the 15-for-8 format poses, and "
+            "it only has an answer once the model has a forecastable weekly state. "
+            "Cheap candidates can substitute for an expensive starter exactly to "
+            "the extent their good weeks are identifiable before lineup lock. The "
+            "first comparison measures how much of the concentrated player's value "
+            "the rotation recovers; the third isolates the price of forecastability "
+            "with realized production held byte-identical. The second is the "
+            "control that stops the first from being read as 'variance is free': "
+            "the same swings, unforecastable, cannot be harvested at all."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # 6. Injury probability
 # ---------------------------------------------------------------------------
 
@@ -683,6 +810,10 @@ EXPERIMENTS: Dict[str, ExperimentSpec] = {
                        "What is forecastability worth?", exp_spikes),
         ExperimentSpec("concentration", "One strong player vs aggregate flex options",
                        "Concentrate or spread a fixed projection budget?", exp_concentration),
+        ExperimentSpec("aggregate-lineup-spot",
+                       "One stable starter vs several cheaper rotating candidates",
+                       "Can cheap candidates replace a starter if their good weeks "
+                       "are knowable in advance?", exp_aggregate_lineup_spot),
         ExperimentSpec("injury", "Different injury probabilities",
                        "What does availability risk cost?", exp_injury),
         ExperimentSpec("bench-correlation", "Independent vs correlated bench upside",

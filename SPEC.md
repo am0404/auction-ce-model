@@ -215,8 +215,8 @@ conflated. Each is added **exactly once** on each side:
 |---|---|---|
 | Persistent player level | `base_mean + season_shift` | `base_mean` + posterior on `season_shift` from observed signals |
 | Observable role change | `true_role_delta`, from the change week | `observed_role_delta`, from the reveal week |
-| Forecastable weekly state | `contingency_bonus[p, w]` | the same value |
-| Unforecastable realized noise | group shock + idiosyncratic noise + spikes | absent |
+| Forecastable weekly state | `weekly_state[p, w]` (§4.7) | the same array, unchanged |
+| Unforecastable realized noise | group shock + idiosyncratic noise + spikes + `hidden_weekly_pattern` | absent |
 
 The pregame side never re-derives one component from another. That is what stops an
 unrevealed role change from being read as "unexplained good play" (inflating the
@@ -331,6 +331,53 @@ That is a deliberately conservative placeholder, not an estimate. A small value 
 league where usage reveals the truth in two weeks; a large value is one where it never
 quite does. `OPEN_QUESTIONS.md` A5 says what would settle it.
 
+### 4.7 Forecastable weekly state
+
+`weekly_state[p, w]` is per-player, per-week variation that is **known before lineup
+lock**: matchup, expected volume, announced usage, weather, pace, a banged-up line. It
+is assembled from three sources:
+
+```
+weekly_state[p, w] = contingency_bonus[p, w]                 # §4.4
+                   + weekly_state_pattern[p, w]              # deterministic
+                   + weekly_state_sd[p] * eta[p, w]          # stochastic
+```
+
+The same array is added to the realized score's conditional mean **and** to the
+projection. That is the whole definition, and it is what separates it from the two
+things it resembles:
+
+| Field | Moves the projection | Moves the score |
+|---|---|---|
+| `proj_noise_sd` | yes | **no** — this is forecast *error* |
+| `week_sd` | **no** | yes — this is unforecastable scoring noise |
+| `weekly_state` | yes | yes, by exactly the same amount |
+
+**Why it had to exist.** Without it almost every player has an effectively static
+pregame level, so two candidates for one lineup spot can never trade places on
+knowable conditions, and the model cannot represent building a roster spot in the
+aggregate. Adding it to the synthetic pool raises the number of distinct players a
+team starts over a season from 14.0 to 14.8, and the number of weekly starter changes
+from 2.0 to 2.7.
+
+**Cross-player structure.** `weekly_state_pattern` is supplied per player, so any
+structure is expressible: identical patterns give perfectly correlated good weeks,
+negated or rotated patterns give offset ones, and the stochastic term alone leaves
+players independent.
+
+**The control.** `hidden_weekly_pattern` is the same mechanism applied to the realized
+score *only*. Two arms in which one player carries a pattern as `weekly_state_pattern`
+and the other carries the identical numbers as `hidden_weekly_pattern` have
+byte-identical realized production and differ solely in whether the good weeks were
+identifiable before kickoff. The `aggregate-lineup-spot` experiment (§9) is built on
+exactly that pairing, which is why its result cannot be an artefact of retrospectively
+selecting players who happened to score.
+
+**Calibration note.** In `synthetic.py`, `weekly_state_sd` is *carved out of* `week_sd`
+rather than added to it (`_split_weekly_sd`), so the marginal weekly distribution is
+unchanged and only the forecastable share of it moves. Adding it instead would have
+made every synthetic player quietly more volatile.
+
 ---
 
 ## 5. Synthetic player process (clearly labelled)
@@ -344,6 +391,7 @@ estimate of real football. It produces:
 3. weekly scoring variance (`week_sd`, position-scaled);
 4. injuries and unavailable weeks (hazard + duration) and bye weeks;
 5. observable role changes (§4.3);
+5b. forecastable weekly conditions (§4.7, `weekly_state_sd`);
 6. unforecastable spike weeks (§5.5);
 7. shared team-level shocks (§4.5);
 8. hooks for arbitrary player correlations (§4.5).
@@ -352,9 +400,10 @@ estimate of real football. It produces:
 
 ```
 raw[p, w]  = base_mean[p]
-           + season_shift[p]
+           + season_shift[p]                # persistent, latent
            + true_role_delta[p, w]          # role change, revealed later
-           + contingency_bonus[p, w]        # observable
+           + weekly_state[p, w]             # forecastable weekly conditions
+           + hidden_weekly_pattern[p, w]    # the unforecastable control
            + sum_g beta[p, g] * shock[g, w] # team / stack / custom
            + week_sd[p] * eps[p, w]         # idiosyncratic
            + spike[p, w] - spike_mean[p]    # heavy right tail, mean-removed

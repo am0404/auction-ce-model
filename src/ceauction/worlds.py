@@ -121,6 +121,7 @@ class PoolArrays:
     role_sd: np.ndarray           # (P,)
     role_lag: np.ndarray          # (P,) int
     signal_noise_sd: np.ndarray   # (P,) observable-signal precision
+    weekly_state_sd: np.ndarray   # (P,) forecastable weekly variation
     proj_noise_sd: np.ndarray     # (P,)
     contingency_on: np.ndarray    # (P,) pool index or -1
     contingency_bonus: np.ndarray # (P,)
@@ -128,6 +129,8 @@ class PoolArrays:
     group_key: np.ndarray         # (G,) int64 stream keys
     proj_override: Optional[np.ndarray]      # (P, W) or None
     proj_override_mask: Optional[np.ndarray] # (P,) bool or None
+    weekly_state_pattern: Optional[np.ndarray] = None  # (P, W) forecastable
+    hidden_pattern: Optional[np.ndarray] = None        # (P, W) unforecastable
     group_names: Tuple[str, ...] = ()
 
 
@@ -152,24 +155,30 @@ def build_pool_arrays(
         for load in s.shock_loadings:
             beta[i, group_pos[load.group_id]] += load.beta
 
-    override_rows = [s.weekly_projection_override for s in specs]
-    has_override = any(o is not None for o in override_rows)
-    proj_override = None
-    proj_override_mask = None
-    if has_override:
-        proj_override = np.zeros((p, w), dtype=np.float64)
-        proj_override_mask = np.zeros(p, dtype=bool)
-        for i, o in enumerate(override_rows):
-            if o is None:
+    def week_rows(attr):
+        """Stack an optional per-week tuple into a (P, W) array, or None."""
+        rows = [getattr(s, attr) for s in specs]
+        if all(r is None for r in rows):
+            return None
+        out = np.zeros((p, w), dtype=np.float64)
+        for i, r in enumerate(rows):
+            if r is None:
                 continue
-            arr = np.asarray(o, dtype=np.float64)
+            arr = np.asarray(r, dtype=np.float64)
             if arr.shape != (w,):
                 raise ValueError(
-                    f"weekly_projection_override for {specs[i].name} must have "
+                    f"{attr} for {specs[i].name} must have "
                     f"length {w}, got {arr.shape}"
                 )
-            proj_override[i] = arr
-            proj_override_mask[i] = True
+            out[i] = arr
+        return out
+
+    proj_override = week_rows("weekly_projection_override")
+    proj_override_mask = None
+    if proj_override is not None:
+        proj_override_mask = np.array(
+            [s.weekly_projection_override is not None for s in specs], dtype=bool
+        )
 
     cont_on = np.full(p, -1, dtype=np.int64)
     cont_bonus = np.zeros(p, dtype=np.float64)
@@ -211,6 +220,7 @@ def build_pool_arrays(
         role_lag=col("role_reveal_lag", np.int64),
         # `signal_noise_sd=None` means "usage tells you about as much per week
         # as one observed score would have"; see PlayerSpec.signal_noise_sd.
+        weekly_state_sd=col("weekly_state_sd"),
         signal_noise_sd=np.maximum(
             np.array(
                 [s.week_sd if s.signal_noise_sd is None else s.signal_noise_sd
@@ -228,6 +238,8 @@ def build_pool_arrays(
         ),
         proj_override=proj_override,
         proj_override_mask=proj_override_mask,
+        weekly_state_pattern=week_rows("weekly_state_pattern"),
+        hidden_pattern=week_rows("hidden_weekly_pattern"),
         group_names=tuple(group_names),
     )
 
@@ -328,6 +340,8 @@ class PregameBatch:
     projection: np.ndarray           # (S, P, W)
     observed_role_delta: np.ndarray  # (S, P, W)
     contingency_bonus: np.ndarray    # (S, P, W)
+    weekly_state: np.ndarray         # (S, P, W) knowable weekly conditions,
+                                     # contingency uplift included
     posterior_mean: np.ndarray       # (S, P, W) belief about season_shift,
                                      # formed from observable signals only
     n_observed: np.ndarray           # (S, P, W) signals used to form that belief
@@ -454,6 +468,51 @@ def _contingency_bonus(
     return bonus
 
 
+def _weekly_state(
+    pool: PoolArrays,
+    seed: int,
+    sims: np.ndarray,
+    keys: np.ndarray,
+    n_weeks: int,
+    contingency: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """``(forecastable, hidden)``, both ``(S, P, W)``.
+
+    ``forecastable`` is everything about *this* week that a manager knows before
+    lock: the contingency uplift, a deterministic per-player weekly pattern, and
+    a stochastic knowable component.  Read it as matchup, expected volume,
+    announced usage, weather -- conditions that genuinely move the score's
+    conditional mean and that you can genuinely see in advance.  It goes into
+    the realized score *and* the projection, unchanged, which is what
+    distinguishes it from projection error (moves the projection only) and from
+    weekly scoring noise (moves the score only).
+
+    ``hidden`` is the deliberate control: the same shape of weekly variation,
+    applied to the realized score alone.  Two arms differing only in which of
+    the two carries a pattern have byte-identical realized production and
+    differ purely in whether the good weeks were identifiable before kickoff.
+    """
+    s, p = sims.shape[0], keys.shape[1]
+    weeks = np.arange(n_weeks, dtype=np.int64).reshape(1, 1, n_weeks)
+
+    forecastable = contingency
+    if pool.weekly_state_pattern is not None:
+        forecastable = forecastable + pool.weekly_state_pattern.reshape(1, p, n_weeks)
+    if pool.weekly_state_sd.max() > 0.0:
+        forecastable = forecastable + (
+            rng.normal(seed, rng.Kind.WEEKLY_STATE, sims, keys, weeks)
+            * pool.weekly_state_sd.reshape(1, p, 1)
+        )
+
+    if pool.hidden_pattern is not None:
+        hidden = np.broadcast_to(
+            pool.hidden_pattern.reshape(1, p, n_weeks), (s, p, n_weeks)
+        )
+    else:
+        hidden = np.zeros((s, p, n_weeks), dtype=np.float64)
+    return forecastable, hidden
+
+
 def _draw_signals(
     pool: PoolArrays,
     seed: int,
@@ -494,7 +553,8 @@ def _draw_realized(
     n_weeks: int,
     latent: LatentState,
     avail: AvailabilityBatch,
-    contingency: np.ndarray,
+    forecastable: np.ndarray,
+    hidden: np.ndarray,
 ) -> RealizedBatch:
     s, p = sims.shape[0], keys.shape[1]
     weeks = np.arange(n_weeks, dtype=np.int64).reshape(1, 1, n_weeks)
@@ -539,8 +599,9 @@ def _draw_realized(
     # player's expected points, which is not what any projection source means.
     raw = np.empty((s, p, n_weeks), dtype=np.float64)
     np.add(pool.base_mean.reshape(1, p, 1), latent.season_shift.reshape(s, p, 1), out=raw)
-    raw += latent.true_role_delta
-    raw += contingency
+    raw += latent.true_role_delta   # observable role change, once
+    raw += forecastable             # knowable weekly conditions, once
+    raw += hidden                   # the unforecastable-control counterpart
     raw += group_effect
     raw += idio
     raw += spike
@@ -559,6 +620,7 @@ def _build_pregame(
     latent: LatentState,
     avail: AvailabilityBatch,
     signals: SignalBatch,
+    forecastable: np.ndarray,
     contingency: np.ndarray,
 ) -> PregameBatch:
     """Project week *w* from information available before week *w*.
@@ -581,8 +643,15 @@ def _build_pregame(
         Because the signal channel cannot see role changes, an unrevealed one
         does **not** first appear as an inflated persistent level and then get
         added a second time on reveal.
-    ``contingency_bonus``
-        the forecastable uplift from a depth-chart superior being out.
+    ``weekly_state``
+        knowable weekly conditions -- matchup, expected volume, announced usage,
+        weather -- including the contingency uplift from a depth-chart superior
+        being out.  It is the *same* array added to the realized score, not a
+        forecast of it, so it moves the projection and the score's conditional
+        mean together.
+
+    Everything else that moves a realized score -- idiosyncratic noise, spikes,
+    shared shocks, ``hidden_weekly_pattern`` -- is absent here by construction.
     """
     s, p = sims.shape[0], keys.shape[1]
     weeks = np.arange(n_weeks, dtype=np.int64).reshape(1, 1, n_weeks)
@@ -614,7 +683,7 @@ def _build_pregame(
         pool.base_mean.reshape(1, p, 1)
         + posterior
         + latent.observed_role_delta
-        + contingency
+        + forecastable
     )
     if pool.proj_noise_sd.max() > 0.0:
         projection = projection + (
@@ -630,6 +699,7 @@ def _build_pregame(
         projection=projection,
         observed_role_delta=latent.observed_role_delta,
         contingency_bonus=contingency,
+        weekly_state=forecastable,
         posterior_mean=posterior,
         n_observed=cum_n,
     )
@@ -654,11 +724,15 @@ def generate_world(
     latent = _draw_latent(pool, seed, sims, keys, w)
     avail = _draw_availability(pool, seed, sims3, keys3, w)
     contingency = _contingency_bonus(pool, avail.available)
+    forecastable, hidden = _weekly_state(pool, seed, sims3, keys3, w, contingency)
     signals = _draw_signals(pool, seed, sims3, keys3, w, latent, avail)
-    realized = _draw_realized(pool, seed, sims3, keys3, w, latent, avail, contingency)
-    # `realized` is deliberately not passed to `_build_pregame`.
+    realized = _draw_realized(
+        pool, seed, sims3, keys3, w, latent, avail, forecastable, hidden
+    )
+    # `realized` is deliberately not passed to `_build_pregame`; `forecastable`
+    # is the same array both sides see, and `hidden` reaches only the score.
     pregame = _build_pregame(
-        pool, seed, sims3, keys3, w, latent, avail, signals, contingency
+        pool, seed, sims3, keys3, w, latent, avail, signals, forecastable, contingency
     )
     return WorldBatch(
         sim_start=sim_start,

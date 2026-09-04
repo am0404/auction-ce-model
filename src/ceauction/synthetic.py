@@ -17,6 +17,7 @@ support, all of which are expressed purely through ``PlayerSpec`` fields:
 1. persistent season-level performance states   -> ``season_sd``
 2. pregame projections                          -> filtered posterior + noise
 3. weekly scoring variance                      -> ``week_sd``
+3b. forecastable weekly conditions              -> ``weekly_state_sd``
 4. injuries and unavailable weeks               -> hazard/duration + byes
 5. observable role changes                      -> ``role_change_*``
 6. unforecastable spike weeks                   -> ``spike_rate``/``spike_scale``
@@ -31,6 +32,7 @@ real correlation relationships.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -75,6 +77,13 @@ class PositionProfile:
     floor: float
     decay: float
     week_sd: float
+    """Total weekly dispersion around the player's level, *before* correlation
+    groups.  ``weekly_state_sd`` is carved out of this rather than added to it,
+    so changing the forecastable share leaves the marginal distribution alone
+    (see :func:`_split_weekly_sd`)."""
+    weekly_state_sd: float
+    """The part of ``week_sd`` that is knowable before lineup lock: matchup,
+    expected volume, announced usage, weather."""
     season_sd: float
     injury_hazard: float
     injury_mean_weeks: float
@@ -92,28 +101,28 @@ class PositionProfile:
 #: RB highest injury hazard, TE lowest ceiling.
 DEFAULT_PROFILES: Dict[Position, PositionProfile] = {
     Position.QB: PositionProfile(
-        top=22.0, floor=9.0, decay=0.055, week_sd=6.0, season_sd=2.2,
+        top=22.0, floor=9.0, decay=0.055, week_sd=6.0, weekly_state_sd=2.5, season_sd=2.2,
         injury_hazard=0.020, injury_mean_weeks=2.0,
         spike_rate=0.08, spike_scale=6.0,
         role_change_prob=0.10, role_change_mean=0.0, role_change_sd=3.0,
         proj_noise_sd=1.0, team_beta=1.3, stack_beta=1.4,
     ),
     Position.RB: PositionProfile(
-        top=17.0, floor=4.0, decay=0.070, week_sd=6.8, season_sd=2.6,
+        top=17.0, floor=4.0, decay=0.070, week_sd=6.8, weekly_state_sd=3.0, season_sd=2.6,
         injury_hazard=0.045, injury_mean_weeks=2.6,
         spike_rate=0.10, spike_scale=7.0,
         role_change_prob=0.18, role_change_mean=0.3, role_change_sd=3.2,
         proj_noise_sd=1.2, team_beta=0.7, stack_beta=0.0,
     ),
     Position.WR: PositionProfile(
-        top=16.5, floor=4.0, decay=0.048, week_sd=7.2, season_sd=2.5,
+        top=16.5, floor=4.0, decay=0.048, week_sd=7.2, weekly_state_sd=3.0, season_sd=2.5,
         injury_hazard=0.030, injury_mean_weeks=2.2,
         spike_rate=0.12, spike_scale=7.5,
         role_change_prob=0.15, role_change_mean=0.2, role_change_sd=3.0,
         proj_noise_sd=1.3, team_beta=0.9, stack_beta=1.1,
     ),
     Position.TE: PositionProfile(
-        top=13.0, floor=3.0, decay=0.090, week_sd=5.8, season_sd=2.0,
+        top=13.0, floor=3.0, decay=0.090, week_sd=5.8, weekly_state_sd=2.4, season_sd=2.0,
         injury_hazard=0.030, injury_mean_weeks=2.2,
         spike_rate=0.10, spike_scale=6.0,
         role_change_prob=0.15, role_change_mean=0.2, role_change_sd=2.6,
@@ -144,6 +153,24 @@ class SyntheticConfig:
 
 def _base_mean(profile: PositionProfile, rank: int) -> float:
     return profile.floor + (profile.top - profile.floor) * float(np.exp(-profile.decay * rank))
+
+
+def _split_weekly_sd(profile: PositionProfile) -> float:
+    """Idiosyncratic SD left once the forecastable share is carved out.
+
+    ``weekly_state_sd`` is *reclassified* from ``week_sd``, not added to it:
+    the same total weekly dispersion, with part of it now knowable before
+    lock.  Adding it instead would silently make every synthetic player more
+    volatile and invalidate the comparison to earlier runs.
+    """
+    resid = profile.week_sd ** 2 - profile.weekly_state_sd ** 2
+    if resid <= 0.0:
+        raise ValueError(
+            f"weekly_state_sd {profile.weekly_state_sd} exceeds week_sd "
+            f"{profile.week_sd}; the forecastable share cannot be the whole of "
+            f"the weekly dispersion"
+        )
+    return math.sqrt(resid)
 
 
 def make_synthetic_pool(config: Optional[SyntheticConfig] = None) -> List[PlayerSpec]:
@@ -195,7 +222,8 @@ def make_synthetic_pool(config: Optional[SyntheticConfig] = None) -> List[Player
                     nfl_team=abbr,
                     bye_week=config.first_bye_week + (nfl_i % config.n_bye_weeks),
                     base_mean=_base_mean(prof, rank),
-                    week_sd=prof.week_sd,
+                    week_sd=_split_weekly_sd(prof),
+                    weekly_state_sd=prof.weekly_state_sd,
                     season_sd=prof.season_sd,
                     weekly_injury_hazard=prof.injury_hazard,
                     injury_mean_weeks=prof.injury_mean_weeks,
@@ -296,7 +324,8 @@ def make_identical_league(
                         nfl_team=f"N{pid:03d}",  # a private NFL team each: no shared byes
                         bye_week=config.first_bye_week + (slot % config.n_bye_weeks),
                         base_mean=mean,
-                        week_sd=prof.week_sd,
+                        week_sd=_split_weekly_sd(prof),
+                        weekly_state_sd=prof.weekly_state_sd,
                         season_sd=prof.season_sd,
                         weekly_injury_hazard=prof.injury_hazard,
                         injury_mean_weeks=prof.injury_mean_weeks,

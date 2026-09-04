@@ -190,6 +190,7 @@ def pregame_week(
                 availability=status,
                 observed_role_delta=float(world.pregame.observed_role_delta[sim, i, week]),
                 contingency_bonus=float(world.pregame.contingency_bonus[sim, i, week]),
+                weekly_state=float(world.pregame.weekly_state[sim, i, week]),
             )
         )
     return PregameWeek(week=week + 1, entries=tuple(entries))

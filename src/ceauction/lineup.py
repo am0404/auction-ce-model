@@ -265,4 +265,9 @@ def _reason(slot: Slot, entry: PregameEntry, rank_in_pool: int) -> str:
         bits.append(f"observed role change {entry.observed_role_delta:+.1f}")
     if entry.contingency_bonus:
         bits.append(f"contingency start {entry.contingency_bonus:+.1f}")
+    # The contingency uplift is itself part of weekly_state, so report only the
+    # rest of it -- otherwise a handcuff week would read its bonus twice.
+    rest = entry.weekly_state - entry.contingency_bonus
+    if abs(rest) > 5e-2:
+        bits.append(f"weekly conditions {rest:+.1f}")
     return "; ".join(bits) + f" ({entry.projection:.2f} proj)"

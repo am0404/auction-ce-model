@@ -43,9 +43,12 @@ def _rebuild_pregame(pool, world, seed=SEED):
     sims3 = (np.arange(n, dtype=np.int64) + world.sim_start).reshape(n, 1, 1)
     keys3 = pool.stream_key.reshape(1, pool.n_players, 1)
     contingency = W._contingency_bonus(pool, world.availability.available)
+    forecastable, _ = W._weekly_state(
+        pool, seed, sims3, keys3, pool.n_weeks, contingency
+    )
     return W._build_pregame(
         pool, seed, sims3, keys3, pool.n_weeks,
-        world.latent, world.availability, world.signals, contingency,
+        world.latent, world.availability, world.signals, forecastable, contingency,
     )
 
 

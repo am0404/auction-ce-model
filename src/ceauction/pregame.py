@@ -44,7 +44,14 @@ class PregameEntry:
         The part of the player's role change that has been *revealed*.  A role
         change that has happened but not yet been reported is not here.
     contingency_bonus:
-        Uplift because a player ahead of him on the depth chart is out.
+        Uplift because a player ahead of him on the depth chart is out.  It is
+        part of ``weekly_state`` and is broken out separately only because it
+        deserves its own line in an explanation.
+    weekly_state:
+        Knowable conditions specific to this week -- matchup, expected volume,
+        announced usage, weather -- already included in ``projection``.  This
+        is what lets two candidates for one lineup spot rotate on information
+        available before kickoff rather than after it.
     """
 
     player_id: int
@@ -54,6 +61,7 @@ class PregameEntry:
     availability: Availability = Availability.ACTIVE
     observed_role_delta: float = 0.0
     contingency_bonus: float = 0.0
+    weekly_state: float = 0.0
 
     @property
     def startable(self) -> bool:

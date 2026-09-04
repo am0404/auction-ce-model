@@ -27,6 +27,7 @@ def test_every_required_experiment_exists():
     required = {
         "marginal-point", "second-qb", "volatility", "spikes", "concentration",
         "injury", "bench-correlation", "stack", "handcuff", "opponent-placement",
+        "aggregate-lineup-spot",
     }
     assert required <= set(EXPERIMENTS)
 
@@ -194,3 +195,69 @@ def test_cli_rejects_a_bad_experiment_key(capsys):
 def test_cli_requires_an_experiment_selection(capsys):
     from ceauction.cli import main
     assert main(["run", "--sims", "10"]) == 2
+
+
+# --------------------------------------------------------------------------
+# Building a lineup spot in the aggregate (and its unforecastable control).
+# --------------------------------------------------------------------------
+
+
+def test_aggregate_spot_value_exists_only_when_the_good_weeks_are_knowable(league):
+    """Three arms, one conclusion, and a control that rules out the alternative.
+
+    Cheap rotating candidates replace an expensive starter only to the extent
+    their good weeks can be identified before lock. The `hidden` arm has
+    byte-identical realized production to the `forecastable` one, so the gap
+    between them cannot be anything except the value of pregame knowability.
+    """
+    out = run_experiment("aggregate-lineup-spot", 4000, SEED, base=league)
+    vs_stable, control, forecastability = out.comparisons
+
+    # Forecastable rotation recovers essentially all of the concentrated
+    # starter's value: the arms score the same and CE does not separate.
+    assert abs(vs_stable.delta_points_per_week) < 0.25
+    assert abs(vs_stable.delta_ce_z) < 3.0, (
+        f"forecastable rotation should be roughly a wash "
+        f"(dCE = {vs_stable.delta_ce:+.5f}, z = {vs_stable.delta_ce_z:+.2f})"
+    )
+
+    # The identical swings, unforecastable, cannot be harvested at all.
+    assert control.delta_points_per_week < -3.0
+    assert control.delta_ce < 0.0 and control.delta_ce_z < -5.0
+
+    # And forecastability alone is worth a large, resolvable amount of CE.
+    assert forecastability.delta_ce > 0.0 and forecastability.delta_ce_z > 5.0
+
+
+def test_the_aggregate_control_arms_have_identical_realized_production(league):
+    """The claim the experiment rests on, checked at the array level."""
+    import numpy as np
+
+    from ceauction.experiments import LAB_ID_BASE, offset_patterns
+    from ceauction.league import DEFAULT_LEAGUE
+    from ceauction.players import PlayerSpec
+    from ceauction.worlds import build_pool_arrays, generate_world
+
+    victims = [s for s in roster_by_strength(league, FOCUS_TEAM)
+               if s.position in (Position.WR, Position.TE)][-3:]
+    pats = offset_patterns(DEFAULT_LEAGUE.total_weeks, 3, 12.0)
+
+    def arm(hidden):
+        rs = league
+        for k, v in enumerate(victims):
+            key = "hidden_weekly_pattern" if hidden else "weekly_state_pattern"
+            rs = swap_in(rs, FOCUS_TEAM, v.player_id,
+                         lab_player(LAB_ID_BASE + 90 + k, f"AGG{k}", Position.WR,
+                                    10.0, week_sd=7.0,
+                                    crn_key=LAB_ID_BASE + 90 + k, **{key: pats[k]}))
+        return rs
+
+    shown, hidden = arm(False), arm(True)
+    ws = generate_world(build_pool_arrays(shown.pool, DEFAULT_LEAGUE), SEED, 0, 40)
+    wh = generate_world(build_pool_arrays(hidden.pool, DEFAULT_LEAGUE), SEED, 0, 40)
+    idx = [shown.id_to_index[LAB_ID_BASE + 90 + k] for k in range(3)]
+
+    assert np.array_equal(ws.realized.points[:, idx, :], wh.realized.points[:, idx, :])
+    assert not np.allclose(ws.pregame.projection[:, idx, :],
+                           wh.pregame.projection[:, idx, :])
+    assert np.allclose(wh.pregame.projection[:, idx, :], 10.0)

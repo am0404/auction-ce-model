@@ -70,6 +70,7 @@ class Kind:
     PROJ_NOISE = 111
     SCHEDULE_PERM = 112
     SIGNAL_NOISE = 113
+    WEEKLY_STATE = 114
 
 
 def mix64(x: np.ndarray) -> np.ndarray:
