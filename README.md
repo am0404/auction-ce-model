@@ -34,7 +34,7 @@ and fails with "editable mode currently requires a setuptools-based build".
 .venv/bin/ce-lab run --all --sims 12000    # the full CE laboratory
 .venv/bin/ce-lab curve --sims 16000        # the marginal CE curve for one slot
 .venv/bin/ce-lab bench                     # runtime + Monte Carlo uncertainty
-.venv/bin/python -m pytest                 # 255 tests
+.venv/bin/python -m pytest                 # 279 tests
 ```
 
 Two of the twelve experiments are **controls** and are meant to read near zero.
@@ -50,6 +50,10 @@ ever makes the first kind.
 | `HANDOFF.md` | What was built, how to run it, results, and the next step |
 | `OPEN_QUESTIONS.md` | Decisions that need real data or your judgement |
 | `docs/example_ce_lab_output.txt` | A full CE-laboratory run |
+| `docs/PLAYER_DATA_INVENTORY.md` | What the existing player model actually contains |
+| `docs/PLAYER_DATA_LINEAGE.md` | Source file to transformation code to derived field |
+| `docs/PLAYER_MAPPING_GAPS.md` | Every `PlayerSpec` field against that source |
+| `schemas/real_player_input_v1.schema.json` | The versioned real-player input contract |
 | `docs/example_curve_output.txt` | A 19-level marginal CE curve + resolution report |
 | `docs/example_marginal_curve.csv` | The same curve, machine-readable |
 

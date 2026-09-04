@@ -217,3 +217,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .pytest_full.txt
+
+# Local raw player data -- never committed (this repo is public)
+local_data/
+*.csv.local

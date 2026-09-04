@@ -125,7 +125,7 @@ src/ceauction/
   experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      255 tests
+tests/                      279 tests
 ```
 
 `stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
@@ -141,7 +141,7 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 255 tests, ~3 min
+.venv/bin/python -m pytest              # 279 tests, ~3 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
@@ -157,12 +157,13 @@ Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev depend
 
 ## 4. Test results
 
-**255 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
+**279 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
 `flaky` markers. 146 at the start of Phase 1, 46 added there, 39 in Phase 2, and 24 in the Phase 2 audit-correction pass.
 
 | File | Tests | What it pins down |
 |---|---:|---|
+| `test_real_player_input_schema.py` | 24 | **NEW (inventory phase).** the real-player contract's shape: nulls mean *not projected*; a missing scoring category can only be recorded as absent; the expert grades are pinned as non-distributional; raw source fields are required and non-empty; sources are identified by content hash; and a fabricated two-player fixture validates, one of them deliberately sparse |
 | `test_curve.py` | 62 | **NEW (Phase 2).** exact-zero identical arms; order independence; CRN preserved across every level; agreement with a direct paired comparison; genuinely paired adjacent slopes; monotone shape within uncertainty; chunk determinism; the resolution report's `1/sqrt(n)` arithmetic; CSV schema; the isotonic column changing nothing; CLI |
 | `test_experiments.py` | 35 | every experiment builds a legal league and runs paired; the rival-placement **control** reads zero and `rival-fit` does not; the aggregate-spot arms and their byte-identical control; the floor helpers cannot return; every documented `ce-lab` command exits 0 |
 | `test_worlds.py` | 21 | byes, injury hazard/duration, latent persistence, **negative realized scores**, **realized mean == base_mean**, unavailable weeks still zero, spike mean-neutrality, correlation, contingency, role reveal lag, belief convergence, chunk independence across **all seven layers**, `crn_key` sharing |
@@ -765,6 +766,17 @@ this code path.
 
 **Inventory and import the existing player model, and turn it into a versioned
 real-player input contract.**
+
+> **Step 1 of this is done.** The inventory and semantic trace are in
+> `docs/PLAYER_DATA_INVENTORY.md`, `docs/PLAYER_DATA_LINEAGE.md` and
+> `docs/PLAYER_MAPPING_GAPS.md`, and the contract's first version is in
+> `schemas/real_player_input_v1.schema.json`. No ingestion code was written and
+> no real data was copied into this repository. The headline: component stat
+> lines and two properly fitted dispersion/availability parameters exist and are
+> usable; "boom/bust grades" turn out to be 28%-covered ordinal expert labels
+> with no mapping to a standard deviation; and eight semantic questions —
+> including which league this engine is actually for — must be answered before
+> any of it can be mapped.
 
 A correction first, because it changes what comes next. An earlier draft of this
 section said to "convert the dollar scale to points and get `dCE/dollar` directly",

@@ -1,0 +1,257 @@
+{
+  "schema_version": "1.0.0",
+  "provenance": {
+    "generated_at": "2020-01-01T00:00:00+00:00",
+    "league_config_id": "FIXTURE-LEAGUE-NOT-REAL",
+    "sources": [
+      {
+        "logical_name": "fabricated_projections.csv",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "vendor": "FIXTURE",
+        "retrieved_at": "2020-01-01T00:00:00+00:00",
+        "role": "performance_projection",
+        "notes": "Fabricated for tests."
+      },
+      {
+        "logical_name": "fabricated_injury.json",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "vendor": "FIXTURE",
+        "retrieved_at": null,
+        "role": "injury_availability",
+        "notes": "retrieved_at is null on purpose: a real source carries no timestamp and the contract must permit that rather than invent one."
+      }
+    ]
+  },
+  "scoring_support": {
+    "supported_categories": [
+      "pass_yard",
+      "pass_td",
+      "interception",
+      "rush_yard",
+      "rush_td",
+      "rec_yard",
+      "rec_td",
+      "reception"
+    ],
+    "unsupported_categories": [
+      {
+        "category": "pass_2pt",
+        "reason": "no source column",
+        "treated_as": "absent"
+      },
+      {
+        "category": "rush_2pt",
+        "reason": "no source column",
+        "treated_as": "absent"
+      },
+      {
+        "category": "rec_2pt",
+        "reason": "no source column",
+        "treated_as": "absent"
+      },
+      {
+        "category": "special_teams_td",
+        "reason": "no source column",
+        "treated_as": "absent"
+      },
+      {
+        "category": "fumble_lost",
+        "reason": "column exists but may be total fumbles rather than lost fumbles",
+        "treated_as": "absent"
+      }
+    ]
+  },
+  "uncalibrated_parameters": [
+    {
+      "parameter": "season_sd",
+      "reason": "no measure of true-talent deviation from consensus",
+      "would_be_settled_by": "preseason projections joined to realised season means"
+    },
+    {
+      "parameter": "signal_noise_sd",
+      "reason": "no usage-vs-outcome relationship measured",
+      "would_be_settled_by": "rest-of-season scoring regressed on usage through week k"
+    },
+    {
+      "parameter": "weekly_state_sd",
+      "reason": "no forecastable/unforecastable split",
+      "would_be_settled_by": "R-squared of archived weekly projections against weekly outcomes"
+    },
+    {
+      "parameter": "proj_noise_sd",
+      "reason": "no archived weekly projections",
+      "would_be_settled_by": "RMSE of weekly projections against outcomes"
+    },
+    {
+      "parameter": "spike_rate",
+      "reason": "no tail-shape measurement",
+      "would_be_settled_by": "fitting the upper tail of weekly score distributions"
+    },
+    {
+      "parameter": "spike_scale",
+      "reason": "no tail-shape measurement",
+      "would_be_settled_by": "fitting the upper tail of weekly score distributions"
+    },
+    {
+      "parameter": "role_change_prob",
+      "reason": "no role-transition rates fitted",
+      "would_be_settled_by": "hand-tagged dated depth-chart changes"
+    },
+    {
+      "parameter": "shock_loadings",
+      "reason": "no correlation structure available",
+      "would_be_settled_by": "residual correlation matrix of weekly scores"
+    },
+    {
+      "parameter": "contingency",
+      "reason": "no real depth chart available",
+      "would_be_settled_by": "a real depth chart plus backup-usage-on-absence estimates"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q1",
+      "question": "What week range does the season projection span?",
+      "affects": [
+        "base_mean"
+      ],
+      "blocking": true
+    },
+    {
+      "id": "Q2",
+      "question": "Is the fumbles column total fumbles or fumbles lost?",
+      "affects": [
+        "base_mean"
+      ],
+      "blocking": true
+    },
+    {
+      "id": "Q4",
+      "question": "Are the projections means or medians?",
+      "affects": [
+        "base_mean"
+      ],
+      "blocking": true
+    },
+    {
+      "id": "Q6",
+      "question": "Which league configuration applies: 10-team no-superflex, or 12-team superflex?",
+      "affects": [
+        "every lineup decision"
+      ],
+      "blocking": true
+    }
+  ],
+  "players": [
+    {
+      "player_key": "fabricated_alpha",
+      "name": "Fabricated Alpha",
+      "position": "QB",
+      "nfl_team": "ZZA",
+      "bye_week": 7,
+      "stat_line": {
+        "pass_yards": 4000.0,
+        "pass_tds": 25.0,
+        "interceptions": 10.0,
+        "rush_yards": 300.0,
+        "rush_tds": 3.0,
+        "rec_yards": null,
+        "rec_tds": null,
+        "receptions": null,
+        "fumbles": 5.0,
+        "fumbles_are_lost_fumbles": null
+      },
+      "stat_line_horizon": {
+        "basis": "season_total",
+        "games_assumed": null,
+        "conditional_on_playing": null,
+        "central_tendency": "unknown"
+      },
+      "availability": {
+        "injury_prob": 0.2,
+        "injury_prob_definition": null,
+        "proj_games_missed": 1.0,
+        "proj_games_missed_definition": null,
+        "games_in_horizon": null
+      },
+      "cohort_dispersion": {
+        "weekly_cv": 0.5,
+        "weekly_cv_is_total_dispersion": true,
+        "weekly_miss_rate": 0.05,
+        "fit_provenance": "FIXTURE cohort, fabricated"
+      },
+      "expert_labels": {
+        "upside": 4,
+        "bust": 2,
+        "scale": "ordinal_1_to_5",
+        "may_derive_dispersion": false
+      },
+      "raw_fields": {
+        "Name": "Fabricated Alpha",
+        "Pos": "QB",
+        "Pass Yards": "4000",
+        "Pass TDs": "25",
+        "Ints": "10",
+        "Rush Yards": "300",
+        "Rush TDs": "3",
+        "Fumbles": "5",
+        "Projections": "999.9",
+        "UPSIDE ": "4 out of 5",
+        "BUST ": "2 out of 5"
+      }
+    },
+    {
+      "player_key": "fabricated_beta",
+      "name": "Fabricated Beta",
+      "position": "WR",
+      "nfl_team": null,
+      "bye_week": null,
+      "stat_line": {
+        "pass_yards": null,
+        "pass_tds": null,
+        "interceptions": null,
+        "rush_yards": null,
+        "rush_tds": null,
+        "rec_yards": 500.0,
+        "rec_tds": null,
+        "receptions": 40.0,
+        "fumbles": null,
+        "fumbles_are_lost_fumbles": null
+      },
+      "stat_line_horizon": {
+        "basis": "season_total",
+        "games_assumed": null,
+        "conditional_on_playing": null,
+        "central_tendency": "unknown"
+      },
+      "availability": {
+        "injury_prob": null,
+        "injury_prob_definition": null,
+        "proj_games_missed": null,
+        "proj_games_missed_definition": null,
+        "games_in_horizon": null
+      },
+      "cohort_dispersion": {
+        "weekly_cv": 0.6,
+        "weekly_cv_is_total_dispersion": true,
+        "weekly_miss_rate": 0.07,
+        "fit_provenance": "FIXTURE cohort, fabricated"
+      },
+      "expert_labels": {
+        "upside": null,
+        "bust": null,
+        "scale": "ordinal_1_to_5",
+        "may_derive_dispersion": false
+      },
+      "raw_fields": {
+        "Name": "Fabricated Beta",
+        "Pos": "WR",
+        "Rec Yards": "500",
+        "Receptions": "40",
+        "Rec TDs": "",
+        "UPSIDE ": "-",
+        "BUST ": "-"
+      }
+    }
+  ]
+}

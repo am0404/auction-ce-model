@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/am0404/auction-ce-model/schemas/real_player_input_v1.schema.json",
+  "title": "Real player input contract, version 1",
+  "description": "A versioned contract for real player data entering the championship-equity engine. It deliberately carries ONLY quantities whose meaning is proven end to end (see docs/PLAYER_DATA_LINEAGE.md). Anything whose meaning is unresolved is either absent or must be declared in open_questions. It preserves every raw source field verbatim so that a mapping judgement can be revisited without a re-import. This schema does not describe a dataset that exists; it describes the shape one must take to be trusted.",
+  "type": "object",
+  "required": ["schema_version", "provenance", "scoring_support", "players"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Bump when the MEANING of any field changes, not only its shape. A source column silently redefined upstream is the failure mode this exists to catch.",
+      "const": "1.0.0"
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["generated_at", "sources"],
+      "additionalProperties": false,
+      "properties": {
+        "generated_at": { "type": "string", "format": "date-time" },
+        "league_config_id": {
+          "type": "string",
+          "description": "Which league's scoring and roster rules this was built for. PLAYER_DATA_INVENTORY.md Q6: the existing player model is configured for a 10-team league with no superflex while this engine specifies 12 teams with one, so this must be explicit."
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "description": "One entry per input file, identified by content hash rather than filename. PLAYER_DATA_INVENTORY.md 1.1 records a case where the later-sounding filename held the older data.",
+          "items": {
+            "type": "object",
+            "required": ["logical_name", "sha256", "role"],
+            "additionalProperties": false,
+            "properties": {
+              "logical_name": { "type": "string" },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "vendor": { "type": "string" },
+              "retrieved_at": {
+                "type": ["string", "null"],
+                "description": "Null is permitted and meaningful: at least one real source carries no update timestamp and cannot be dated."
+              },
+              "role": {
+                "enum": [
+                  "performance_projection",
+                  "injury_availability",
+                  "outcome_distribution",
+                  "player_identity",
+                  "market"
+                ],
+                "description": "Market sources may appear here for traceability but must never populate a performance field."
+              },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "scoring_support": {
+      "type": "object",
+      "description": "Which of this league's scoring categories the source can actually compute. A missing category is NOT zero.",
+      "required": ["supported_categories", "unsupported_categories"],
+      "additionalProperties": false,
+      "properties": {
+        "supported_categories": { "type": "array", "items": { "type": "string" } },
+        "unsupported_categories": {
+          "type": "array",
+          "description": "Categories in this league's rules with no source column. Recorded so that a total is never mistaken for complete. Known gaps: pass_2pt, rush_2pt, rec_2pt, special_teams_td.",
+          "items": {
+            "type": "object",
+            "required": ["category", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "category": { "type": "string" },
+              "reason": { "type": "string" },
+              "treated_as": {
+                "const": "absent",
+                "description": "Only 'absent' is legal. Silently substituting zero is the error this field exists to prevent."
+              }
+            }
+          }
+        }
+      }
+    },
+    "uncalibrated_parameters": {
+      "type": "array",
+      "description": "Engine parameters this input cannot supply, carried so a run built on it can always say which parts of its answer rest on data. See docs/PLAYER_MAPPING_GAPS.md section 4.",
+      "items": {
+        "type": "object",
+        "required": ["parameter", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "parameter": { "type": "string" },
+          "reason": { "type": "string" },
+          "would_be_settled_by": { "type": "string" }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "description": "Unresolved semantic questions that affect the values below. A consumer may refuse to run while any blocking question is open.",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "blocking"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "question": { "type": "string" },
+          "affects": { "type": "array", "items": { "type": "string" } },
+          "blocking": { "type": "boolean" }
+        }
+      }
+    },
+    "players": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/player" }
+    }
+  },
+  "$defs": {
+    "player": {
+      "type": "object",
+      "required": ["player_key", "name", "position", "raw_fields"],
+      "additionalProperties": false,
+      "properties": {
+        "player_key": {
+          "type": "string",
+          "description": "Stable join key, normalised from the name. Also the seed for the engine's crn_key.",
+          "minLength": 1
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "position": { "enum": ["QB", "RB", "WR", "TE"] },
+        "nfl_team": {
+          "type": ["string", "null"],
+          "description": "Null where the identity join did not match. Null means unknown, never a default team."
+        },
+        "bye_week": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 18,
+          "description": "Null where absent. Proven meaning. Must not be coerced to 0."
+        },
+        "stat_line": {
+          "$ref": "#/$defs/stat_line",
+          "description": "Season-long component projections. Proven to be the vendor's component stats; NOT proven to be means rather than medians (open question Q4), and the projection window is unstated (Q1)."
+        },
+        "stat_line_horizon": {
+          "type": "object",
+          "description": "Everything needed to turn the stat line into a per-week mean. Required alongside stat_line precisely because the source does not state it.",
+          "required": ["basis", "games_assumed", "conditional_on_playing"],
+          "additionalProperties": false,
+          "properties": {
+            "basis": { "enum": ["season_total", "per_game"] },
+            "games_assumed": {
+              "type": ["number", "null"],
+              "description": "Games the season total is spread over. Null means unresolved; a consumer must refuse rather than assume 16 or 17."
+            },
+            "conditional_on_playing": {
+              "type": ["boolean", "null"],
+              "description": "True if the projection describes weeks the player actually plays. Null means unresolved (Q3) -- applying an availability haircut on top would double-count."
+            },
+            "central_tendency": {
+              "enum": ["mean", "median", "unknown"],
+              "description": "'unknown' is the honest value for the current source and must be preserved rather than assumed to be 'mean'."
+            }
+          }
+        },
+        "availability": {
+          "type": "object",
+          "description": "Vendor availability signals. The EXTRACTION is proven; the vendor's DEFINITIONS are not (Q5), which is why definition strings are required alongside the numbers.",
+          "additionalProperties": false,
+          "properties": {
+            "injury_prob": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "injury_prob_definition": {
+              "type": ["string", "null"],
+              "description": "The vendor's own definition of the event. Null means unknown; a consumer must not convert it to a weekly hazard without one."
+            },
+            "proj_games_missed": { "type": ["number", "null"], "minimum": 0 },
+            "proj_games_missed_definition": { "type": ["string", "null"] },
+            "games_in_horizon": {
+              "type": ["number", "null"],
+              "description": "Denominator proj_games_missed is measured against. The existing model uses 16 in one place and 17 in another; a contract must pick one."
+            }
+          }
+        },
+        "cohort_dispersion": {
+          "type": "object",
+          "description": "Dispersion from a fitted cohort statistic, not a per-player measurement. Both fields have fully proven definitions (docs/PLAYER_DATA_LINEAGE.md section 3).",
+          "additionalProperties": false,
+          "properties": {
+            "weekly_cv": {
+              "type": ["number", "null"],
+              "exclusiveMinimum": 0,
+              "description": "Positional coefficient of variation: mean over qualifying player-seasons of std(weekly half-PPR)/mean(weekly half-PPR), computed over APPEARED weeks with ddof=0. A cohort average applied to an individual."
+            },
+            "weekly_cv_is_total_dispersion": {
+              "const": true,
+              "description": "Asserts the caller knows this is TOTAL weekly dispersion, not the unforecastable part. The engine splits week_sd from weekly_state_sd; this figure does not carry that split."
+            },
+            "weekly_miss_rate": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1,
+              "description": "P(does not appear in week w+1 | contributed in week w), byes excluded. Counts ANY non-appearance -- benching, rest and trade included -- so it is an availability hazard, not an injury hazard."
+            },
+            "fit_provenance": {
+              "type": ["string", "null"],
+              "description": "Seasons, cohort and sample size the fit came from."
+            }
+          }
+        },
+        "expert_labels": {
+          "type": "object",
+          "description": "Ordinal expert labels. Recorded for traceability ONLY. They are not distributional quantities and no mapping from them to a standard deviation exists; see docs/PLAYER_MAPPING_GAPS.md section 3.",
+          "additionalProperties": false,
+          "properties": {
+            "upside": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+            "bust": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+            "scale": { "const": "ordinal_1_to_5" },
+            "may_derive_dispersion": {
+              "const": false,
+              "description": "Pinned false. The raw upside tag correlates +0.53 with projected points; it substantially restates player quality, not variance."
+            }
+          }
+        },
+        "raw_fields": {
+          "type": "object",
+          "description": "Every source field verbatim, under its ORIGINAL column name, before any mapping. Required, and required to be non-empty: every mapping decision above is a judgement that will be revisited, and discarding the inputs turns a re-derivation into a re-import.",
+          "minProperties": 1
+        }
+      }
+    },
+    "stat_line": {
+      "type": "object",
+      "description": "Component stats. Every field is optional and null-permitting: a null means NOT PROJECTED, which is not the same as zero. The existing source leaves Rush TDs blank on 77.6% of rows and Rec TDs on 52.1%.",
+      "additionalProperties": false,
+      "properties": {
+        "pass_yards": { "type": ["number", "null"] },
+        "pass_tds": { "type": ["number", "null"] },
+        "interceptions": { "type": ["number", "null"] },
+        "rush_yards": { "type": ["number", "null"] },
+        "rush_tds": { "type": ["number", "null"] },
+        "rec_yards": { "type": ["number", "null"] },
+        "rec_tds": { "type": ["number", "null"] },
+        "receptions": { "type": ["number", "null"] },
+        "fumbles": {
+          "type": ["number", "null"],
+          "description": "The source column is named 'Fumbles'. Whether it means fumbles LOST -- which is what this league scores -- is open question Q2."
+        },
+        "fumbles_are_lost_fumbles": {
+          "type": ["boolean", "null"],
+          "description": "Null means unresolved. A consumer must not apply the -2 lost-fumble rule while this is null."
+        }
+      }
+    }
+  }
+}
