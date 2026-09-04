@@ -71,10 +71,48 @@ def test_injuries_last_multiple_weeks():
     assert cont.sum() / max(inj[:, :-1].sum(), 1) > 0.5
 
 
-def test_realized_points_are_never_negative():
+def test_an_active_player_can_realize_a_negative_weekly_score():
+    """There is no league rule flooring an individual week at zero.
+
+    Interceptions and lost fumbles are both -2, so a low-mean, high-variance
+    player really does post negative weeks.  An engine that floored them would
+    be quietly redefining ``base_mean`` as a latent parameter rather than the
+    player's expected points.
+    """
     specs = [flat_spec(0, Position.WR, 1.0, week_sd=12.0)]
     _, w = _world(specs, n_sims=2000)
-    assert w.realized.points.min() >= 0.0
+    active = w.availability.available[:, 0, :]
+    pts = w.realized.points[:, 0, :]
+    assert pts[active].min() < 0.0, "no active player ever went negative"
+    # And it is common, not a freak tail event: a 1.0-mean player with a weekly
+    # SD of 12 is below zero roughly 47% of the time.
+    assert 0.35 < float((pts[active] < 0.0).mean()) < 0.55
+
+
+def test_the_realized_mean_equals_base_mean_with_no_floor_correction():
+    """`base_mean` is expected fantasy points, full stop.
+
+    Under the old zero floor a 1.0-mean player with sd 12 realized about 4.9
+    points a week, so `base_mean` silently meant something else.
+    """
+    specs = [flat_spec(0, Position.WR, 1.0, week_sd=12.0),
+             flat_spec(1, Position.WR, 1.0, week_sd=3.0)]
+    _, w = _world(specs, n_sims=20000)
+    for i in (0, 1):
+        assert abs(float(w.realized.points[:, i, :].mean()) - 1.0) < 0.15
+    assert np.allclose(w.pregame.projection[:, :, :], 1.0), (
+        "the projection is the level itself -- no distributional correction"
+    )
+
+
+def test_unavailable_players_still_score_exactly_zero():
+    """Removing the floor must not change what a bye or an injury means."""
+    specs = [flat_spec(0, Position.WR, 1.0, week_sd=12.0, bye_week=7,
+                       weekly_injury_hazard=0.15, injury_mean_weeks=2.5)]
+    _, w = _world(specs, n_sims=500)
+    out = ~w.availability.available
+    assert out.any()
+    assert np.array_equal(w.realized.points[out], np.zeros(int(out.sum())))
 
 
 def test_season_shift_is_persistent_within_a_season():
@@ -106,11 +144,10 @@ def test_non_demeaned_spikes_add_their_mean_without_entering_the_projection():
     _, w = _world([plain, spiky], n_sims=8000)
     gap = float(w.realized.points[:, 1, :].mean() - w.realized.points[:, 0, :].mean())
     assert abs(gap - 3.0) < 0.25, "expected +3.0 pts/week of hidden production"
-    # season_sd is 0 here, so the filter learns nothing: the projection stays
-    # at the player's *expected points* excluding the spikes.  The production
-    # really is unforecastable.
-    from ceauction.stats import floored_mean
-    assert np.allclose(w.pregame.projection[:, 1, :], float(floored_mean(12.0, 5.0)))
+    # season_sd is 0 here, so nothing is learned: the projection stays at the
+    # player's base level, excluding the spikes.  The production really is
+    # unforecastable.
+    assert np.allclose(w.pregame.projection[:, 1, :], 12.0)
     assert np.allclose(w.pregame.projection[:, 0, :], w.pregame.projection[:, 1, :])
 
 
@@ -226,23 +263,18 @@ def test_crn_key_makes_two_specs_share_their_draws():
     assert not np.array_equal(w.realized.points[:, 0, :], w.realized.points[:, 2, :])
 
 
-def test_projection_is_expected_points_not_the_latent_mean():
-    """Scores are floored at zero, so the two differ -- a lot, at the bottom.
+def test_the_projection_is_an_unbiased_estimate_of_realized_points():
+    """No distributional correction sits between `base_mean` and the projection.
 
-    Projecting the latent mean would under-project every low-mean,
-    high-variance player and bias the whole bench against them.
+    Volatility must not shift the projection at all: the replacement-tier and
+    stud arms below share a weekly SD, and each projects exactly his own level.
     """
-    from ceauction.stats import floored_mean
     replacement = flat_spec(0, Position.WR, 4.0, week_sd=7.2)
     stud = flat_spec(1, Position.WR, 18.0, week_sd=7.2)
     _, w = _world([replacement, stud], n_sims=6000)
     for i, spec in enumerate((replacement, stud)):
-        expected = float(floored_mean(spec.base_mean, spec.week_sd))
-        assert np.allclose(w.pregame.projection[:, i, :], expected)
+        assert np.allclose(w.pregame.projection[:, i, :], spec.base_mean)
         realized = float(w.realized.points[:, i, :].mean())
-        assert abs(realized - expected) < 0.15, (
-            "the projection must be an unbiased estimate of expected points"
+        assert abs(realized - spec.base_mean) < 0.20, (
+            "the projection must be an unbiased estimate of realized points"
         )
-    # The correction is large where it matters and negligible where it does not.
-    assert w.pregame.projection[0, 0, 0] - 4.0 > 1.0
-    assert w.pregame.projection[0, 1, 0] - 18.0 < 0.05

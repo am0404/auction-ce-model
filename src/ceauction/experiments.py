@@ -28,7 +28,6 @@ from .ce import PairedComparison, compare_scenarios
 from .league import DEFAULT_LEAGUE, LeagueSettings, Position
 from .players import Contingency, PlayerSpec, ShockLoading, with_overrides
 from .roster import Roster, RosterSet
-from .stats import floored_mean, match_floored_mean
 from .synthetic import SyntheticConfig, make_synthetic_league
 
 __all__ = [
@@ -303,27 +302,26 @@ def exp_volatility(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
     for label, idx in (("starter-level (4th-strongest)", 3), ("flex-level (8th-strongest)", 7)):
         victim = ranked[idx]
         level = victim.base_mean
-        # Scores are floored at zero, so the volatile player would otherwise
-        # realize a *higher* mean than the stable one at the same base_mean.
-        # Solve for the base_mean that equalises expected realized points, so
-        # the experiment measures volatility and nothing else.
-        target = floored_mean(level, stable_sd)
-        volatile_level = match_floored_mean(target, volatile_sd)
+        # Realized scores are not floored, so the weekly draw is symmetric about
+        # the level and both arms expect exactly `level` points per week at any
+        # `week_sd`.  The arms therefore need no correction of any kind: they
+        # share a base_mean and differ only in dispersion.
         stable = lab_player(LAB_ID_BASE + 10 + idx, f"LAB-STABLE-{idx}", victim.position,
                             level, week_sd=stable_sd, crn_key=LAB_ID_BASE + 10 + idx)
         volatile = lab_player(LAB_ID_BASE + 20 + idx, f"LAB-VOLATILE-{idx}", victim.position,
-                              volatile_level, week_sd=volatile_sd,
+                              level, week_sd=volatile_sd,
                               crn_key=LAB_ID_BASE + 10 + idx)
         comps.append(
             _run(swap_in(base, FOCUS_TEAM, victim.player_id, volatile),
                  swap_in(base, FOCUS_TEAM, victim.player_id, stable),
                  f"volatile (sd {volatile_sd:.1f}) vs stable (sd {stable_sd:.1f}) "
                  f"at {label}", n, seed,
-                 f"weekly sd {volatile_sd:.1f}, base {volatile_level:.2f}",
+                 f"weekly sd {volatile_sd:.1f}, base {level:.2f}",
                  f"weekly sd {stable_sd:.1f}, base {level:.2f}",
-                 notes=f"base means differ ({volatile_level:.2f} vs {level:.2f}) "
-                       f"precisely so that expected *realized* points match at "
-                       f"{target:.2f}/week despite the zero floor; identical CRN key")
+                 notes=f"identical base_mean ({level:.2f}) and identical CRN key; "
+                       f"expected points per week match exactly, so the arms "
+                       f"differ in the shape of the weekly distribution and in "
+                       f"nothing else")
         )
     return ExperimentOutput(
         key="volatility",
@@ -423,10 +421,10 @@ def exp_concentration(base: RosterSet, n: int, seed: int) -> ExperimentOutput:
                  "18/6/6 vs 10/10/10 across three WR spots", n, seed,
                  "one strong WR (18.0) plus two replacement (6.0)",
                  "three even WRs (10.0 each)",
-                 notes="equal total projection (30.0), equal weekly sd, equal injury "
-                       "risk. Note the zero floor gives the 6.0 players a small "
-                       "realized-mean bonus, so about 0.8 of the scoring gap below "
-                       "is the floor rather than the lineup effect"),
+                 notes="equal total expected points (30.0/week), equal weekly sd, "
+                       "equal injury risk. Scores are not floored, so the two arms "
+                       "expect exactly the same total production and the entire "
+                       "scoring delta is the lineup effect"),
         ),
         interpretation=(
             "Only some of these three players start in any given week, so the "

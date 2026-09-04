@@ -33,7 +33,6 @@ import numpy as np
 from . import rng
 from .league import DEFAULT_LEAGUE, LeagueSettings
 from .players import PlayerSpec
-from .stats import floored_mean
 
 __all__ = [
     "PoolArrays",
@@ -415,6 +414,12 @@ def _draw_realized(
 
     # Accumulate in place: each of these terms is an (S, P, W) array, and a
     # naive sum would allocate six full-size temporaries per batch.
+    #
+    # There is deliberately **no** `maximum(raw, 0)` here.  Interceptions and
+    # lost fumbles are both -2 in this league's rules and nothing floors an
+    # individual player's weekly total, so a bad week really can be negative.
+    # Flooring would have made `base_mean` a latent parameter rather than the
+    # player's expected points, which is not what any projection source means.
     raw = np.empty((s, p, n_weeks), dtype=np.float64)
     np.add(pool.base_mean.reshape(1, p, 1), latent.season_shift.reshape(s, p, 1), out=raw)
     raw += latent.true_role_delta
@@ -422,7 +427,8 @@ def _draw_realized(
     raw += group_effect
     raw += idio
     raw += spike
-    np.maximum(raw, 0.0, out=raw)
+    # Players who do not play score exactly zero -- that is an availability
+    # rule, not a floor on performance.
     points = np.where(avail.available, raw, 0.0)
     return RealizedBatch(points=points, spike=spike, group_effect=group_effect)
 
@@ -472,18 +478,16 @@ def _build_pregame(
         ).reshape(1, p, 1)
         posterior = np.where(np.isinf(ratio), 0.0, cum_resid / (ratio + cum_n))
 
-    # Project *expected points*, not the latent mean.  Scores are floored at
-    # zero, so a volatile player's expected output exceeds his latent mean; a
-    # manager reading a projection is reading the former.  Skipping this would
-    # systematically under-project low-mean, high-variance players and bias
-    # every bench and flex decision against them.
-    projection = floored_mean(known + posterior, pool.week_sd.reshape(1, p, 1))
+    # The projection is the conditional mean of the week's score given
+    # everything observable.  Because realized scores are not floored, that
+    # conditional mean is exactly the level -- no distributional correction of
+    # any kind is applied, and none is needed.
+    projection = known + posterior
     if pool.proj_noise_sd.max() > 0.0:
         projection = projection + (
             rng.normal(seed, rng.Kind.PROJ_NOISE, sims, keys, weeks)
             * pool.proj_noise_sd.reshape(1, p, 1)
         )
-    projection = np.maximum(projection, 0.0)
 
     if pool.proj_override is not None:
         mask = pool.proj_override_mask.reshape(1, p, 1)

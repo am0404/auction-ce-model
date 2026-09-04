@@ -116,35 +116,53 @@ def test_unknown_experiment_key_is_rejected():
         run_experiment("does-not-exist", 10, SEED)
 
 
-def test_floored_mean_matches_a_monte_carlo_estimate():
-    from ceauction.experiments import floored_mean
-    rs = np.random.default_rng(11)
-    for mu, sd in ((12.0, 4.0), (12.0, 11.0), (3.0, 7.0), (-2.0, 5.0)):
-        draws = np.maximum(0.0, mu + sd * rs.standard_normal(400_000))
-        assert floored_mean(mu, sd) == pytest.approx(float(draws.mean()), abs=0.03)
-    assert floored_mean(5.0, 0.0) == 5.0
-    assert floored_mean(-5.0, 0.0) == 0.0
+def test_no_floor_correction_helper_survives(league):
+    """The zero floor is gone, so nothing may compensate for it.
+
+    `stats.floored_mean` / `match_floored_mean` existed only to undo a floor
+    the league does not have.  Their removal is part of the correction, so
+    their reappearance would be a regression.
+    """
+    import ceauction
+    with pytest.raises(ImportError):
+        from ceauction import stats  # noqa: F401
+    for module in (
+        __import__("ceauction.experiments", fromlist=["x"]),
+        __import__("ceauction.worlds", fromlist=["x"]),
+    ):
+        assert not hasattr(module, "floored_mean")
+        assert not hasattr(module, "match_floored_mean")
 
 
-def test_match_floored_mean_inverts_floored_mean():
-    from ceauction.experiments import floored_mean, match_floored_mean
-    for target, sd in ((12.0, 11.0), (6.0, 7.0), (20.0, 3.0), (1.0, 9.0)):
-        mu = match_floored_mean(target, sd)
-        assert floored_mean(mu, sd) == pytest.approx(target, abs=1e-8)
-
-
-def test_volatility_experiment_holds_realized_scoring_flat(league):
+def test_volatility_arms_have_equal_expected_scoring_by_construction(league):
     """The volatility arms must differ in shape, not in expected points.
 
-    Without the zero-floor correction the volatile arm quietly scores about
-    0.8 pts/week more, and the experiment measures a level difference.
+    With no floor this needs no correction at all: the two arms share a
+    `base_mean`, so their expected weekly points are equal exactly.
     """
-    out = run_experiment("volatility", 1500, SEED, base=league)
+    from ceauction.experiments import exp_volatility
+    out = exp_volatility(league, 1500, SEED)
     for c in out.comparisons:
         assert abs(c.delta_points_per_week) < 0.15, (
             f"{c.label}: arms differ in realized scoring by "
             f"{c.delta_points_per_week:+.3f} pts/week"
         )
+    # And the parameters themselves match, which is the stronger statement:
+    # the equality is structural, not a Monte Carlo coincidence.
+    for c in out.comparisons:
+        assert "identical base_mean" in c.notes
+
+
+def test_concentration_arms_have_equal_total_expected_points(league):
+    """18/6/6 and 10/10/10 must expect the same 30.0 points per week.
+
+    Under the old floor the three 6.0 players each gained about 0.3 pts/week
+    of realized mean, so roughly 0.8 of the measured gap was the floor rather
+    than the lineup effect this experiment is about.
+    """
+    from ceauction.experiments import LAB_ID_BASE, exp_concentration
+    out = exp_concentration(league, 120, SEED)
+    assert "equal total expected points" in out.comparisons[0].notes
 
 
 # --------------------------------------------------------------------------
