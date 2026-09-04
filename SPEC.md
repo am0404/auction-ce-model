@@ -37,10 +37,21 @@ Platform target: **Sleeper redraft auction**.
 | Receiving TD | 6 |
 | Reception | 0.5 |
 | Fumble lost | -2 |
+| Passing two-point conversion | 2 |
+| Rushing two-point conversion | 2 |
+| Receiving two-point conversion | 2 |
+| Individual special-teams TD (kick/punt return) | 6 |
 
 Implemented in `ceauction.scoring.score_statline`. The CE engine models fantasy
 points directly; `score_statline` is the documented conversion used when real data
-arrives as projected *stat lines* rather than projected *points*.
+arrives as projected *stat lines* rather than projected *points*. The seam carries
+the **complete** rule set rather than only the rules the synthetic process happens
+to exercise, because a missing rule becomes silently dropped points the moment real
+stat lines arrive. `tests/test_scoring.py` asserts every `StatLine` field has a
+matching coefficient and that none scores zero.
+
+Two of these rules are negative. **An individual player's weekly total can therefore
+be negative**, and the league has no rule flooring it at zero. See §5.5.
 
 ### 1.2 Starting lineup slots
 
