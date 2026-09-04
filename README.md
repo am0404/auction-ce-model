@@ -34,7 +34,7 @@ and fails with "editable mode currently requires a setuptools-based build".
 .venv/bin/ce-lab run --all --sims 12000    # the full CE laboratory
 .venv/bin/ce-lab curve --sims 16000        # the marginal CE curve for one slot
 .venv/bin/ce-lab bench                     # runtime + Monte Carlo uncertainty
-.venv/bin/python -m pytest                 # 230 tests
+.venv/bin/python -m pytest                 # 231 tests
 ```
 
 Two of the twelve experiments are **controls** and are meant to read near zero.
@@ -50,6 +50,8 @@ ever makes the first kind.
 | `HANDOFF.md` | What was built, how to run it, results, and the next step |
 | `OPEN_QUESTIONS.md` | Decisions that need real data or your judgement |
 | `docs/example_ce_lab_output.txt` | A full CE-laboratory run |
+| `docs/example_curve_output.txt` | A 19-level marginal CE curve + resolution report |
+| `docs/example_marginal_curve.csv` | The same curve, machine-readable |
 
 ## The marginal CE curve
 
@@ -75,6 +77,12 @@ paired standard error, how many simulations a delta-CE of 0.005 / 0.002 / 0.001
 would need to clear |z| = 2, and — using throughput measured during the sweep —
 how long that would take. It says plainly which targets are out of reach inside
 a live auction clock.
+
+Measured on the 19-level example in `docs/example_curve_output.txt`: a delta-CE
+of **0.005 is resolvable live** (8.5s per paired comparison), while **0.002 and
+0.001 are not** (53s and 212s). The marginal value of a projected point also
+varies about fivefold along the curve — smallest at replacement level, which is
+exactly where the cheapest auction decisions are made.
 
 ## The two rules that shape everything
 

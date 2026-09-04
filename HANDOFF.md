@@ -1,7 +1,11 @@
-# HANDOFF.md — audit correction pass
+# HANDOFF.md — audit correction pass, then the marginal CE curve
 
-Branch `ce-foundation-audit-fixes`, off `ce-foundation`. Everything below is
-reproducible from the commands in §3.
+Branch `ce-marginal-curve`, off `ce-foundation-audit-fixes`, off `ce-foundation`.
+Everything below is reproducible from the commands in §3.
+
+Sections 1–10 are the audit correction pass (Phase 1). Sections 11–12 are the
+marginal championship-equity curve (Phase 2), which is what the Phase 1 handoff
+recommended building next.
 
 > **All player data is synthetic and labelled as such.** `src/ceauction/synthetic.py`
 > invents every number it produces. No real player distribution is used, estimated or
@@ -91,8 +95,10 @@ OPEN_QUESTIONS.md           decisions needing real data or your judgement
 README.md                   install and run
 pyproject.toml              packaging; `ce-lab` entry point
 docs/
-  example_ce_lab_output.txt full CE-laboratory run, 16,000 seasons per arm
-  example_league_output.txt CE table for all 12 teams, 20,000 seasons
+  example_ce_lab_output.txt  full CE-laboratory run, 16,000 seasons per arm
+  example_league_output.txt  CE table for all 12 teams, 20,000 seasons
+  example_curve_output.txt   marginal CE curve, 19 levels x 16,000 seasons
+  example_marginal_curve.csv the same curve, machine-readable
 src/ceauction/
   rng.py                    counter-based RNG; reproducibility + CRN
   scoring.py                the COMPLETE half-PPR rule set; the stat-line seam
@@ -109,10 +115,11 @@ src/ceauction/
   playoffs.py               fixed 6-team bracket; zero randomness
   simulate.py               the pipeline, batched
   ce.py                     CE estimation + paired comparison
+  curve.py                  marginal CE curve + Monte Carlo resolution report
   experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      192 tests
+tests/                      231 tests
 ```
 
 `stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
@@ -128,12 +135,13 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 192 tests, ~2 min
+.venv/bin/python -m pytest              # 231 tests, ~3 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
 .venv/bin/ce-lab run --all --sims 16000 # the full laboratory
 .venv/bin/ce-lab run spikes --sims 4000 # one experiment
+.venv/bin/ce-lab curve --sims 16000     # the marginal CE curve (~4 min)
 .venv/bin/ce-lab bench                  # runtime + Monte Carlo uncertainty
 ```
 
@@ -143,12 +151,13 @@ Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev depend
 
 ## 4. Test results
 
-**192 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
+**231 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
-`flaky` markers. 146 before this pass, 46 added.
+`flaky` markers. 146 at the start of Phase 1, 46 added there, 39 more in Phase 2.
 
 | File | Tests | What it pins down |
 |---|---:|---|
+| `test_curve.py` | 38 | **NEW (Phase 2).** exact-zero identical arms; order independence; CRN preserved across every level; agreement with a direct paired comparison; genuinely paired adjacent slopes; monotone shape within uncertainty; chunk determinism; the resolution report's `1/sqrt(n)` arithmetic; CSV schema; the isotonic column changing nothing; CLI |
 | `test_experiments.py` | 35 | every experiment builds a legal league and runs paired; the rival-placement **control** reads zero and `rival-fit` does not; the aggregate-spot arms and their byte-identical control; the floor helpers cannot return; every documented `ce-lab` command exits 0 |
 | `test_worlds.py` | 21 | byes, injury hazard/duration, latent persistence, **negative realized scores**, **realized mean == base_mean**, unavailable weeks still zero, spike mean-neutrality, correlation, contingency, role reveal lag, belief convergence, chunk independence across **all seven layers**, `crn_key` sharing |
 | `test_players.py` | 18 | parameter validation and boundaries, immutability, `crn_key` semantics, **every synthetic spec is labelled `SYNTHETIC`**, projection-override validation, shock-loading accumulation, snake-draft balance |
@@ -157,7 +166,7 @@ Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw,
 | `test_observable_signals.py` | 15 | **NEW.** a spike changes only its own week; **+100 injected into a past week moves nothing**; spikes / hidden team shocks / mean-adding hidden production never reach a projection; whole-league lineup masks unchanged; the persistent level *is* learned; `signal_noise_sd` is the learning dial; signals exist only for played weeks; stream independence; **role-change deltas exact to 1e-12 at lag 0, 1 and 4**; four-way decomposition |
 | `test_scoring.py` | 14 | every half-PPR rule including **two-point conversions and special-teams TDs**, every `StatLine` field has a coefficient, **a weekly score can be negative**, custom rule sets |
 | `test_ce.py` | 13 | **12 identical teams have equal CE** (chi-square, 11 df), no seeding bias by team index, **every shared draw is shared across paired arms** (named individually), null comparison is exactly zero, pairing beats independent sampling, no extra playoff randomness |
-| `test_weekly_state.py` | 12 | **NEW.** a pattern appears in the projection as supplied and in the score's conditional mean; distinct from `proj_noise_sd` and from `week_sd`; hidden patterns reach the score only; correlated / independent / offset structure; **a lineup spot actually rotates**; the synthetic league rotates more than a static one |
+| `test_weekly_state.py` | 13 | **NEW.** a pattern appears in the projection as supplied and in the score's conditional mean; distinct from `proj_noise_sd` and from `week_sd`; hidden patterns reach the score only; correlated / independent / offset structure; **a lineup spot actually rotates**; the synthetic league rotates more than a static one |
 | `test_standings.py` | 9 | median win/loss/**exact tie**, 2-0 / 1-1 / 0-2, two results per week, **total-points tiebreak** (both directions), index as final tiebreak, schedule covers all 66 pairs |
 | `test_playoffs.py` | 8 | exactly six qualifiers, **top-two byes**, fixed 3v6 / 4v5 pairing, **no reseeding**, bye teams' week-15 scores are irrelevant, **higher seed advances a tie** in every round |
 | `test_information_barrier.py` | 7 | `PregameEntry` cannot hold a realized score; permuting realized scores leaves starter masks identical; **a benched player given +1,000 points changes nothing**; the filtration is a strictly shifted cumsum over **signals**; **`_build_pregame` has no realized parameter**; an observable role change moves future lineups but not past ones |
@@ -510,43 +519,228 @@ statements about invented parameters throughout.
    median result, so it is second-order in this format.
 8. **The laboratory measures one focus team on one baseline league.** Every effect size
    is conditional on `Team01`'s specific roster shape. The `second-qb` sign flip is the
-   proof that this conditioning matters.
+   proof that this conditioning matters, and the marginal curve (§11) is measured on
+   one slot of that one roster.
+9. **Sub-0.002 CE differences are not resolvable inside a live auction clock.**
+   Measured, not assumed: §11's resolution report puts 0.002 at 53s and 0.001 at 212s
+   per paired comparison against a ~30s decision budget. 0.005 is comfortable at 8.5s.
+   This is the single most important number for anything downstream of here.
 
 ---
 
-## 11. Exact recommended next step
+---
 
-Unchanged from Night 1, and now on a foundation that can carry it:
+## 11. Phase 2 — the marginal CE curve
 
-**Build the marginal-CE curve for a single roster slot, and use it to find out whether
-CE differences are resolvable at the resolution auction pricing needs.**
+`ce-lab curve` sweeps one roster slot's `base_mean` from replacement level to elite
+and reports `CE(level)` with honest uncertainty at every step. It is the object any
+auction pricing scheme would be a transformation of. **Pricing is not built**: no
+dollar values, no opening or live max bids, no inflation model, no roster-completion
+solver, no real-player ingestion.
 
-Pick the focus team's flex slot. Sweep a candidate's `base_mean` from replacement level
-to elite in ~1-point steps, holding everything else fixed and sharing a `crn_key`
-across the sweep. At each step run a paired comparison against the replacement-level
-baseline. That produces `CE(level)` — the curve every pricing scheme is a
-transformation of.
+### What makes the numbers usable
 
-Three reasons it comes first:
+**Common random numbers across the whole sweep.** Every level is the *same player*
+with one field changed, so he keeps his `player_id` and therefore his `crn_key`. His
+injuries, byes, weekly conditions, observable signals, spikes and idiosyncratic draws
+are bit-identical at every level; every other player in the league is untouched; the
+schedule permutation is keyed by season index. A test asserts all of that at the array
+level. What legitimately *does* move is his own realized scoring, his team's weekly
+totals, and hence the league median and every team's record — that is the effect being
+measured.
 
-1. **It is the smallest thing that answers `OPEN_QUESTIONS.md` B4.** The curve's slope
-   near replacement level is the CE value of one projected point at the bottom of the
-   roster, which is the smallest quantity pricing must resolve. If that slope is
-   smaller than the standard error you can afford, you learn it before building the
-   pricing layer rather than after.
-2. **It needs no new data.** One new experiment (a sweep rather than a pair) plus a
-   plot.
-3. **It is the natural input to pricing.** Marginal CE per dollar is
-   `dCE/dlevel × dlevel/ddollar`; this engine produces the first factor exactly, and
-   the second is the auction problem, which is out of scope.
+**Paired differences, including for the slopes.** Each level retains its per-season
+champion indicator, so any two levels differ by a matched per-season difference. The
+adjacent slope between level *i−1* and level *i* is its own paired comparison — **not**
+a difference of two separately estimated baseline deltas. That distinction is not
+cosmetic: the two baseline deltas share the baseline arm and are strongly positively
+correlated, so combining them as if independent overstates the slope's standard error.
+`test_the_paired_slope_se_is_not_the_unpaired_combination` asserts the paired estimate
+is strictly smaller while the point estimates agree.
 
-Expect most of the effort to go into deciding how to hold the *rest* of the roster
-fixed while the slot varies — itself the first real modelling question of the pricing
-layer, since a player's CE contribution depends on what else you own. The `second-qb`
-sign flip is the warning that this is not a detail.
+**Order independence.** The sweep sorts and deduplicates the requested levels, so a
+caller cannot change any reported number by shuffling the request. Three different
+orderings are asserted to produce byte-identical rows and CSV.
 
-**Do not start with** real player data ingestion. The interface for it (`PlayerSpec`,
-`weekly_projection_override`) is built and tested, so ingestion is mechanical work that
-can happen any time. Two parameters it would newly need calibrating —
-`signal_noise_sd` and `weekly_state_sd` — are called out in `OPEN_QUESTIONS.md` A2 and
-A5, and both matter more than the means do for anything at the bottom of the roster.
+### Output
+
+A terminal table and a CSV with a 23-column schema (`MarginalCurve.CSV_COLUMNS`),
+written with an explicit `\n` terminator so it round-trips byte-for-byte. No plotting
+dependency was added; NumPy remains the only runtime requirement.
+
+`--isotonic` adds an optional monotone display column. CE cannot fall with level in
+truth, so a local dip is always noise, and a reader can mistake one for a feature. The
+fit is pool-adjacent-violators weighted by `1/variance`, in about fifteen lines. It is
+strictly additive: the raw CE, its Wilson interval, every delta and every slope are
+asserted unchanged when it is switched on.
+
+### The one thing to read off it
+
+**The marginal value of a projected point is not constant down the curve**, and the
+variation is large: +0.0033 CE per point at the bottom against +0.018–0.022 from level
+13 upward, a factor of about five. The small end is at replacement level — exactly
+where $1–$3 auction decisions live, and exactly where the Monte Carlo noise is largest
+relative to the effect being measured.
+
+That has a direct consequence for anything downstream: a single "CE per projected
+point" constant would be wrong everywhere, and would be *most* wrong at the bottom of
+the roster where the largest number of decisions are made. Numbers and the resolution
+verdict below.
+
+### Tests
+
+`tests/test_curve.py`, 38 tests, grouped by the guarantee each defends:
+
+| Group | What it pins |
+|---|---:|
+| identical arms | the baseline level's delta is **exactly** 0.0, not approximately; a duplicate of the baseline is simulated once and still reads zero; deduplication cannot produce a zero-width step |
+| order independence | ascending, shuffled and descending requests give byte-identical rows and CSV; the curve is always reported ascending |
+| common random numbers | every other player's realized scores, and the swept player's availability, signals, weekly state, group shocks, spikes and role weeks, are byte-identical across levels — while his own scoring moves; the candidate keeps his `crn_key` and all fourteen non-level parameters |
+| agreement | a directly constructed `compare_scenarios` reproduces the sweep's delta, SE and reports exactly; an independent `simulate_seasons` reproduces the raw CE |
+| paired slopes | a slope recomputed from matched per-season indicators matches to the bit; the paired SE is strictly smaller than the naive independent combination while the point estimates agree; slopes are per-point, so a 4-point step and two 2-point steps are on one scale |
+| shape | points per week rise monotonically; CE rises strongly end to end and no adjacent *decrease* is significant at z = −2 |
+| determinism | chunk sizes 1 / 7 / 64 / 512 give identical rows; repeating a sweep is identical |
+| resolution | required-n obeys `se ∝ 1/sqrt(n)` exactly; smaller targets cost strictly more; a tiny budget is reported as impractical in words and a huge one as feasible |
+| output | CSV schema, `\n` terminators, round-trip through the file, `CSV_COLUMNS` is a `ClassVar` and not a constructor field |
+| isotonic | the fit is monotone and mean-preserving; weights pull noisy points further; every raw estimate, interval, delta and slope is unchanged when it is enabled |
+| CLI | runs and writes CSV, accepts an explicit player and `--isotonic`, rejects a bad range, and does not claim to produce a price |
+
+### The documented 16,000-season run
+
+`docs/example_curve_output.txt` and `docs/example_marginal_curve.csv`, seed 20260904,
+19 levels from 4.0 to 22.0 in one-point steps, 231s total.
+
+The target is `SYN-WR070`, the focus team's weakest FLEX-eligible player at 4.46
+projected points — chosen because that is the roster spot a $1–$3 auction decision
+actually turns on.
+
+```
+ level       CE   +/-95%  dCE vs base   +/-95%       z    dCE/pt   +/-95%      z   pts/wk  playoff     bye
+-----------------------------------------------------------------------------------------------------------
+  4.00   0.0974   0.0046     +0.00000  0.00000   +0.00        --       --     --    95.41   0.5456  0.1934
+  5.00   0.1007   0.0047     +0.00331  0.00207   +3.13  +0.00331  0.00207  +3.13    95.63   0.5547  0.1977
+  6.00   0.1047   0.0047     +0.00731  0.00285   +5.02  +0.00400  0.00228  +3.44    95.93   0.5683  0.2063
+  7.00   0.1089   0.0048     +0.01156  0.00335   +6.77  +0.00425  0.00246  +3.38    96.34   0.5817  0.2174
+  8.00   0.1152   0.0049     +0.01781  0.00380   +9.18  +0.00625  0.00254  +4.81    96.83   0.6032  0.2306
+  9.00   0.1231   0.0051     +0.02569  0.00419  +12.02  +0.00788  0.00261  +5.92    97.41   0.6228  0.2478
+ 10.00   0.1347   0.0053     +0.03731  0.00456  +16.04  +0.01162  0.00278  +8.19    98.07   0.6499  0.2688
+ 11.00   0.1461   0.0055     +0.04875  0.00492  +19.41  +0.01144  0.00279  +8.05    98.80   0.6781  0.2924
+ 12.00   0.1586   0.0057     +0.06119  0.00520  +23.08  +0.01244  0.00286  +8.51    99.58   0.7074  0.3203
+ 13.00   0.1747   0.0059     +0.07731  0.00546  +27.73  +0.01613  0.00299 +10.59   100.39   0.7360  0.3489
+ 14.00   0.1886   0.0061     +0.09125  0.00571  +31.35  +0.01394  0.00292  +9.34   101.24   0.7643  0.3827
+ 15.00   0.2061   0.0063     +0.10875  0.00598  +35.64  +0.01750  0.00287 +11.97   102.10   0.7882  0.4149
+ 16.00   0.2236   0.0065     +0.12619  0.00619  +39.95  +0.01744  0.00292 +11.70   102.97   0.8130  0.4480
+ 17.00   0.2416   0.0066     +0.14419  0.00642  +43.99  +0.01800  0.00297 +11.87   103.84   0.8351  0.4793
+ 18.00   0.2629   0.0068     +0.16556  0.00665  +48.77  +0.02138  0.00300 +13.95   104.71   0.8564  0.5159
+ 19.00   0.2810   0.0070     +0.18363  0.00683  +52.69  +0.01806  0.00296 +11.94   105.58   0.8741  0.5476
+ 20.00   0.2983   0.0071     +0.20087  0.00699  +56.34  +0.01725  0.00299 +11.31   106.45   0.8922  0.5801
+ 21.00   0.3164   0.0072     +0.21900  0.00714  +60.16  +0.01812  0.00299 +11.89   107.32   0.9079  0.6138
+ 22.00   0.3380   0.0073     +0.24063  0.00728  +64.80  +0.02162  0.00300 +14.14   108.20   0.9209  0.6453
+```
+
+**Infrastructure findings** — claims about this code, which is all the run can support:
+
+* **The curve is monotone at every one of the eighteen steps**, without any smoothing.
+  The isotonic column is therefore identical to the raw CE at every level, which is the
+  cleanest possible evidence that the display fit is not doing any work here. At 16,000
+  seasons every one of the eighteen one-point steps is resolved: the weakest is the
+  first, at z = 3.13, and the median is z = 10.0.
+* **The marginal point is worth about five times more at the top of the range than at
+  the bottom**: +0.00331 CE/point at 4→5, against a mean of +0.0179 (range
+  +0.0139–+0.0216) from level 13 upward — a ratio of 5.4x on the means.
+  The curve is convex through the middle and flattens above ~15. Mechanically this is
+  the startability threshold: a 5-point WR almost never enters the lineup, so his extra
+  point converts through very few weeks, while a 15-point WR starts nearly always and
+  converts through all of them.
+* **Every metric moves together and in the right direction.** Points per week rises
+  smoothly from 95.41 to 108.20 — 12.8 points of team scoring for 18 points of one
+  player's projection, which is the ~71% conversion rate a not-quite-every-week starter
+  should have. Playoff probability goes 0.546 → 0.921 and the top-two bye 0.193 → 0.645.
+* **The paired design is doing real work.** The adjacent paired SE is 0.00148, against
+  0.00285 for a baseline delta and 0.00234 for a raw CE estimate at the same level.
+  Combining two adjacent baseline deltas as if independent gives about 2.6x the paired
+  slope's standard error — enough to turn several resolved slopes into unresolved ones,
+  which is why the adjacent comparison is computed as its own pairing.
+
+**Synthetic-fantasy findings: none.** Every number above is a property of the invented
+parameters in `synthetic.py` and of `Team01`'s specific roster shape. "A projected point
+is worth 0.018 CE at level 15" is a statement about an exponential decay curve someone
+made up, not about football.
+
+### The resolution verdict
+
+```
+  simulations per arm            16,000
+  measured throughput            1,314 seasons/s (0.761 ms/season)
+  cost of one paired comparison  24.4s at 16,000 seasons
+  paired SE, adjacent step       0.00148 (median step 1.00 pts/week, champion differs
+                                          in 3.5% of seasons)
+  paired SE, vs the baseline     0.00285
+  smallest adjacent dCE this run resolves at |z|=2: 0.00295
+
+  target dCE    sims needed   seconds/comparison   verdict
+      0.0050          5,577                  8.5   feasible live (8s < 30s budget)
+      0.0020         34,851                 53.0   offline only (0.9 min per comparison)
+      0.0010        139,401                212.2   offline only (3.5 min per comparison)
+```
+
+**The answer to the question this phase was built to ask.** A delta-CE of **0.005 is
+resolvable inside a live auction clock** — 5,577 seasons, 8.5s per paired comparison,
+comfortably inside a 30-second budget. **0.002 and 0.001 are not**: 53s and 212s per
+comparison, both past the point where a bidder has to act. They are perfectly practical
+offline.
+
+Two qualifications, in opposite directions:
+
+* The extrapolation is **conservative**. It anchors on the median adjacent SE, but a
+  paired difference of champion indicators is zero in every season the change did not
+  decide, so a genuinely smaller effect flips fewer seasons and carries a smaller SE
+  than the anchor. The real counts for 0.002 and 0.001 are somewhat lower.
+* It also assumes **one** comparison. A live auction decision is not one comparison —
+  it is a comparison per candidate the money could go to instead. At 8.5s each, even
+  the feasible target supports about three candidates inside a 30-second clock.
+
+Read together: the engine can resolve *which of a few players is better* in the room,
+and cannot resolve *a one-dollar price difference* there. The right response is
+structural — trim the pool, simulate fewer weeks, parallelise over seasons — not more
+seasons on this code path.
+
+---
+
+## 12. Exact recommended next step
+
+The Night 1 handoff said to build this curve before anything else, because it is the
+smallest thing that answers "can the engine resolve what pricing needs". It is built,
+and it answers that question. The next step follows from the answer rather than from a
+plan made before it.
+
+**Decide the pricing layer's resolution budget, then design around it — do not assume
+a live-auction tool is feasible at 0.001 CE.**
+
+Concretely, three things in order:
+
+1. **Fix the target.** The curve gives `dCE/point` at every level. Convert your dollar
+   scale to points (a $200 budget across 15 slots against the projection curve) and you
+   get `dCE/dollar` directly. That number tells you which of the three resolution
+   targets you actually need. Do this before optimising anything: the answer may be
+   that $1 decisions at replacement level are genuinely below the noise floor and
+   should be made on a rule rather than a simulation.
+
+2. **If a smaller target is needed, buy it with variance reduction, not seasons.** The
+   remaining wins are all structural: trim the pool to the ~60 players a decision
+   touches, simulate only the weeks that discriminate, share a `crn_key` between the
+   candidate and the player he would displace, and multiprocess over seasons (which is
+   embarrassingly parallel — seasons share no state). Raising `--sims` is the one lever
+   that is already exhausted.
+
+3. **Only then build pricing.** `CE(roster with X at price p) − CE(best alternative use
+   of $p)` needs the second term, which is a roster-completion problem and is where the
+   real modelling difficulty lives — a player's CE contribution depends on what else you
+   own, which the `second-qb` sign flip already demonstrates is not a detail.
+
+**Still do not start with** real player data ingestion. The interface (`PlayerSpec`,
+`weekly_projection_override`) is built and tested, so it is mechanical work available
+any time. Two parameters it would newly need calibrating — `signal_noise_sd` and
+`weekly_state_sd` — are called out in `OPEN_QUESTIONS.md` A2 and A5, and both matter
+more than the means do for anything at the bottom of the roster, which is exactly where
+this curve says the resolution problem is worst.

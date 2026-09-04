@@ -1,0 +1,71 @@
+ce-lab -- championship-equity laboratory
+SYNTHETIC DATA ONLY. No real player distributions are used anywhere.
+
+sweeping SYN-WR070 (WR, base_mean 4.46) -- weakest FLEX-eligible player on the focus team
+19 levels from 4.00 to 22.00 in steps of 1, 16,000 seasons each
+
+====================================================================================================
+MARGINAL CHAMPIONSHIP-EQUITY CURVE -- SYN-WR070 (WR) on Team01
+====================================================================================================
+16,000 seasons per level, seed 20260904, chunk 64, 19 levels
+baseline (replacement) level 4.00 pts/week; deltas and slopes are paired over identical seasons
+note: only base_mean varies; position, variance, injury profile, weekly state, signal precision and crn_key are held fixed
+
+ level       CE   +/-95%  dCE vs base   +/-95%       z    dCE/pt   +/-95%      z   pts/wk  playoff     bye  CE(iso)
+-------------------------------------------------------------------------------------------------------------------
+  4.00   0.0974   0.0046     +0.00000  0.00000   +0.00        --       --     --    95.41   0.5456  0.1934   0.0974
+  5.00   0.1007   0.0047     +0.00331  0.00207   +3.13  +0.00331  0.00207  +3.13    95.63   0.5547  0.1977   0.1007
+  6.00   0.1047   0.0047     +0.00731  0.00285   +5.02  +0.00400  0.00228  +3.44    95.93   0.5683  0.2063   0.1047
+  7.00   0.1089   0.0048     +0.01156  0.00335   +6.77  +0.00425  0.00246  +3.38    96.34   0.5817  0.2174   0.1089
+  8.00   0.1152   0.0049     +0.01781  0.00380   +9.18  +0.00625  0.00254  +4.81    96.83   0.6032  0.2306   0.1152
+  9.00   0.1231   0.0051     +0.02569  0.00419  +12.02  +0.00788  0.00261  +5.92    97.41   0.6228  0.2478   0.1231
+ 10.00   0.1347   0.0053     +0.03731  0.00456  +16.04  +0.01162  0.00278  +8.19    98.07   0.6499  0.2688   0.1347
+ 11.00   0.1461   0.0055     +0.04875  0.00492  +19.41  +0.01144  0.00279  +8.05    98.80   0.6781  0.2924   0.1461
+ 12.00   0.1586   0.0057     +0.06119  0.00520  +23.08  +0.01244  0.00286  +8.51    99.58   0.7074  0.3203   0.1586
+ 13.00   0.1747   0.0059     +0.07731  0.00546  +27.73  +0.01613  0.00299 +10.59   100.39   0.7360  0.3489   0.1747
+ 14.00   0.1886   0.0061     +0.09125  0.00571  +31.35  +0.01394  0.00292  +9.34   101.24   0.7643  0.3827   0.1886
+ 15.00   0.2061   0.0063     +0.10875  0.00598  +35.64  +0.01750  0.00287 +11.97   102.10   0.7882  0.4149   0.2061
+ 16.00   0.2236   0.0065     +0.12619  0.00619  +39.95  +0.01744  0.00292 +11.70   102.97   0.8130  0.4480   0.2236
+ 17.00   0.2416   0.0066     +0.14419  0.00642  +43.99  +0.01800  0.00297 +11.87   103.84   0.8351  0.4793   0.2416
+ 18.00   0.2629   0.0068     +0.16556  0.00665  +48.77  +0.02138  0.00300 +13.95   104.71   0.8564  0.5159   0.2629
+ 19.00   0.2810   0.0070     +0.18363  0.00683  +52.69  +0.01806  0.00296 +11.94   105.58   0.8741  0.5476   0.2810
+ 20.00   0.2983   0.0071     +0.20087  0.00699  +56.34  +0.01725  0.00299 +11.31   106.45   0.8922  0.5801   0.2983
+ 21.00   0.3164   0.0072     +0.21900  0.00714  +60.16  +0.01812  0.00299 +11.89   107.32   0.9079  0.6138   0.3164
+ 22.00   0.3380   0.0073     +0.24063  0.00728  +64.80  +0.02162  0.00300 +14.14   108.20   0.9209  0.6453   0.3380
+-------------------------------------------------------------------------------------------------------------------
+
+dCE/pt is the ADJACENT paired slope: level i vs level i-1 over the same
+seasons, divided by the step. It is not a difference of two baseline
+deltas, which would treat two highly correlated estimates as independent.
+CE(iso) is a monotone display fit. The raw CE, its interval and every
+delta to its left are unchanged by it.
+
+====================================================================================================
+MONTE CARLO RESOLUTION -- can this engine price with these numbers?
+====================================================================================================
+  simulations per arm            16,000
+  measured throughput            1,314 seasons/s (0.761 ms/season)
+  cost of one paired comparison  24.4s at 16,000 seasons
+  paired SE, adjacent step       0.00148 (median step 1.00 pts/week, champion differs in 3.5% of seasons)
+  paired SE, vs the baseline     0.00285
+  smallest adjacent dCE this run resolves at |z|=2: 0.00295
+
+  A paired difference of two champion indicators is 0 in every season the
+  change did not decide, so its variance is about the rate at which the
+  champion differs -- which itself shrinks with the effect size. The counts
+  below extrapolate the median adjacent SE and are therefore CONSERVATIVE:
+  a genuinely smaller effect differs in fewer seasons and needs somewhat
+  fewer simulations than shown.
+
+  target dCE    sims needed   seconds/comparison   verdict
+  ----------  -------------  -------------------   ----------------------------------------
+      0.0050          5,577                  8.5   feasible live (8s < 30s budget)
+      0.0020         34,851                 53.0   offline only (0.9 min per comparison)
+      0.0010        139,401                212.2   offline only (3.5 min per comparison)
+
+total sweep runtime 231.4s (19 levels x 16,000 seasons)
+wrote docs/example_marginal_curve.csv
+
+REMINDER: synthetic inputs. This measures whether the ENGINE can resolve
+marginal CE at a useful scale. It is not a price, and no dollar value,
+bid or roster-completion decision follows from it.

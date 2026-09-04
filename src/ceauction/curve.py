@@ -22,8 +22,10 @@ Two things make the numbers usable at the resolution pricing needs.
 changed.  He keeps his ``player_id`` and therefore his ``crn_key``, so his
 injuries, byes, weekly conditions, observable signals, spikes and idiosyncratic
 draws are bit-identical across levels; every other player in the league is
-untouched; the schedule permutation is keyed by season index.  Only his level
-moves, and only his own realized scores move with it.
+untouched; the schedule permutation is keyed by season index.  What legitimately
+*does* move with his level is his own realized scoring, his team's weekly
+totals, and therefore the league median and every team's record — that is the
+effect being measured, not a leak.
 
 **Paired differences, including for the slopes.**  Each level retains its
 per-season champion indicator, so a difference between any two levels is a
@@ -31,9 +33,16 @@ matched per-season difference over the identical worlds.  In seasons where the
 change did not alter the champion the difference is exactly zero and the
 estimate tightens.  Crucially the *adjacent* slope between level ``i-1`` and
 level ``i`` is computed as its own paired difference, **not** by subtracting
-two separately-estimated baseline deltas — doing that would treat two highly
-correlated estimates as independent and overstate the slope's standard error
-by roughly ``sqrt(2)`` while getting its correlation structure wrong.
+two separately-estimated baseline deltas.
+
+That second point is worth more than it looks.  Two adjacent baseline deltas
+share the baseline arm and are strongly positively correlated, and the two
+levels themselves differ in very few seasons, so the true adjacent SE is much
+smaller than either baseline SE.  Combining them as if independent
+(``sqrt(se_i^2 + se_{i-1}^2)``) is not a small conservatism: measured on the
+19-level example it inflates the slope's standard error by roughly 2.5x, which
+would turn a resolved slope into an unresolved one.
+``test_the_paired_slope_se_is_not_the_unpaired_combination`` pins the direction.
 
 The resolution report
 ---------------------
