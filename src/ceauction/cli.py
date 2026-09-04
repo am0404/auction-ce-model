@@ -5,6 +5,7 @@
     ce-lab experiments   list the controlled CE experiments
     ce-lab run <key>     run one experiment (or --all)
     ce-lab curve         marginal CE curve for one roster slot, + resolution report
+    ce-lab ingest        validate real player sources; write the contract locally
     ce-lab bench         runtime benchmarks and Monte Carlo uncertainty
 
 Everything it touches is SYNTHETIC data (see ``synthetic.py``).
@@ -15,6 +16,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from pathlib import Path
 from typing import List, Optional, Sequence
 
 import numpy as np
@@ -29,6 +31,10 @@ from .curve import (
     weakest_flex_slot,
 )
 from .experiments import EXPERIMENTS, run_all, run_experiment
+from .realdata.contract import GAMES_BASIS, TARGET_LEAGUE_CONFIG_ID
+from .realdata.pipeline import IngestionPaths, ingest, write_outputs
+from .realdata.scoring import FUMBLE_INTERPRETATIONS
+from .realdata.sources import SyntheticSourceRefused
 from .lineup import select_lineup
 from .simulate import DEFAULT_CHUNK, pregame_week, simulate_seasons
 from .synthetic import make_synthetic_league
@@ -247,6 +253,72 @@ def cmd_curve(args) -> int:
     return 0
 
 
+#: The contract carries real player rows. It may only be written somewhere
+#: git-ignored: this repository is public and the sources are subscriber-gated
+#: vendor exports that are not redistributable.
+ALLOWED_CONTRACT_DIRS = ("local_data",)
+
+
+def _contract_path_is_allowed(path: Path) -> bool:
+    """True only if `path` sits under an ignored local data directory."""
+    parts = {p.lower() for p in Path(path).parts}
+    return bool(parts & {d.lower() for d in ALLOWED_CONTRACT_DIRS})
+
+
+def cmd_ingest(args) -> int:
+    """Validate real player sources and build the normalized contract.
+
+    Prints only the sanitized report. Real rows go to the contract file, which
+    must live under an ignored directory.
+    """
+    if not Path(args.projections).exists():
+        print(f"projections file not found: {args.projections}", file=sys.stderr)
+        return 2
+    if args.contract_out and not _contract_path_is_allowed(args.contract_out):
+        print(f"refusing to write the contract to {args.contract_out}: it "
+              f"contains real player rows and must be written under one of "
+              f"{ALLOWED_CONTRACT_DIRS} (git-ignored). This repository is "
+              f"public.", file=sys.stderr)
+        return 2
+
+    paths = IngestionPaths(
+        projections=Path(args.projections),
+        fantasypros=Path(args.fantasypros) if args.fantasypros else None,
+        injuries=Path(args.injuries) if args.injuries else None,
+        fits=Path(args.fits) if args.fits else None,
+    )
+
+    print(BANNER)
+    try:
+        outcome = ingest(
+            paths,
+            games_basis=args.games_basis,
+            fumble_interpretation=args.fumbles,
+            league_config_id=args.league_config_id,
+        )
+    except SyntheticSourceRefused as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
+
+    print(outcome.format_report())
+
+    written = write_outputs(
+        outcome,
+        Path(args.contract_out) if args.contract_out else None,
+        Path(args.report_out) if args.report_out else None,
+    )
+    for kind, where in written.items():
+        print(f"\nwrote {kind}: {where}")
+    if "contract" in written:
+        print("  (contains real player rows -- ignored location, never committed)")
+
+    print("\nREMINDER: this builds and validates the input contract only. No "
+          "dollar\nvalue, opening bid, live bid or auction behaviour follows "
+          "from it, and no\nPlayerSpec field without a proven source has been "
+          "populated.")
+    return 0 if outcome.ok else 1
+
+
 def cmd_bench(args) -> int:
     print(BANNER)
     counts = args.counts or [250, 1000, 4000, 16000]
@@ -307,6 +379,32 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--live-budget", type=float, default=LIVE_AUCTION_BUDGET_SECONDS,
                    help="seconds available per decision in a live auction")
     s.set_defaults(func=cmd_curve)
+
+    s = sub.add_parser(
+        "ingest", help="validate real player sources and build the contract")
+    s.add_argument("--projections", required=True,
+                   help="component stat projection CSV (required)")
+    s.add_argument("--fantasypros", default=None,
+                   help="expert consensus CSV: bye weeks, optional labels")
+    s.add_argument("--injuries", default=None, help="injury profile JSON")
+    s.add_argument("--fits", default=None,
+                   help="fitted positional dispersion/availability JSON")
+    s.add_argument("--contract-out", default=None,
+                   help="where to write the contract. Contains real player "
+                        "rows, so it must sit under local_data/")
+    s.add_argument("--report-out", default=None,
+                   help="where to write the sanitized JSON report (safe to commit)")
+    s.add_argument("--games-basis", type=float, default=GAMES_BASIS,
+                   help="games a season total is spread over under "
+                        "interpretation A")
+    s.add_argument("--fumbles", choices=list(FUMBLE_INTERPRETATIONS),
+                   default="exclude",
+                   help="how to read the Fumbles column. Default 'exclude': "
+                        "the league scores fumbles LOST and the column's "
+                        "meaning is unresolved")
+    s.add_argument("--league-config-id", default=TARGET_LEAGUE_CONFIG_ID,
+                   help="names the target league; the 12-team superflex league")
+    s.set_defaults(func=cmd_ingest)
 
     s = sub.add_parser("bench", help="runtime benchmarks")
     s.add_argument("--counts", type=int, nargs="+", default=None)
