@@ -217,3 +217,69 @@ def test_ties_are_broken_deterministically():
     a = select_lineup(week_of(entries)).started_ids
     b = select_lineup(week_of(entries)).started_ids
     assert a == b
+
+
+# --------------------------------------------------------------------------
+# Explanations: every choice must say why, including the portfolio cases.
+# --------------------------------------------------------------------------
+
+
+def test_explain_names_every_slot_and_every_bench_reason():
+    entries = [entry(0, QB, 20)] + [entry(i + 1, RB, 15 - i) for i in range(4)] \
+        + [entry(i + 5, WR, 12 - i) for i in range(6)] \
+        + [entry(11, TE, 8), entry(12, TE, 7)] \
+        + [entry(13, QB, 14), entry(14, QB, 5)]
+    lines = select_lineup(week_of(entries)).explain()
+    text = "\n".join(lines)
+    assert "8/8 slots filled" in text
+    for slot in SLOTS:
+        assert slot.label in text
+    assert text.count("BENCH") == 7
+
+
+def test_bye_and_injury_reasons_are_distinguished_from_being_out_projected():
+    entries = [entry(0, QB, 30, Availability.BYE), entry(1, QB, 20)] \
+        + [entry(i + 2, RB, 10) for i in range(4)] \
+        + [entry(6, WR, 9, Availability.INJURED)] \
+        + [entry(i + 7, WR, 8) for i in range(6)] \
+        + [entry(13, TE, 1), entry(14, TE, 0.5)]
+    lu = select_lineup(week_of(entries))
+    reasons = {b.player_id: b.reason for b in lu.bench}
+    assert reasons[0] == "on bye"
+    assert reasons[6] == "injured / unavailable"
+    assert any("out-projected" in r for r in reasons.values())
+
+
+def test_contingency_and_role_change_are_surfaced_in_the_reason():
+    promoted = PregameEntry(0, "backup", RB, 14.0, Availability.ACTIVE,
+                            observed_role_delta=9.0, contingency_bonus=4.0)
+    entries = [promoted] + [entry(1, QB, 20)] \
+        + [entry(i + 2, RB, 5) for i in range(3)] \
+        + [entry(i + 5, WR, 6) for i in range(6)] \
+        + [entry(11, TE, 3), entry(12, TE, 2), entry(13, QB, 1), entry(14, QB, 0.5)]
+    lu = select_lineup(week_of(entries))
+    reason = next(c.reason for c in lu.choices if c.player_id == 0)
+    assert "observed role change +9.0" in reason
+    assert "contingency start +4.0" in reason
+
+
+def test_a_bench_player_starts_when_a_starter_is_on_bye():
+    """The portfolio property, at the level of a single decision."""
+    healthy = [entry(0, QB, 20)] + [entry(i + 1, RB, 15 - i) for i in range(4)] \
+        + [entry(i + 5, WR, 12 - i * 0.5) for i in range(6)] \
+        + [entry(11, TE, 8), entry(12, TE, 7), entry(13, QB, 6), entry(14, QB, 5)]
+    before = select_lineup(week_of(healthy))
+    benched = [b.player_id for b in before.bench if b.reason.startswith("out-projected")]
+    assert benched
+
+    on_bye = list(healthy)
+    started_wr = next(c.player_id for c in before.choices if c.slot is Slot.WT1)
+    e = healthy[started_wr]
+    on_bye[started_wr] = PregameEntry(e.player_id, e.name, e.position, e.projection,
+                                      Availability.BYE)
+    after = select_lineup(week_of(on_bye))
+    assert started_wr not in after.started_ids
+    assert set(after.started_ids) - set(before.started_ids), (
+        "a bench player must step into the vacated slot"
+    )
+    assert after.filled_slots == 8

@@ -145,3 +145,34 @@ def test_volatility_experiment_holds_realized_scoring_flat(league):
             f"{c.label}: arms differ in realized scoring by "
             f"{c.delta_points_per_week:+.3f} pts/week"
         )
+
+
+# --------------------------------------------------------------------------
+# CLI smoke tests: the documented commands must actually run.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("argv", [
+    ["league", "--sims", "40"],
+    ["lineup", "--weeks", "1", "9"],
+    ["experiments"],
+    ["run", "spikes", "--sims", "40"],
+    ["run", "--all", "--sims", "20"],
+    ["bench", "--counts", "40"],
+])
+def test_cli_commands_exit_zero(argv, capsys):
+    from ceauction.cli import main
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    assert "SYNTHETIC" in out
+
+
+def test_cli_rejects_a_bad_experiment_key(capsys):
+    from ceauction.cli import main
+    assert main(["run", "not-an-experiment", "--sims", "10"]) == 2
+    assert "unknown experiment" in capsys.readouterr().err
+
+
+def test_cli_requires_an_experiment_selection(capsys):
+    from ceauction.cli import main
+    assert main(["run", "--sims", "10"]) == 2

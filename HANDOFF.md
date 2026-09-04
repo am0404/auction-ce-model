@@ -85,7 +85,7 @@ src/ceauction/              ~3,900 lines
   experiments.py            the CE laboratory
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      ~1,600 lines, 116 tests
+tests/                      ~2,000 lines, 146 tests
 ```
 
 ---
@@ -94,9 +94,10 @@ tests/                      ~1,600 lines, 116 tests
 
 ```bash
 python3 -m venv .venv
+.venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 116 tests, ~40s
+.venv/bin/python -m pytest              # 146 tests, ~40s
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
@@ -107,20 +108,26 @@ python3 -m venv .venv
 
 Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev dependency.
 
+Verified from a clean `git clone` of this branch: fresh venv, the commands above,
+146 tests passing, and every `ce-lab` subcommand exiting 0. The pip upgrade is not
+optional on a stock macOS Python (bundled pip 21.2.4 predates PEP 660 and fails the
+editable install).
+
 ---
 
 ## 4. Test results
 
-**116 passed in 35s, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
+**146 passed in 37s, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
 `flaky` markers.
 
 | File | Tests | What it pins down |
 |---|---:|---|
-| `test_experiments.py` | 21 | every experiment builds a legal league and runs paired; the rival-placement control reads zero; floor-correction helpers |
-| `test_worlds.py` | 19 | byes, injury hazard/duration, persistence of latent state, mean-neutral vs mean-adding spikes, shared/private/negative correlation, contingency, role-change reveal lag, filter behaviour, chunk independence, `crn_key` sharing |
+| `test_experiments.py` | 29 | every experiment builds a legal league and runs paired; the rival-placement control reads zero; floor-correction helpers; every documented `ce-lab` command exits 0 |
+| `test_worlds.py` | 19 | byes, injury hazard/duration, persistence of latent state, mean-neutral vs mean-adding spikes, shared/private/negative correlation, contingency, role-change reveal lag, filter behaviour, chunk independence, `crn_key` sharing, projection = expected points |
+| `test_players.py` | 18 | parameter validation and boundaries, immutability, `crn_key` semantics, **every synthetic spec is labelled `SYNTHETIC`**, projection-override validation, shock-loading accumulation, snake-draft balance |
 | `test_simulate.py` | 17 | seed reproducibility, chunk invariance, prefix stability, exactly one champion, roster-as-portfolio, bench depth value, roster validation |
-| `test_lineup.py` | 13 | Hall bounds, all eight slots filled, 2×RB and 3×WR/TE enforced, **non-QB superflex**, unavailable players, legally unfillable slots, greedy == brute force, vectorised == scalar, **projection monotonicity**, deterministic ties |
+| `test_lineup.py` | 17 | Hall bounds, all eight slots filled, 2×RB and 3×WR/TE enforced, **non-QB superflex**, unavailable players, legally unfillable slots, greedy == brute force, vectorised == scalar, **projection monotonicity**, deterministic ties, per-slot explanations, a bench player stepping in for a bye |
 | `test_ce.py` | 12 | **12 identical teams have equal CE** (chi-square, 11 df), no seeding bias by team index, other teams' scores unchanged across paired arms, null comparison is exactly zero, pairing beats independent sampling, no extra playoff randomness |
 | `test_standings.py` | 9 | median win/loss/**exact tie**, 2-0 / 1-1 / 0-2, two results per week, **total-points tiebreak** (both directions), index as final tiebreak, schedule covers all 66 pairs |
 | `test_playoffs.py` | 8 | exactly six qualifiers, **top-two byes**, fixed 3v6 / 4v5 pairing, **no reseeding** (1 always faces the 4/5 winner), bye teams' week-15 scores are irrelevant, **higher seed advances a tie** in every round and by seed rather than team index |

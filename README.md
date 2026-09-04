@@ -17,10 +17,13 @@ Auction pricing is deliberately **not** built. See `SPEC.md` §11.
 
 ```bash
 python3 -m venv .venv
+.venv/bin/pip install --upgrade pip      # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 ```
 
-Requires Python 3.9+ and NumPy. No other runtime dependency.
+Requires Python 3.9+ and NumPy. No other runtime dependency. The pip upgrade is
+not optional on a stock macOS Python, whose bundled pip (21.2.4) predates PEP 660
+and fails with "editable mode currently requires a setuptools-based build".
 
 ## Run
 
