@@ -4,9 +4,9 @@ Branch `ce-marginal-curve-audit-fixes`, off `ce-marginal-curve`, off
 `ce-foundation-audit-fixes`, off `ce-foundation`. Everything below is
 reproducible from the commands in §3.
 
-Sections 1–10 are the audit correction pass (Phase 1). Sections 11–12 are the
-marginal championship-equity curve (Phase 2), which is what the Phase 1 handoff
-recommended building next, with the Phase 2 audit corrections folded in.
+Sections 1-10 are the audit correction pass (Phase 1). Section 11 is the
+marginal championship-equity curve (Phase 2), with its audit corrections folded
+in. Section 12 is the real-player ingestion layer and section 13 the next phase.
 
 Two claims that appeared in earlier drafts of this document have been withdrawn
 and are marked as such where they appeared: that the resolution extrapolation is
@@ -121,11 +121,13 @@ src/ceauction/
   playoffs.py               fixed 6-team bracket; zero randomness
   simulate.py               the pipeline, batched
   ce.py                     CE estimation + paired comparison
+  realdata/                 real-player ingestion: sources, identity, scoring,
+                            contract, validation, sanitized report
   curve.py                  marginal CE curve + Monte Carlo resolution report
   experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      279 tests
+tests/                      374 tests
 ```
 
 `stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
@@ -141,7 +143,7 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 279 tests, ~3 min
+.venv/bin/python -m pytest              # 374 tests, ~3 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
@@ -157,13 +159,14 @@ Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev depend
 
 ## 4. Test results
 
-**279 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
+**374 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
 `flaky` markers. 146 at the start of Phase 1, 46 added there, 39 in Phase 2, and 24 in the Phase 2 audit-correction pass.
 
 | File | Tests | What it pins down |
 |---|---:|---|
 | `test_real_player_input_schema.py` | 24 | **NEW (inventory phase).** the real-player contract's shape: nulls mean *not projected*; a missing scoring category can only be recorded as absent; the expert grades are pinned as non-distributional; raw source fields are required and non-empty; sources are identified by content hash; and a fabricated two-player fixture validates, one of them deliberately sparse |
+| `test_realdata_ingestion.py` | 84 | **NEW.** the ingestion layer on fabricated data: scoring arithmetic, median metadata, both availability readings, injury field separation, fumble exclusion, missing categories absent, identity matching and its four failure modes, refusal of the synthetic pool, schema failures, vendor-total and grade-to-variance prevention, determinism |
 | `test_curve.py` | 62 | **NEW (Phase 2).** exact-zero identical arms; order independence; CRN preserved across every level; agreement with a direct paired comparison; genuinely paired adjacent slopes; monotone shape within uncertainty; chunk determinism; the resolution report's `1/sqrt(n)` arithmetic; CSV schema; the isotonic column changing nothing; CLI |
 | `test_experiments.py` | 35 | every experiment builds a legal league and runs paired; the rival-placement **control** reads zero and `rival-fit` does not; the aggregate-spot arms and their byte-identical control; the floor helpers cannot return; every documented `ce-lab` command exits 0 |
 | `test_worlds.py` | 21 | byes, injury hazard/duration, latent persistence, **negative realized scores**, **realized mean == base_mean**, unavailable weeks still zero, spike mean-neutrality, correlation, contingency, role reveal lag, belief convergence, chunk independence across **all seven layers**, `crn_key` sharing |
@@ -762,80 +765,125 @@ this code path.
 
 ---
 
-## 12. Exact recommended next step
+## 12. The real-player ingestion layer
 
-**Inventory and import the existing player model, and turn it into a versioned
-real-player input contract.**
+`ceauction.realdata` turns vendor files into the versioned contract in
+`schemas/real_player_input_v1.schema.json`. It stops there: no dollar values, no
+opening or live bids, no auction-room behaviour, and no `PlayerSpec` field
+populated that the sources cannot support.
 
-> **Step 1 of this is done.** The inventory and semantic trace are in
-> `docs/PLAYER_DATA_INVENTORY.md`, `docs/PLAYER_DATA_LINEAGE.md` and
-> `docs/PLAYER_MAPPING_GAPS.md`, and the contract's first version is in
-> `schemas/real_player_input_v1.schema.json`. No ingestion code was written and
-> no real data was copied into this repository. The headline: component stat
-> lines and two properly fitted dispersion/availability parameters exist and are
-> usable; "boom/bust grades" turn out to be 28%-covered ordinal expert labels
-> with no mapping to a standard deviation; and eight semantic questions —
-> including which league this engine is actually for — must be answered before
-> any of it can be mapped.
+`ce-lab ingest --projections <csv> [--fantasypros <csv>] [--injuries <json>]
+[--fits <json>] [--contract-out local_data/...] [--report-out ...]`
 
-A correction first, because it changes what comes next. An earlier draft of this
-section said to "convert the dollar scale to points and get `dCE/dollar` directly",
-called real-player ingestion "mechanical", and told the reader not to start with it.
-All three were wrong.
+**Every source path is a parameter.** No absolute path appears anywhere in the
+package. The sources are subscriber-gated exports that are not redistributable,
+and this repository is public.
 
-A one-dimensional `base_mean` curve **cannot** be turned into an auction value. What a
-player is worth depends on his whole outcome distribution, not its mean; on his
-availability and injury profile; on his position and therefore which slots he can fill;
-on his correlation with players you already own; on the rest of your roster and which
-alternatives remain on the board; and — as `rival-fit` measured directly — on which
-opponent ends up with him instead. The curve in §11 sweeps one of those dimensions on
-one slot of one roster. It is a resolution instrument and an input to pricing, not a
-price, and dividing it by dollars produces a number with no defensible meaning.
+### The design rule
 
-Ingestion is also not mechanical. `PlayerSpec` has a stable *shape*, but deciding which
-real quantity populates which field, and what each real quantity actually means, is the
-modelling work — and it is the work that gates everything downstream, because every
-number this engine has produced so far is a statement about invented parameters.
+**An unresolved question travels with the data.** Where the inventory found a
+meaning that could not be proven, the ingestion layer records the ambiguity in
+its output instead of resolving it silently. That is why the contract has an
+`active_rate` object with two readings and a `preferred` field pinned to null,
+a `season_points` object that reports what it left out, and a required
+`uncalibrated_parameters` list.
 
-So the next step is the ingestion work, done carefully:
+### The settled decisions, and where each is enforced
 
-1. **Inventory what already exists.** Catalogue the player model you have — in
-   particular the **median stat outcomes**, the **injury odds**, and the **boom/bust
-   grades**. List every field, its type, its range, and where each row came from.
+| Decision | Enforcement |
+|---|---|
+| Target league is the 12-team superflex league | `build_contract` refuses any other `n_teams`; the validator rejects a `league_config_id` that looks like the old 10-team non-superflex configuration |
+| Central tendency is `median`, "user asserted; vendor documentation not located" | Required by the schema; the validator demands provenance whenever the claim is not `unknown` |
+| Vendor fantasy total never used | The loader does not read that column; `scoring_source` is pinned to `recomputed_from_components` |
+| Expert grades never become a distribution | `may_derive_dispersion` pinned false, covering variance, sd, ceiling, floor and spike alike |
+| `players_provisional.csv` never imported | Refused by **column signature**, not filename — it can be renamed and still look like a real board |
+| Injury fields stay separate | `injury_prob` (season risk) and `proj_games_missed` (games) preserved apart; no weekly process derived, and `weekly_injury_hazard` is declared uncalibrated |
+| Both availability readings, neither preferred | A = `points/17`, B = `points/(17 − games missed)`; `preferred` pinned null and the validator rejects setting it |
+| Fumbles excluded by default | Excluded from the primary total, omitted contribution reported per player; `lost`/`total` selectable, never defaulted |
+| Missing categories absent, not zero | `treated_as: "absent"` is the only legal value, now required by the schema |
 
-2. **Define precise meanings and provenance for each input.** This is the part that
-   cannot be skipped, and the questions are specific. Is a median stat outcome a median
-   or a mean, per game or per season, conditional on playing or unconditional? Are
-   injury odds a per-week hazard, a probability of missing any time, or an expected
-   games-missed count — and over what horizon? Is a boom/bust grade an ordinal bucket,
-   a percentile, or a dispersion estimate, and against what reference population? Record
-   the answer and the source for each, because a wrong reading here silently
-   miscalibrates every CE number downstream and will not fail any test.
+### Identity matching
 
-3. **Map them into a versioned real-player input contract.** A schema with an explicit
-   version field, so a later change to the meaning of a source column is a version bump
-   rather than a silent shift in results. It should validate on load and refuse
-   ambiguous input rather than guessing.
+Names are normalised for accents, punctuation and generational suffixes and
+matched on an exact key. It is deliberately **not** fuzzy: edit-distance
+matching would join two different players and there would be no way to notice.
+Ambiguous, unmatched, duplicate and position-conflicting names are reported
+rather than resolved by an arbitrary pick, and an ambiguous player carries a
+null team and null bye rather than a coin-flipped one.
 
-4. **State which `PlayerSpec` parameters those inputs actually support, and which
-   remain uncalibrated.** Median stat outcomes plausibly reach `base_mean` through
-   `score_statline`; injury odds plausibly reach `weekly_injury_hazard` and
-   `injury_mean_weeks`; boom/bust grades plausibly reach `week_sd`. That leaves
-   `season_sd`, `signal_noise_sd`, `weekly_state_sd`, `proj_noise_sd`, the role-change
-   parameters and every `shock_loading` with no source at all. Write that list down
-   explicitly and carry it in the contract, so a reader can always tell which parts of
-   a result rest on data and which still rest on invented numbers.
+### The run against the real sources
 
-5. **Preserve the raw source fields alongside the mapped ones.** Keep the original
-   values on the record, not just the derived `PlayerSpec`. Every mapping decision in
-   step 2 is a judgement that will be revisited, and discarding the inputs makes
-   revisiting it a re-import instead of a re-derivation.
+Full sanitized result in `docs/INGESTION_AUDIT.md`. Headlines:
 
-Two things that are *not* next, and why:
+* **549 players normalized** (QB 76, RB 135, WR 213, TE 125) from 626 rows.
+* **Identity join 524/549 (95.5%)**, 1 ambiguous, 1 duplicate on the right.
+* **Injury join 300/549 (54.6%)** — a little over half the pool carries an
+  availability profile and the rest carries none.
+* **0 validation errors, 5 warnings**, three blocking questions still open.
+* Sources identified by SHA-256, not filename.
 
-* **Not pricing.** It needs the "best alternative use of $p" term, which is a
-  roster-completion problem over the remaining board, and it needs real inputs to mean
-  anything.
-* **Not more simulation performance.** §11 says what the current throughput does and
-  does not buy. Whether that is a problem depends on a resolution target that cannot be
-  set until the inputs are real.
+### One thing the validator got wrong, twice
+
+The check that points do not equal a preserved vendor total was written as an
+error and produced false positives on the real data. It first fired on seven
+players, all with zero receptions — where half-PPR and full-PPR agree exactly
+and coincidence proves nothing. Narrowed to players whose receptions should
+separate the two systems, it still fired on one, whose components genuinely
+produce that figure under this league's scoring.
+
+It is now an aggregated warning. Value equality is not proof of provenance; the
+binding guarantee is structural. The per-player form was also dropped because it
+carried a vendor value into a report that gets published.
+
+### Tests
+
+`tests/test_realdata_ingestion.py`, 84 tests, all on fabricated data: scoring
+arithmetic, median metadata, both availability interpretations, injury field
+separation, fumble exclusion and its alternatives, missing categories staying
+absent, identity matching, ambiguous/unmatched/duplicate/conflicting identities,
+refusal of the synthetic pool, schema failures for every newly required member,
+prevention of vendor-total use, prevention of grade-to-variance mapping, and
+deterministic output.
+
+---
+
+## 13. Exact recommended next phase
+
+**Answer the three blocking questions, then decide how a median becomes a mean.**
+
+The ingestion layer is built and validates cleanly, but it deliberately produces
+a contract that **cannot yet populate `PlayerSpec`**, because four things stand
+between the two and none of them is a coding problem.
+
+1. **Q1, the games basis.** Interpretation A divides by 17. If the source
+   projects a different window, every `base_mean` is scaled by a constant and
+   nothing in this repository would notice.
+2. **Q2, the fumble column.** 22.8% of players carry a fumble figure worth
+   between −2 and −8 points of season scoring, currently excluded. Total or
+   lost is a roughly 2× difference in the penalty.
+3. **Q3, the availability treatment.** Both readings are computed. Picking
+   wrongly either double-counts injuries or ignores them.
+4. **The median-to-mean gap, which is not an open question but an unhandled
+   consequence.** `base_mean` is an expected value; the projections are medians
+   on the user's assertion. For right-skewed categories the median sits below
+   the mean, by an amount that varies by position. Populating `base_mean`
+   directly from a median biases every player low, unevenly.
+
+Q1 and Q3 are best answered together, and the same evidence settles both:
+compare the projections against realised per-game rates for players with known
+absences. If the projections already discount for absence, B is right and the
+effective window is not 17.
+
+The median-to-mean gap needs either vendor documentation or an adjustment
+fitted from historical weekly distributions by position. **Do not invent one** —
+that is the same class of move as mapping a boom/bust grade to a standard
+deviation, and it would be invisible in every test here.
+
+**Then, and only then**, write the `PlayerSpec` mapping. It will populate
+identity, `position`, `bye_week`, `base_mean` and a cohort-average `week_sd`,
+and it will leave ten parameters uncalibrated. That gap is the honest state of
+the model and should be reported with every result built on it.
+
+**Still not next:** pricing. It needs the "best alternative use of $p" term,
+which is a roster-completion problem over the remaining board, and it needs
+inputs that mean something first.

@@ -20,6 +20,104 @@ A3 are largely answerable from those three inputs once their meanings are
 pinned; A4, A5, A6 and the `season_sd` / `weekly_state_sd` split are not, and
 should be carried explicitly as uncalibrated rather than quietly defaulted.
 
+**The ingestion layer is now built** (`ceauction.realdata`,
+`docs/INGESTION_AUDIT.md`). It loads, joins and validates the sources, and it
+carries every unresolved question in the payload rather than assuming past one.
+What it does *not* do is answer any of the questions below. Section D records
+the ones that now block populating the engine.
+
+---
+
+## D. Settled, and blocking the mapping
+
+These were settled by the user during the ingestion phase and are recorded here
+so the settlement itself is auditable.
+
+### D1. The target league is the 12-team superflex league — SETTLED
+
+`SPEC.md` is definitive. The previous model's 10-team non-superflex
+configuration must never enter the CE engine. Enforced in two places:
+`build_contract` refuses any `n_teams` other than 12, and the semantic validator
+rejects a `league_config_id` that looks like the old configuration.
+
+### D2. Central tendency is median — SETTLED, with a consequence
+
+Recorded as `median`, provenance **"user asserted; vendor documentation not
+located"**. Carried on every player rather than assumed.
+
+**The consequence is not yet handled.** `PlayerSpec.base_mean` is an *expected*
+value. A median is not one, and for right-skewed categories — touchdowns above
+all — the median sits below the mean by an amount that varies with the
+distribution's shape and therefore by position. Populating `base_mean` directly
+from a median would bias every player low, and low by different amounts at
+different positions.
+
+**What would settle it:** either vendor documentation confirming the estimator,
+or a median-to-mean adjustment fitted from historical weekly distributions by
+position. Neither exists yet, and the ingestion layer deliberately does not
+invent one.
+
+### D3. The vendor fantasy total is never used — SETTLED
+
+Points are always recomputed from components under the target league's scoring.
+The vendor column solves to full PPR. Enforced structurally: the loader does not
+read that column, and `scoring_source` is pinned to `recomputed_from_components`.
+
+### D4. Expert grades never become a distribution — SETTLED
+
+UPSIDE/BUST are preserved as optional source metadata with
+`may_derive_dispersion` pinned false. No mapping to variance, standard
+deviation, ceiling, floor or spike probability exists or may be created.
+
+### D5. `players_provisional.csv` is never imported — SETTLED
+
+Refused by column signature rather than by filename, because the danger is
+precisely that it can be renamed and still look like a real board.
+
+### D6. Injury fields stay separate — SETTLED
+
+`injury_prob` is season-level injury risk; `proj_games_missed` is projected
+games missed this season. They are different quantities, preserved separately,
+never combined. **No weekly injury process has been derived**, so
+`weekly_injury_hazard` is listed as uncalibrated. Deriving one needs a stated
+model, not an arithmetic convenience.
+
+### D7. The availability treatment is unresolved — TWO READINGS, NO CHOICE
+
+The source may or may not already discount for expected absence. Both readings
+are computed for every player and **neither is preferred**:
+
+| | Reading | Formula |
+|---|---|---|
+| **A** | full-health projection | `season_points / 17` |
+| **B** | availability-adjusted projection | `season_points / (17 − projected games missed)` |
+
+`active_rate.preferred` is pinned `null`, and the validator rejects any payload
+that sets it. Choosing wrongly either double-counts injuries or ignores them.
+
+Note the two are computed over different populations — B only exists for the
+300 players carrying a games-missed figure — so their aggregate medians are not
+comparable. `docs/INGESTION_AUDIT.md` says so explicitly.
+
+**What would settle it:** vendor documentation, or a comparison of the
+projections against realised per-game rates for players with known absences.
+
+### D8. The `Fumbles` column is unresolved — EXCLUDED BY DEFAULT
+
+This league scores −2 for a fumble **lost**; the column is named `Fumbles`. Its
+points are excluded from the primary total and the omitted contribution is
+reported per player. `lost` and `total` are selectable but never defaulted.
+
+Measured size of the question: 22.8% of players carry a fumble figure, and for
+them the excluded contribution ranges from −8.0 to −2.0 points of season
+scoring, mean −3.28.
+
+### D9. Missing categories are absent, not zero — SETTLED
+
+The three two-point conversions and the individual special-teams touchdown have
+no source column. They are recorded as `treated_as: "absent"`, which the schema
+now makes the only legal value.
+
 ---
 
 ## A. Needs real data

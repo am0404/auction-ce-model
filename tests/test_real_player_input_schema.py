@@ -206,7 +206,78 @@ def test_a_missing_scoring_category_can_only_be_recorded_as_absent(schema):
     unsup = (schema["properties"]["scoring_support"]["properties"]
              ["unsupported_categories"]["items"])
     assert unsup["properties"]["treated_as"]["const"] == "absent"
-    assert set(unsup["required"]) == {"category", "reason"}
+    # `treated_as` is REQUIRED, not optional: an entry that omits it leaves the
+    # reader to assume, and the assumption they would make is "zero".
+    assert set(unsup["required"]) == {"category", "reason", "treated_as"}
+
+
+# --------------------------------------------------------------------------
+# Hardened requirements: omitting any of these must fail validation.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("member", [
+    "schema_version", "provenance", "scoring_support",
+    "uncalibrated_parameters", "open_questions", "players",
+])
+def test_every_required_root_member_is_required(schema, fixture, member):
+    assert member in schema["required"]
+    d = json.loads(json.dumps(fixture))
+    d.pop(member)
+    errs = _validate(d, schema)
+    assert any("missing required" in e and member in e for e in errs), (
+        f"omitting {member} must fail validation")
+
+
+def test_a_payload_that_declares_nothing_uncalibrated_is_still_structurally_ok_but_semantically_not(
+        schema, fixture):
+    """The schema requires the key; the production validator requires content.
+
+    An empty list satisfies the shape and still hides the thing that matters,
+    so the semantic check in `ceauction.realdata.validate` rejects it.
+    """
+    from ceauction.realdata.validate import validate_semantics
+
+    d = json.loads(json.dumps(fixture))
+    d["uncalibrated_parameters"] = []
+    assert _validate(d, schema) == [], "an empty list is structurally valid"
+    res = validate_semantics(d)
+    assert not res.ok
+    assert any("uncalibrated" in e for e in res.errors)
+
+
+def test_league_config_id_is_required(schema, fixture):
+    assert "league_config_id" in schema["properties"]["provenance"]["required"]
+    d = json.loads(json.dumps(fixture))
+    d["provenance"].pop("league_config_id")
+    assert any("league_config_id" in e for e in _validate(d, schema))
+
+
+def test_central_tendency_is_required(schema, fixture):
+    horizon = schema["$defs"]["player"]["properties"]["stat_line_horizon"]
+    assert "central_tendency" in horizon["required"]
+    d = json.loads(json.dumps(fixture))
+    d["players"][0]["stat_line_horizon"].pop("central_tendency")
+    assert any("central_tendency" in e for e in _validate(d, schema))
+
+
+def test_treated_as_is_required_on_every_unsupported_category(schema, fixture):
+    d = json.loads(json.dumps(fixture))
+    d["scoring_support"]["unsupported_categories"][0].pop("treated_as")
+    assert any("treated_as" in e for e in _validate(d, schema))
+
+
+def test_additional_properties_are_refused_throughout(schema):
+    """Strictness at every level a payload can grow one."""
+    assert schema["additionalProperties"] is False
+    assert schema["$defs"]["player"]["additionalProperties"] is False
+    assert schema["$defs"]["stat_line"]["additionalProperties"] is False
+    for name in ("provenance", "scoring_support"):
+        assert schema["properties"][name]["additionalProperties"] is False
+    for name in ("availability", "expert_labels", "stat_line_horizon",
+                 "season_points", "active_rate", "cohort_dispersion"):
+        assert schema["$defs"]["player"]["properties"][name][
+            "additionalProperties"] is False
 
 
 def test_every_stat_line_field_permits_null(schema):

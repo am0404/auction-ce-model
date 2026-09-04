@@ -206,6 +206,7 @@ def validate_semantics(payload: Dict) -> ValidationResult:
     """
     res = ValidationResult()
     prov = payload.get("provenance", {}) or {}
+    vendor_total_coincidences: List[int] = []
 
     # --- 1. target league ---------------------------------------------------
     league_id = str(prov.get("league_config_id", "") or "")
@@ -237,17 +238,40 @@ def validate_semantics(payload: Dict) -> ValidationResult:
         vendor_totals = {k: v for k, v in raw.items()
                          if k.strip().lower().replace(" ", "_") in VENDOR_TOTAL_KEYS}
         points = sp.get("points")
-        for key, value in vendor_totals.items():
-            try:
-                as_float = float(str(value).replace(",", ""))
-            except (TypeError, ValueError):
-                continue
-            if points is not None and abs(as_float - float(points)) < 1e-9:
-                res.errors.append(
-                    f"{where}.season_points.points equals the vendor total in "
-                    f"raw_fields[{key!r}] ({as_float}). Points must be "
-                    f"recomputed under this league's scoring, and the vendor "
-                    f"total is full PPR.")
+        # Equality with a vendor total is only evidence of misuse when the two
+        # scoring systems would actually disagree. The vendor total is full PPR
+        # and this league is half, so they differ by 0.5 per reception -- and
+        # for a player with no receptions they legitimately coincide. Checking
+        # equality alone flags every zero-reception player, which is a false
+        # positive, not a finding.
+        receptions = (player.get("stat_line") or {}).get("receptions")
+        try:
+            separation = 0.5 * float(receptions) if receptions is not None else 0.0
+        except (TypeError, ValueError):
+            separation = 0.0
+        if separation > 1e-6:
+            for key, value in vendor_totals.items():
+                try:
+                    as_float = float(str(value).replace(",", ""))
+                except (TypeError, ValueError):
+                    continue
+                if points is not None and abs(as_float - float(points)) < 1e-9:
+                    # Counted, not reported per player. Two reasons.
+                    #
+                    # It is a WARNING rather than an error because value
+                    # equality is not proof of provenance: the vendor total is
+                    # full-PPR only *on average* -- it was recovered by least
+                    # squares across the file -- so an individual row can
+                    # coincide with a correctly recomputed half-PPR figure by
+                    # chance. The binding guarantee is the structural
+                    # `scoring_source` check above.
+                    #
+                    # And it is AGGREGATED because the per-player form would
+                    # carry a vendor projection value and a stat into a report
+                    # that gets committed to a public repository. A count is
+                    # also the more useful signal: one coincidence is noise,
+                    # many at once would mean the total really is being reused.
+                    vendor_total_coincidences.append(i)
 
         # --- 3. expert grades may not become a distribution -----------------
         labels = player.get("expert_labels") or {}
@@ -313,6 +337,17 @@ def validate_semantics(payload: Dict) -> ValidationResult:
         res.errors.append("open_questions is required.")
 
     # --- warnings -----------------------------------------------------------
+    if vendor_total_coincidences:
+        n = len(vendor_total_coincidences)
+        total = len(payload.get("players", [])) or 1
+        res.warnings.append(
+            f"{n} of {total} players ({n / total:.1%}) have recomputed points "
+            f"exactly equal to a vendor total preserved in raw_fields, despite "
+            f"carrying receptions that should separate half-PPR from full. A "
+            f"handful is coincidence; a large share would mean the vendor total "
+            f"is being reused. Player indices are omitted here because this "
+            f"report is published.")
+
     for src in prov.get("sources", []):
         if src.get("retrieved_at") is None:
             res.warnings.append(
