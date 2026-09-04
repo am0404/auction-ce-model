@@ -153,6 +153,46 @@ def test_patterns_express_correlated_independent_and_offset_weekly_structure():
     assert abs(corr(3, 4)) < 0.06, "stochastic weekly states must be independent"
 
 
+def test_the_aggregate_experiment_describes_its_own_construction_correctly():
+    """The matched invariants are exact; the hot/cold levels are not uniform.
+
+    17 weeks do not divide by 3, so two candidates are hot in 6 weeks and one
+    in 5. Centring each pattern on its own hot-week frequency is what keeps the
+    season means exact, and the price is that the weekly option set is
+    {17.76, 6.47, 5.76} or {18.47, 5.76, 5.76} -- never literally {18, 6, 6}.
+    The experiment's documentation says so; this pins the arithmetic behind it.
+    """
+    from ceauction.experiments import exp_aggregate_lineup_spot
+
+    level, amplitude, n = 10.0, 12.0, 3
+    levels = level + np.array(offset_patterns(NW, n, amplitude))
+
+    # Exact, and what the matched design actually rests on.
+    assert np.allclose(levels.sum(axis=0), 30.0, atol=1e-12)
+    assert np.allclose(levels.mean(axis=1), level, atol=1e-12)
+
+    # Not exact, and the reason the old "{18, 6, 6} every week" claim was wrong.
+    hot = levels.max(axis=1)
+    cold = levels.min(axis=1)
+    assert not np.allclose(hot, 18.0), "hot levels are not uniformly 18.0"
+    assert sorted(int((levels[k] > level).sum()) for k in range(n)) == [5, 6, 6]
+    assert hot.min() == pytest.approx(17.7647, abs=1e-3)
+    assert hot.max() == pytest.approx(18.4706, abs=1e-3)
+    assert cold.min() == pytest.approx(5.7647, abs=1e-3)
+    assert cold.max() == pytest.approx(6.4706, abs=1e-3)
+
+    # Exactly one candidate is hot in every week, which is the property the
+    # "one hot, two cold" description depends on.
+    assert ((levels > level).sum(axis=0) == 1).all()
+
+    # And the prose no longer claims otherwise.
+    from ceauction.synthetic import make_synthetic_league
+    out = exp_aggregate_lineup_spot(make_synthetic_league(), 40, 4242)
+    text = " ".join(c.notes + c.scenario_a for c in out.comparisons)
+    assert "{18, 6, 6}" not in text
+    assert "17.76" in text and "18.47" in text
+
+
 def test_offset_patterns_are_mean_zero_and_sum_to_a_constant():
     """Both properties are what keep the aggregate experiment matched.
 

@@ -471,11 +471,29 @@ def exp_aggregate_lineup_spot(base: RosterSet, n: int, seed: int) -> ExperimentO
 
     ``stable``       18.0 / 6.0 / 6.0, flat every week.
     ``forecastable`` 10.0 each, with offset weekly patterns so that in every
-                     week one of them is at 18.0 and the other two at 6.0 --
-                     and the manager can see which, before lock.
+                     week exactly one is hot and the other two are cold -- and
+                     the manager can see which, before lock.
     ``hidden``       the identical numbers, applied through
                      ``hidden_weekly_pattern`` so they reach the realized score
                      but never the projection.
+
+    **What the rotating arms actually look like.**  17 weeks do not divide by
+    three, so the hot week is not shared evenly and the option set is *not*
+    literally ``{18, 6, 6}`` every week.  Each pattern is centred on its own
+    hot-week frequency (:func:`offset_patterns`), which is what keeps every
+    candidate's season mean at exactly 10.0; the price is that two candidates
+    are hot in 6 weeks of 17 and the third in 5, so their hot and cold levels
+    differ slightly.  With ``level = 10.0`` and ``amplitude = 12.0`` the weekly
+    option set is::
+
+        {17.76, 6.47, 5.76}   in 12 weeks   (one of the 6/17 candidates is hot)
+        {18.47, 5.76, 5.76}   in  5 weeks   (the 5/17 candidate is hot)
+
+    Two things *are* exact, and they are the two the matched design needs:
+    the three levels sum to **exactly 30.0 in every week**, and each candidate's
+    season mean is **exactly 10.0**.  So the arms are matched on per-week total
+    and on per-player strength, and the small spread in hot/cold levels is a
+    consequence of mean-zero centring rather than a defect in the matching.
 
     The ``forecastable`` and ``hidden`` arms have **byte-identical realized
     production**.  They differ in exactly one thing: whether the good weeks
@@ -509,11 +527,18 @@ def exp_aggregate_lineup_spot(base: RosterSet, n: int, seed: int) -> ExperimentO
     forecastable = build((level,) * 3, forecastable_patterns=patterns)
     hidden = build((level,) * 3, hidden_patterns=patterns)
 
-    hot = level + amplitude * (1.0 - 1.0 / len(victims))
-    cold = level - amplitude / len(victims)
-    matched = ("all three arms hold 30.0 expected points per week across the "
-               "three spots, and every candidate's season mean is exactly "
-               f"{level:.1f}; the patterns are mean-zero by construction")
+    # Report the levels the patterns actually produce rather than the nominal
+    # 1/n ones: hot-week frequencies differ when n_weeks is not divisible by n.
+    arr = np.asarray(patterns, dtype=np.float64) + level
+    hot_lo, hot_hi = float(arr.max(axis=1).min()), float(arr.max(axis=1).max())
+    cold_lo, cold_hi = float(arr.min(axis=1).min()), float(arr.min(axis=1).max())
+    matched = ("all three arms hold exactly 30.0 expected points per week "
+               "across the three spots, and every candidate's season mean is "
+               f"exactly {level:.1f}; the patterns are mean-zero by "
+               f"construction. {n_weeks} weeks do not divide by "
+               f"{len(victims)}, so hot and cold levels differ slightly "
+               "between candidates -- the per-week total and the per-player "
+               "means are exact regardless")
 
     return ExperimentOutput(
         key="aggregate-lineup-spot",
@@ -526,13 +551,15 @@ def exp_aggregate_lineup_spot(base: RosterSet, n: int, seed: int) -> ExperimentO
             _run(forecastable, stable,
                  "forecastable rotation vs one stable starter", n, seed,
                  f"three candidates at {level:.1f}, offset weekly conditions "
-                 f"({hot:.1f} hot / {cold:.1f} cold), visible pregame",
+                 f"({hot_lo:.2f}-{hot_hi:.2f} hot / {cold_lo:.2f}-{cold_hi:.2f} "
+                 f"cold), visible pregame",
                  f"one starter at {concentrated[0]:.1f} plus two at "
                  f"{concentrated[1]:.1f}, flat",
-                 notes=matched + ". The rotating arm presents the same "
-                       "{18, 6, 6} option set every week, so if the model "
-                       "prices knowable weekly conditions correctly this "
-                       "should be roughly a wash"),
+                 notes=matched + ". Every week the rotating arm presents one "
+                       "hot candidate and two cold ones summing to the same "
+                       "30.0 the stable arm holds, so if the model prices "
+                       "knowable weekly conditions correctly this should be "
+                       "roughly a wash"),
             _run(hidden, stable,
                  "unforecastable rotation vs one stable starter (CONTROL)", n, seed,
                  f"three candidates at {level:.1f}, same weekly swings, "
