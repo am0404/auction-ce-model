@@ -165,13 +165,78 @@ def test_scoring_uses_the_target_league_rules_not_a_vendors():
 # --------------------------------------------------------------------------
 
 
-def test_central_tendency_is_median_with_its_provenance_attached(built):
+def test_central_tendency_is_recorded_as_hybrid_not_median(built):
+    """The source derives its categories two different ways.
+
+    Continuous categories (yards, receptions) take the sportsbook over/under
+    line, which the source calls an accurate median. Discrete categories
+    (touchdowns, interceptions) are devigged into implied probabilities and
+    turned into a probability-weighted expectation -- a mean. A total summed
+    from both is neither, and labelling it "median" would be a claim the
+    documentation does not support.
+    """
     for p in built.payload["players"]:
         h = p["stat_line_horizon"]
-        assert h["central_tendency"] == "median" == CENTRAL_TENDENCY
+        assert h["central_tendency"] == "hybrid_market_location" == CENTRAL_TENDENCY
         assert h["central_tendency_provenance"] == CENTRAL_TENDENCY_PROVENANCE
-        assert "user asserted" in h["central_tendency_provenance"]
-        assert "vendor documentation not located" in h["central_tendency_provenance"]
+        prov = h["central_tendency_provenance"]
+        assert "winwithodds.com" in prov, "official documentation must be cited"
+        assert "vendor documentation not located" not in prov
+        # Both halves of the derivation must be described.
+        assert "median" in prov and "expectation" in prov
+
+
+def test_the_health_treatment_is_not_labelled_full_health(built):
+    """The source says projections do not fully capture current health.
+
+    It also applies injury designations manually, so a known injury may already
+    have depressed a projection. Neither 'full_health' nor
+    'availability_adjusted' is safe.
+    """
+    for p in built.payload["players"]:
+        h = p["stat_line_horizon"]
+        assert h["health_treatment"] == "partially_health_agnostic"
+        assert "winwithodds.com" in h["health_treatment_provenance"]
+        assert h["health_treatment"] != "full_health"
+
+
+def test_the_games_basis_is_justified_by_the_nfl_season_not_the_fantasy_weeks(built):
+    """17 because the NFL regular season is 17 games, not because 14 + 3 = 17.
+
+    The earlier justification arrived at the right number for the wrong reason
+    and would have broken if either the league's shape or the NFL's changed.
+    """
+    from ceauction.realdata import contract as C
+
+    assert C.GAMES_BASIS == 17.0
+    doc = C.__dict__["__doc__"] or ""
+    src = __import__("inspect").getsource(C)
+    marker = src[src.index("#: Games the source's season total spans"):
+                 src.index("GAMES_BASIS = 17.0")]
+    # The comment is line-wrapped, so compare on collapsed whitespace.
+    flat = " ".join(marker.replace("#:", " ").split())
+    assert "NFL regular season is 17 games per team" in flat
+    assert "14 regular-season weeks plus a 3-week bracket" in flat, (
+        "the corrected comment should record the mistake it replaced")
+    assert "16 scheduled games inside the fantasy window" in flat
+    for p in built.payload["players"]:
+        assert p["active_rate"]["games_basis"] == 17.0
+
+
+def test_the_fantasy_horizon_holds_sixteen_scheduled_games():
+    """17 fantasy weeks minus one bye. The 17th NFL game is in week 18."""
+    from ceauction.realdata.contract import (FANTASY_SCHEDULED_GAMES,
+                                             GAMES_BASIS)
+    from ceauction.league import DEFAULT_LEAGUE
+
+    assert DEFAULT_LEAGUE.total_weeks == 17
+    assert FANTASY_SCHEDULED_GAMES == 16.0
+    assert FANTASY_SCHEDULED_GAMES == DEFAULT_LEAGUE.total_weeks - 1
+    assert GAMES_BASIS - FANTASY_SCHEDULED_GAMES == 1.0, (
+        "exactly one of the 17 NFL games falls outside the fantasy horizon")
+    # Byes are drawn inside the horizon, so the missing game is week 18's.
+    lo, hi = DEFAULT_LEAGUE.bye_week_range
+    assert 1 <= lo <= hi <= DEFAULT_LEAGUE.total_weeks
 
 
 def test_a_central_tendency_claim_without_provenance_is_rejected(built):

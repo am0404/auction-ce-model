@@ -5,10 +5,10 @@ applied *visibly*:
 
 * **Target league.** The 12-team superflex league in ``SPEC.md``. The previous
   model's 10-team non-superflex configuration never enters.
-* **Central tendency.** Recorded as ``median`` with the provenance
-  "user asserted; vendor documentation not located". ``PlayerSpec.base_mean``
-  is an expected value and a median is not one, so the claim travels attached
-  to its source rather than silently.
+* **Central tendency.** Recorded as ``hybrid_market_location``, documented by
+  the source's own published methodology.  It is neither a proven mean nor a
+  proven median, and calling it either would be wrong -- see
+  :data:`CENTRAL_TENDENCY_PROVENANCE`.
 * **Points.** Always recomputed from components under the target league's
   scoring. The vendor's own total is never read.
 * **Expert grades.** Carried as optional metadata. Never mapped to any
@@ -58,16 +58,41 @@ __all__ = [
     "TARGET_LEAGUE_CONFIG_ID",
     "CENTRAL_TENDENCY",
     "CENTRAL_TENDENCY_PROVENANCE",
+    "HEALTH_TREATMENT",
+    "HEALTH_TREATMENT_PROVENANCE",
+    "FANTASY_SCHEDULED_GAMES",
     "BuildResult",
     "build_contract",
     "UNCALIBRATED_PARAMETERS",
     "OPEN_QUESTIONS",
 ]
 
-#: Games a season total is spread over under interpretation A. Seventeen, per
-#: the target league's scoring window (14 regular-season weeks plus a 3-week
-#: bracket). Explicit and overridable rather than buried in an expression.
+#: Games the source's season total spans: **17, because the modern NFL regular
+#: season is 17 games per team.**
+#:
+#: This is a fact about the *source*, not about this fantasy league, and an
+#: earlier revision of this file got that wrong -- it justified 17 as "14
+#: regular-season weeks plus a 3-week bracket", which arrives at the right
+#: number for the wrong reason and would have broken the moment either the
+#: league's shape or the NFL's changed.
+#:
+#: The source publishes season totals built from preseason season-long
+#: sportsbook props covering the full NFL regular season, so a season total is
+#: spread over 17 played games.
+#:
+#: **The fantasy horizon is a different span and holds fewer games.** This
+#: engine simulates weeks 1-17. The NFL regular season runs 18 calendar weeks,
+#: and every team has exactly one bye inside weeks 5-14, so a player has
+#: **16 scheduled games inside the fantasy window** -- his 17th falls in week
+#: 18, which is outside the horizon and must never contribute to championship
+#: equity. ``LeagueSettings.total_weeks`` is 17 and the availability process
+#: marks the bye week unavailable, so the engine already produces 16; the
+#: smoke test asserts it rather than trusting it.
 GAMES_BASIS = 17.0
+
+#: Scheduled games a player has inside the fantasy horizon (weeks 1-17), given
+#: one bye. Derived, not assumed: 17 fantasy weeks minus one bye week.
+FANTASY_SCHEDULED_GAMES = 16.0
 
 UNSUPPORTED_SCORING_CATEGORIES = UNSUPPORTED_CATEGORIES
 
@@ -75,9 +100,53 @@ UNSUPPORTED_SCORING_CATEGORIES = UNSUPPORTED_CATEGORIES
 #: non-superflex configuration is rejected by ``validate_semantics``.
 TARGET_LEAGUE_CONFIG_ID = "spec-md-12team-superflex-half-ppr"
 
-CENTRAL_TENDENCY = "median"
+#: What the recomputed season total actually is.
+#:
+#: Not "median", and not "mean". The source derives its component categories two
+#: different ways, and a total built from both is neither:
+#:
+#: * **continuous categories** -- passing/rushing/receiving yards, receptions --
+#:   take the sportsbook over/under line directly, which the source describes as
+#:   "an accurate median amount". These are market medians.
+#: * **discrete categories** -- touchdowns, interceptions -- are not read off a
+#:   line. The source devigs the odds into implied probabilities (it names the
+#:   "Power Method") and forms a probability-weighted expectation. These are
+#:   means.
+#:
+#: Summing medians and expectations produces a **hybrid market-location
+#: estimate**. It is not a mathematically proven central tendency of anything,
+#: and this engine must not treat it as one: ``PlayerSpec.base_mean`` is an
+#: expected value, and whether this quantity is one is exactly the open
+#: question. Both readings are therefore carried as calibration targets and
+#: neither is asserted -- see ``ceauction.realdata.mapping``.
+CENTRAL_TENDENCY = "hybrid_market_location"
 CENTRAL_TENDENCY_PROVENANCE = (
-    "user asserted; vendor documentation not located"
+    "winwithodds.com/about and /season_long_full_stats, read 2026-09-04: season "
+    "totals are built from preseason season-long sportsbook props for the full "
+    "NFL regular season. Continuous categories (yards, receptions) take the O/U "
+    "line, described as an accurate median; discrete categories (touchdowns, "
+    "interceptions) are devigged into implied probabilities and converted to a "
+    "probability-weighted expectation. The recomputed total is therefore a "
+    "hybrid of medians and expectations, not a proven mean or median."
+)
+
+#: What the source says about health, in its own terms.
+#:
+#: It must not be labelled a pure full-health projection. The source states
+#: that projections "do not fully capture a player's current health, so an
+#: injured player can look more valuable than the market treats him", and that
+#: injury designations are applied manually to player profiles. So a projection
+#: is *mostly* health-agnostic, but a known injury can already have depressed
+#: it -- which means neither availability interpretation is safe to assume, and
+#: both continue to be carried.
+HEALTH_TREATMENT = "partially_health_agnostic"
+HEALTH_TREATMENT_PROVENANCE = (
+    "winwithodds.com/about, read 2026-09-04: 'Projections do not fully capture "
+    "a player's current health, so an injured player can look more valuable "
+    "than the market treats him.' Injury designations are applied manually, so "
+    "a known injury may already have depressed a given projection. The source "
+    "is therefore neither reliably full-health nor reliably "
+    "availability-adjusted."
 )
 
 #: Engine parameters this source cannot calibrate, carried with the payload.
@@ -119,14 +188,25 @@ UNCALIBRATED_PARAMETERS: Tuple[Dict[str, str], ...] = (
 #: Questions that must be answered before this data can populate the engine.
 OPEN_QUESTIONS: Tuple[Dict[str, object], ...] = (
     {"id": "Q1",
-     "question": "What week range does the season projection span, and is 17 the "
-                 "right games basis?",
-     "affects": ["base_mean", "active_rate"], "blocking": True},
+     "question": "RESOLVED 2026-09-04 by winwithodds.com/season_long_full_stats: "
+                 "season totals are preseason season-long props covering the "
+                 "full NFL regular season, so the games basis is 17 played "
+                 "games. Note the fantasy horizon (weeks 1-17) holds only 16 of "
+                 "them, because of the bye.",
+     "affects": ["base_mean", "active_rate"], "blocking": False},
     {"id": "Q2",
-     "question": "Is the Fumbles column total fumbles or fumbles lost?",
-     "affects": ["season_points"], "blocking": True},
+     "question": "Is the Fumbles column total fumbles or fumbles lost? The "
+                 "source's published category list does not include it, so it "
+                 "remains unresolved. Excluded from the primary mapping and "
+                 "carried as a sensitivity scenario; not a blocker.",
+     "affects": ["season_points"], "blocking": False},
     {"id": "Q3",
-     "question": "Is the projection already availability-adjusted, or full health?",
+     "question": "Is the projection already availability-adjusted, or full "
+                 "health? PARTIALLY ANSWERED by winwithodds.com/about: "
+                 "projections 'do not fully capture a player's current health', "
+                 "but injury designations are applied manually, so a known "
+                 "injury may already have depressed one. Neither reading is "
+                 "safe to assume and both are still carried.",
      "affects": ["active_rate"], "blocking": True},
     {"id": "Q5",
      "question": "What does the injury vendor mean by a significant injury, and "
@@ -291,6 +371,8 @@ def build_contract(
                 "conditional_on_playing": None,
                 "central_tendency": CENTRAL_TENDENCY,
                 "central_tendency_provenance": CENTRAL_TENDENCY_PROVENANCE,
+                "health_treatment": HEALTH_TREATMENT,
+                "health_treatment_provenance": HEALTH_TREATMENT_PROVENANCE,
             },
             "season_points": {
                 "points": breakdown.points,

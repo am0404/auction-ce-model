@@ -269,9 +269,10 @@
               "enum": [
                 "mean",
                 "median",
+                "hybrid_market_location",
                 "unknown"
               ],
-              "description": "REQUIRED. For the current source this is 'median', on the user's own assertion; vendor documentation was not located. That provenance must be carried in central_tendency_provenance rather than left implicit, because PlayerSpec.base_mean is an expected value and a median is not one."
+              "description": "REQUIRED. For the current source this is 'hybrid_market_location': the source takes over/under lines directly for continuous categories (market medians) and devigs odds into probability-weighted expectations for discrete ones (means). A total built from both is neither a proven mean nor a proven median, and central_tendency_provenance must say so."
             },
             "central_tendency_provenance": {
               "type": [
@@ -279,6 +280,22 @@
                 "null"
               ],
               "description": "Where the central_tendency claim comes from. Null only when central_tendency is 'unknown'."
+            },
+            "health_treatment": {
+              "enum": [
+                "full_health",
+                "availability_adjusted",
+                "partially_health_agnostic",
+                "unknown"
+              ],
+              "description": "How the source treats player health. 'partially_health_agnostic' is the documented state of the current source: projections do not fully capture current health, but injury designations are applied manually, so a known injury may already have depressed one. It must not be labelled full_health."
+            },
+            "health_treatment_provenance": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Where the health_treatment claim comes from."
             }
           }
         },
