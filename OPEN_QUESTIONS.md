@@ -12,6 +12,14 @@ placeholder behind a stable interface.
 is `P(win week 17)` and there is no payout vector to weight. This was previously
 listed as an open question; it is not one.
 
+**Where these get answered.** Most of section A is blocked on the same piece of
+work: importing the existing player model (median stat outcomes, injury odds,
+boom/bust grades) behind a versioned input contract, with each field's exact
+meaning and provenance written down. `HANDOFF.md` §12 is that plan. A1, A2 and
+A3 are largely answerable from those three inputs once their meanings are
+pinned; A4, A5, A6 and the `season_sd` / `weekly_state_sd` split are not, and
+should be carried explicitly as uncalibrated rather than quietly defaulted.
+
 ---
 
 ## A. Needs real data

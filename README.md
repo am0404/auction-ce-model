@@ -34,7 +34,7 @@ and fails with "editable mode currently requires a setuptools-based build".
 .venv/bin/ce-lab run --all --sims 12000    # the full CE laboratory
 .venv/bin/ce-lab curve --sims 16000        # the marginal CE curve for one slot
 .venv/bin/ce-lab bench                     # runtime + Monte Carlo uncertainty
-.venv/bin/python -m pytest                 # 231 tests
+.venv/bin/python -m pytest                 # 255 tests
 ```
 
 Two of the twelve experiments are **controls** and are meant to read near zero.
@@ -65,24 +65,44 @@ at every step. This is the object any auction pricing scheme would be a
 transformation of — but pricing itself is **not** built: no dollar values, no
 opening or live max bids, no inflation model, no roster-completion solver.
 
-Every level is the same player with one field changed, so he keeps his
+Every level is the same player at a different projected level, so he keeps his
 `crn_key` and therefore his injuries, byes, weekly conditions, signals and
 idiosyncratic draws across the whole sweep; every other player and the schedule
-are untouched. Differences between levels are matched per-season differences,
-including the **adjacent slopes**, which are computed as their own paired
-comparison rather than as a difference of two baseline deltas.
+are untouched. If he carries real published weekly projections
+(`weekly_projection_override`), those are shifted by the same delta as
+`base_mean`, which preserves their shape while moving their level — otherwise
+his realized scoring would move while the manager's pregame view stayed frozen.
+Differences between levels are matched per-season differences, including the
+**adjacent slopes**, which are computed as their own paired comparison rather
+than as a difference of two baseline deltas.
+
+`--isotonic` adds a display column that *imposes* monotonicity rather than
+revealing it. Changing a player's level changes which players get started, so a
+local decline in the raw curve is not automatically noise. Raw estimates stay
+primary and unchanged.
 
 The command also prints a **Monte Carlo resolution report**: the observed
 paired standard error, how many simulations a delta-CE of 0.005 / 0.002 / 0.001
 would need to clear |z| = 2, and — using throughput measured during the sweep —
-how long that would take. It says plainly which targets are out of reach inside
-a live auction clock.
+how long that would take.
 
-Measured on the 19-level example in `docs/example_curve_output.txt`: a delta-CE
-of **0.005 is resolvable live** (8.5s per paired comparison), while **0.002 and
-0.001 are not** (53s and 212s). The marginal value of a projected point also
-varies about fivefold along the curve — smallest at replacement level, which is
-exactly where the cheapest auction decisions are made.
+It is a **pilot estimate scoped to the comparison that produced it**, not a
+capability claim. Paired variance tracks how often the focus team's outcome
+actually flips, which differs between comparisons, and helping and hurting
+seasons cancel in the mean while both adding to the variance — so the
+extrapolation is neither a bound nor reliably conservative. On the 19-level
+example in `docs/example_curve_output.txt`, under that synthetic curve, that
+hardware and a measured 3.5% discordance rate, 0.005 came in at 8.6s per paired
+comparison and 0.002 and 0.001 at 54s and 215s. A decision that must actually be
+resolved needs its own pilot run or an adaptive stopping rule; neither is built.
+
+The marginal value of a projected point also varies about fivefold along the
+curve — smallest at replacement level, which is exactly where the cheapest
+auction decisions are made. That is an input to pricing, not a price: what a
+player is worth also depends on his whole outcome distribution rather than its
+mean, on availability, position and slot eligibility, on correlation with what
+you already own, on which alternatives remain, and on which rival gets him
+instead. See `HANDOFF.md` §12.
 
 ## The two rules that shape everything
 

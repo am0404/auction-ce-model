@@ -1,11 +1,17 @@
 # HANDOFF.md — audit correction pass, then the marginal CE curve
 
-Branch `ce-marginal-curve`, off `ce-foundation-audit-fixes`, off `ce-foundation`.
-Everything below is reproducible from the commands in §3.
+Branch `ce-marginal-curve-audit-fixes`, off `ce-marginal-curve`, off
+`ce-foundation-audit-fixes`, off `ce-foundation`. Everything below is
+reproducible from the commands in §3.
 
 Sections 1–10 are the audit correction pass (Phase 1). Sections 11–12 are the
 marginal championship-equity curve (Phase 2), which is what the Phase 1 handoff
-recommended building next.
+recommended building next, with the Phase 2 audit corrections folded in.
+
+Two claims that appeared in earlier drafts of this document have been withdrawn
+and are marked as such where they appeared: that the resolution extrapolation is
+conservative (§11 — it can err either way), and that the curve can be divided by
+dollars to produce auction value (§12 — it cannot).
 
 > **All player data is synthetic and labelled as such.** `src/ceauction/synthetic.py`
 > invents every number it produces. No real player distribution is used, estimated or
@@ -119,7 +125,7 @@ src/ceauction/
   experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      231 tests
+tests/                      255 tests
 ```
 
 `stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
@@ -135,7 +141,7 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 231 tests, ~3 min
+.venv/bin/python -m pytest              # 255 tests, ~3 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
@@ -151,13 +157,13 @@ Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev depend
 
 ## 4. Test results
 
-**231 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
+**255 passed, 0 failed, 0 skipped, 0 warnings** (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
-`flaky` markers. 146 at the start of Phase 1, 46 added there, 39 more in Phase 2.
+`flaky` markers. 146 at the start of Phase 1, 46 added there, 39 in Phase 2, and 24 in the Phase 2 audit-correction pass.
 
 | File | Tests | What it pins down |
 |---|---:|---|
-| `test_curve.py` | 38 | **NEW (Phase 2).** exact-zero identical arms; order independence; CRN preserved across every level; agreement with a direct paired comparison; genuinely paired adjacent slopes; monotone shape within uncertainty; chunk determinism; the resolution report's `1/sqrt(n)` arithmetic; CSV schema; the isotonic column changing nothing; CLI |
+| `test_curve.py` | 62 | **NEW (Phase 2).** exact-zero identical arms; order independence; CRN preserved across every level; agreement with a direct paired comparison; genuinely paired adjacent slopes; monotone shape within uncertainty; chunk determinism; the resolution report's `1/sqrt(n)` arithmetic; CSV schema; the isotonic column changing nothing; CLI |
 | `test_experiments.py` | 35 | every experiment builds a legal league and runs paired; the rival-placement **control** reads zero and `rival-fit` does not; the aggregate-spot arms and their byte-identical control; the floor helpers cannot return; every documented `ce-lab` command exits 0 |
 | `test_worlds.py` | 21 | byes, injury hazard/duration, latent persistence, **negative realized scores**, **realized mean == base_mean**, unavailable weeks still zero, spike mean-neutrality, correlation, contingency, role reveal lag, belief convergence, chunk independence across **all seven layers**, `crn_key` sharing |
 | `test_players.py` | 18 | parameter validation and boundaries, immutability, `crn_key` semantics, **every synthetic spec is labelled `SYNTHETIC`**, projection-override validation, shock-loading accumulation, snake-draft balance |
@@ -521,10 +527,14 @@ statements about invented parameters throughout.
    is conditional on `Team01`'s specific roster shape. The `second-qb` sign flip is the
    proof that this conditioning matters, and the marginal curve (§11) is measured on
    one slot of that one roster.
-9. **Sub-0.002 CE differences are not resolvable inside a live auction clock.**
-   Measured, not assumed: §11's resolution report puts 0.002 at 53s and 0.001 at 212s
-   per paired comparison against a ~30s decision budget. 0.005 is comfortable at 8.5s.
-   This is the single most important number for anything downstream of here.
+9. **There is no calibrated sizing rule for how much simulation a decision needs.**
+   §11's resolution report is a *pilot* for one comparison shape: on that pilot,
+   0.005 came in at 8.6s per paired comparison and 0.002 and 0.001 at 54s and 215s,
+   against a ~30s decision budget. It does not generalise. Paired variance tracks the
+   discordance rate rather than the effect size, and helping and hurting seasons
+   cancel in the mean while both adding to variance, so the extrapolation is neither
+   a bound nor reliably conservative. Sizing any real decision needs its own pilot or
+   an adaptive stopping rule, and neither is built.
 
 ---
 
@@ -562,17 +572,36 @@ is strictly smaller while the point estimates agree.
 caller cannot change any reported number by shuffling the request. Three different
 orderings are asserted to produce byte-identical rows and CSV.
 
+**Published weekly projections move with the level.** When a spec carries a
+`weekly_projection_override` — real published projections, one per week — that array
+*replaces* the modelled projection entirely. Changing `base_mean` alone would move the
+player's realized scoring while leaving the manager's pregame view frozen at the
+original level, so every level of the curve would share one pregame view, the lineup
+decisions would be identical everywhere, and the measured slope would collapse toward
+the value of *unforecastable* production. The candidate therefore shifts every
+override entry by the same delta as `base_mean`, preserving the published shape — its
+bye weeks, matchup swings and in-season drift — while moving its overall level. Specs
+without an override are untouched. This matters for real data and for nothing in the
+synthetic pool, which carries no overrides.
+
 ### Output
 
 A terminal table and a CSV with a 23-column schema (`MarginalCurve.CSV_COLUMNS`),
 written with an explicit `\n` terminator so it round-trips byte-for-byte. No plotting
 dependency was added; NumPy remains the only runtime requirement.
 
-`--isotonic` adds an optional monotone display column. CE cannot fall with level in
-truth, so a local dip is always noise, and a reader can mistake one for a feature. The
-fit is pool-adjacent-violators weighted by `1/variance`, in about fifteen lines. It is
+`--isotonic` adds an optional display column that **imposes** monotonicity rather than
+revealing it. Monotonicity of CE in a player's level is plausible but not guaranteed:
+the simulated manager sets lineups from noisy pregame projections, so raising a
+player's level changes which players he starts in which weeks, and that propagates
+into team scores, the league median for all twelve teams, records, seeding and the
+bracket. A local decline in the raw curve is therefore **not** automatically Monte
+Carlo noise — it may be a real pathwise feature of this roster and this decision rule.
+
+Read the column as "the curve under an imposed monotonicity assumption". The fit is
+pool-adjacent-violators weighted by `1/variance`, in about fifteen lines. It is
 strictly additive: the raw CE, its Wilson interval, every delta and every slope are
-asserted unchanged when it is switched on.
+asserted unchanged when it is switched on, and remain primary.
 
 ### The one thing to read off it
 
@@ -584,25 +613,35 @@ relative to the effect being measured.
 
 That has a direct consequence for anything downstream: a single "CE per projected
 point" constant would be wrong everywhere, and would be *most* wrong at the bottom of
-the roster where the largest number of decisions are made. Numbers and the resolution
-verdict below.
+the roster where the largest number of decisions are made.
+
+What it does **not** license is dividing the curve by dollars to get a price. This
+sweeps one dimension — a mean — on one slot of one roster. A player's value also
+depends on his whole outcome distribution rather than its mean, on availability and
+injury, on position and therefore slot eligibility, on correlation with what you
+already own, on the rest of the roster and which alternatives remain, and on which
+rival gets him instead (which `rival-fit` measured directly and found to be non-zero).
+The curve is an input to pricing and a resolution instrument. It is not a price. See
+§12. Numbers and the resolution report below.
 
 ### Tests
 
-`tests/test_curve.py`, 38 tests, grouped by the guarantee each defends:
+`tests/test_curve.py`, 62 tests, grouped by the guarantee each defends:
 
 | Group | What it pins |
 |---|---:|
 | identical arms | the baseline level's delta is **exactly** 0.0, not approximately; a duplicate of the baseline is simulated once and still reads zero; deduplication cannot produce a zero-width step |
 | order independence | ascending, shuffled and descending requests give byte-identical rows and CSV; the curve is always reported ascending |
+| projection overrides | an override shifts by exactly `candidate_level - original_base_mean`, preserving its week-to-week shape; pregame projections shift by that amount and realized means follow; the shift is measured from the original spec so repeated candidates never compound; specs without an override are untouched; an override sweep still produces a rising curve |
+| level grid | divisible, non-divisible, decimal and single-level ranges; the maximum is never exceeded and the endpoint is exact rather than an accumulated sum; `--min-level 4 --max-level 10 --step 4` is 4, 8, 10 |
 | common random numbers | every other player's realized scores, and the swept player's availability, signals, weekly state, group shocks, spikes and role weeks, are byte-identical across levels — while his own scoring moves; the candidate keeps his `crn_key` and all fourteen non-level parameters |
 | agreement | a directly constructed `compare_scenarios` reproduces the sweep's delta, SE and reports exactly; an independent `simulate_seasons` reproduces the raw CE |
 | paired slopes | a slope recomputed from matched per-season indicators matches to the bit; the paired SE is strictly smaller than the naive independent combination while the point estimates agree; slopes are per-point, so a 4-point step and two 2-point steps are on one scale |
 | shape | points per week rise monotonically; CE rises strongly end to end and no adjacent *decrease* is significant at z = −2 |
 | determinism | chunk sizes 1 / 7 / 64 / 512 give identical rows; repeating a sweep is identical |
-| resolution | required-n obeys `se ∝ 1/sqrt(n)` exactly; smaller targets cost strictly more; a tiny budget is reported as impractical in words and a huge one as feasible |
+| resolution | required-n obeys `se ∝ 1/sqrt(n)` exactly; smaller targets cost strictly more; budgets are reported in words; **every verdict is scoped "in this pilot"** and no wording claims general live feasibility or that the extrapolation is conservative |
 | output | CSV schema, `\n` terminators, round-trip through the file, `CSV_COLUMNS` is a `ClassVar` and not a constructor field |
-| isotonic | the fit is monotone and mean-preserving; weights pull noisy points further; every raw estimate, interval, delta and slope is unchanged when it is enabled |
+| isotonic | the fit is monotone and mean-preserving; weights pull noisy points further; every raw estimate, interval, delta and slope is unchanged when it is enabled; **it is described as imposing an assumption**, and the old "CE cannot fall as a matter of theory" justification is asserted absent |
 | CLI | runs and writes CSV, accepts an explicit player and `--isotonic`, rejects a bad range, and does not claim to produce a price |
 
 ### The documented 16,000-season run
@@ -667,80 +706,124 @@ parameters in `synthetic.py` and of `Team01`'s specific roster shape. "A project
 is worth 0.018 CE at level 15" is a statement about an exponential decay curve someone
 made up, not about football.
 
-### The resolution verdict
+### The resolution pilot
 
 ```
   simulations per arm            16,000
-  measured throughput            1,314 seasons/s (0.761 ms/season)
-  cost of one paired comparison  24.4s at 16,000 seasons
+  measured throughput            1,295 seasons/s (0.772 ms/season)
+  cost of one paired comparison  24.7s at 16,000 seasons
   paired SE, adjacent step       0.00148 (median step 1.00 pts/week, champion differs
                                           in 3.5% of seasons)
   paired SE, vs the baseline     0.00285
   smallest adjacent dCE this run resolves at |z|=2: 0.00295
 
   target dCE    sims needed   seconds/comparison   verdict
-      0.0050          5,577                  8.5   feasible live (8s < 30s budget)
-      0.0020         34,851                 53.0   offline only (0.9 min per comparison)
-      0.0010        139,401                212.2   offline only (3.5 min per comparison)
+      0.0050          5,577                  8.6   within budget in this pilot (9s < 30s)
+      0.0020         34,851                 53.8   over budget in this pilot; offline (0.9 min)
+      0.0010        139,401                215.2   over budget in this pilot; offline (3.6 min)
 ```
 
-**The answer to the question this phase was built to ask.** A delta-CE of **0.005 is
-resolvable inside a live auction clock** — 5,577 seasons, 8.5s per paired comparison,
-comfortably inside a 30-second budget. **0.002 and 0.001 are not**: 53s and 212s per
-comparison, both past the point where a bidder has to act. They are perfectly practical
-offline.
+**This is a pilot estimate, and its scope is narrow.** What was measured is that
+under *this* synthetic curve, on *this* hardware, for *this* comparison structure
+(one focus team, one slot, adjacent one-point steps), and at the discordance rate
+actually observed here — the focus team's championship outcome flipped in 3.5% of
+seasons — a delta-CE of 0.005 needed about 5,577 seasons and 8.6s per paired
+comparison, while 0.002 and 0.001 needed 54s and 215s.
 
-Two qualifications, in opposite directions:
+**It does not establish that a 0.005 CE difference is resolvable live in general.**
+The extrapolation is exact in *n* — the paired SE really does fall as `1/sqrt(n)` —
+but it assumes some future comparison has a per-season variance resembling the median
+observed here, and that assumption has no guaranteed direction:
 
-* The extrapolation is **conservative**. It anchors on the median adjacent SE, but a
-  paired difference of champion indicators is zero in every season the change did not
-  decide, so a genuinely smaller effect flips fewer seasons and carries a smaller SE
-  than the anchor. The real counts for 0.002 and 0.001 are somewhat lower.
-* It also assumes **one** comparison. A live auction decision is not one comparison —
-  it is a comparison per candidate the money could go to instead. At 8.5s each, even
-  the feasible target supports about three candidates inside a 30-second clock.
+* Paired variance tracks the **discordance rate**, not the effect size. The difference
+  is zero in every season the change did not decide, so its variance is roughly the
+  rate at which the outcome flips — and that rate varies between comparisons for
+  reasons other than how large the effect is.
+* The difference takes values in `{−1, 0, +1}`. Seasons where the change helps and
+  seasons where it hurts **cancel in the mean while both adding to the variance**, so
+  a comparison with a small mean and a high flip rate is noisier than one with the
+  same mean and a low flip rate.
 
-Read together: the engine can resolve *which of a few players is better* in the room,
-and cannot resolve *a one-dollar price difference* there. The right response is
-structural — trim the pool, simulate fewer weeks, parallelise over seasons — not more
-seasons on this code path.
+An earlier draft of this document called the extrapolation conservative. That was
+wrong: it can err in either direction, and nothing here bounds it.
+
+A third scoping point, separate from the statistics: the numbers price **one**
+comparison. A live auction decision is a comparison per candidate the money could go
+to instead.
+
+**What follows practically.** Any decision that must actually be resolved needs either
+its own short pilot run to estimate that comparison's discordance rate, or an adaptive
+stopping rule that simulates until the paired interval excludes zero or a wall-clock
+budget is spent — whichever comes first. Neither is built. If a smaller target turns
+out to be needed, the response is structural — trim the pool to the players a decision
+touches, simulate fewer weeks, parallelise over seasons — rather than more seasons on
+this code path.
 
 ---
 
 ## 12. Exact recommended next step
 
-The Night 1 handoff said to build this curve before anything else, because it is the
-smallest thing that answers "can the engine resolve what pricing needs". It is built,
-and it answers that question. The next step follows from the answer rather than from a
-plan made before it.
+**Inventory and import the existing player model, and turn it into a versioned
+real-player input contract.**
 
-**Decide the pricing layer's resolution budget, then design around it — do not assume
-a live-auction tool is feasible at 0.001 CE.**
+A correction first, because it changes what comes next. An earlier draft of this
+section said to "convert the dollar scale to points and get `dCE/dollar` directly",
+called real-player ingestion "mechanical", and told the reader not to start with it.
+All three were wrong.
 
-Concretely, three things in order:
+A one-dimensional `base_mean` curve **cannot** be turned into an auction value. What a
+player is worth depends on his whole outcome distribution, not its mean; on his
+availability and injury profile; on his position and therefore which slots he can fill;
+on his correlation with players you already own; on the rest of your roster and which
+alternatives remain on the board; and — as `rival-fit` measured directly — on which
+opponent ends up with him instead. The curve in §11 sweeps one of those dimensions on
+one slot of one roster. It is a resolution instrument and an input to pricing, not a
+price, and dividing it by dollars produces a number with no defensible meaning.
 
-1. **Fix the target.** The curve gives `dCE/point` at every level. Convert your dollar
-   scale to points (a $200 budget across 15 slots against the projection curve) and you
-   get `dCE/dollar` directly. That number tells you which of the three resolution
-   targets you actually need. Do this before optimising anything: the answer may be
-   that $1 decisions at replacement level are genuinely below the noise floor and
-   should be made on a rule rather than a simulation.
+Ingestion is also not mechanical. `PlayerSpec` has a stable *shape*, but deciding which
+real quantity populates which field, and what each real quantity actually means, is the
+modelling work — and it is the work that gates everything downstream, because every
+number this engine has produced so far is a statement about invented parameters.
 
-2. **If a smaller target is needed, buy it with variance reduction, not seasons.** The
-   remaining wins are all structural: trim the pool to the ~60 players a decision
-   touches, simulate only the weeks that discriminate, share a `crn_key` between the
-   candidate and the player he would displace, and multiprocess over seasons (which is
-   embarrassingly parallel — seasons share no state). Raising `--sims` is the one lever
-   that is already exhausted.
+So the next step is the ingestion work, done carefully:
 
-3. **Only then build pricing.** `CE(roster with X at price p) − CE(best alternative use
-   of $p)` needs the second term, which is a roster-completion problem and is where the
-   real modelling difficulty lives — a player's CE contribution depends on what else you
-   own, which the `second-qb` sign flip already demonstrates is not a detail.
+1. **Inventory what already exists.** Catalogue the player model you have — in
+   particular the **median stat outcomes**, the **injury odds**, and the **boom/bust
+   grades**. List every field, its type, its range, and where each row came from.
 
-**Still do not start with** real player data ingestion. The interface (`PlayerSpec`,
-`weekly_projection_override`) is built and tested, so it is mechanical work available
-any time. Two parameters it would newly need calibrating — `signal_noise_sd` and
-`weekly_state_sd` — are called out in `OPEN_QUESTIONS.md` A2 and A5, and both matter
-more than the means do for anything at the bottom of the roster, which is exactly where
-this curve says the resolution problem is worst.
+2. **Define precise meanings and provenance for each input.** This is the part that
+   cannot be skipped, and the questions are specific. Is a median stat outcome a median
+   or a mean, per game or per season, conditional on playing or unconditional? Are
+   injury odds a per-week hazard, a probability of missing any time, or an expected
+   games-missed count — and over what horizon? Is a boom/bust grade an ordinal bucket,
+   a percentile, or a dispersion estimate, and against what reference population? Record
+   the answer and the source for each, because a wrong reading here silently
+   miscalibrates every CE number downstream and will not fail any test.
+
+3. **Map them into a versioned real-player input contract.** A schema with an explicit
+   version field, so a later change to the meaning of a source column is a version bump
+   rather than a silent shift in results. It should validate on load and refuse
+   ambiguous input rather than guessing.
+
+4. **State which `PlayerSpec` parameters those inputs actually support, and which
+   remain uncalibrated.** Median stat outcomes plausibly reach `base_mean` through
+   `score_statline`; injury odds plausibly reach `weekly_injury_hazard` and
+   `injury_mean_weeks`; boom/bust grades plausibly reach `week_sd`. That leaves
+   `season_sd`, `signal_noise_sd`, `weekly_state_sd`, `proj_noise_sd`, the role-change
+   parameters and every `shock_loading` with no source at all. Write that list down
+   explicitly and carry it in the contract, so a reader can always tell which parts of
+   a result rest on data and which still rest on invented numbers.
+
+5. **Preserve the raw source fields alongside the mapped ones.** Keep the original
+   values on the record, not just the derived `PlayerSpec`. Every mapping decision in
+   step 2 is a judgement that will be revisited, and discarding the inputs makes
+   revisiting it a re-import instead of a re-derivation.
+
+Two things that are *not* next, and why:
+
+* **Not pricing.** It needs the "best alternative use of $p" term, which is a
+  roster-completion problem over the remaining board, and it needs real inputs to mean
+  anything.
+* **Not more simulation performance.** §11 says what the current throughput does and
+  does not buy. Whether that is a problem depends on a resolution target that cannot be
+  set until the inputs are real.

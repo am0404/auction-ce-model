@@ -2,14 +2,14 @@ ce-lab -- championship-equity laboratory
 SYNTHETIC DATA ONLY. No real player distributions are used anywhere.
 
 sweeping SYN-WR070 (WR, base_mean 4.46) -- weakest FLEX-eligible player on the focus team
-19 levels from 4.00 to 22.00 in steps of 1, 16,000 seasons each
+19 levels from 4 to 22 in steps of 1, 16,000 seasons each
 
 ====================================================================================================
 MARGINAL CHAMPIONSHIP-EQUITY CURVE -- SYN-WR070 (WR) on Team01
 ====================================================================================================
 16,000 seasons per level, seed 20260904, chunk 64, 19 levels
 baseline (replacement) level 4.00 pts/week; deltas and slopes are paired over identical seasons
-note: only base_mean varies; position, variance, injury profile, weekly state, signal precision and crn_key are held fixed
+note: only the player's projected level varies -- base_mean, and any weekly_projection_override shifted by the same delta; position, variance, injury profile, weekly state, signal precision and crn_key are held fixed
 
  level       CE   +/-95%  dCE vs base   +/-95%       z    dCE/pt   +/-95%      z   pts/wk  playoff     bye  CE(iso)
 -------------------------------------------------------------------------------------------------------------------
@@ -37,33 +37,40 @@ note: only base_mean varies; position, variance, injury profile, weekly state, s
 dCE/pt is the ADJACENT paired slope: level i vs level i-1 over the same
 seasons, divided by the step. It is not a difference of two baseline
 deltas, which would treat two highly correlated estimates as independent.
-CE(iso) is a monotone display fit. The raw CE, its interval and every
-delta to its left are unchanged by it.
+CE(iso) IMPOSES monotonicity; it does not test for it. Changing a
+player's level changes which players get started, so a local decline
+in raw CE may be a real pathwise effect rather than noise. The raw CE,
+its interval and every delta to its left are unchanged by it.
 
 ====================================================================================================
 MONTE CARLO RESOLUTION -- can this engine price with these numbers?
 ====================================================================================================
   simulations per arm            16,000
-  measured throughput            1,314 seasons/s (0.761 ms/season)
-  cost of one paired comparison  24.4s at 16,000 seasons
+  measured throughput            1,295 seasons/s (0.772 ms/season)
+  cost of one paired comparison  24.7s at 16,000 seasons
   paired SE, adjacent step       0.00148 (median step 1.00 pts/week, champion differs in 3.5% of seasons)
   paired SE, vs the baseline     0.00285
   smallest adjacent dCE this run resolves at |z|=2: 0.00295
 
-  A paired difference of two champion indicators is 0 in every season the
-  change did not decide, so its variance is about the rate at which the
-  champion differs -- which itself shrinks with the effect size. The counts
-  below extrapolate the median adjacent SE and are therefore CONSERVATIVE:
-  a genuinely smaller effect differs in fewer seasons and needs somewhat
-  fewer simulations than shown.
+  PILOT ESTIMATE, SCOPED TO THIS COMPARISON. The counts below extrapolate
+  the median adjacent SE observed above as se ~ 1/sqrt(n). That is exact
+  for the sample size, but it assumes a future comparison has similar
+  per-season variance -- and that variance tracks the DISCORDANCE RATE (how
+  often the focus team's outcome actually flips), which differs between
+  comparisons and is not a simple function of effect size. The difference
+  also takes values in {-1, 0, +1}, so helping and hurting seasons cancel
+  in the mean while both add to the variance. These counts are therefore
+  neither a bound nor conservative: they size a comparison of THIS shape.
+  A decision that must actually be resolved needs its own pilot run, or an
+  adaptive rule that simulates until the paired interval excludes zero.
 
   target dCE    sims needed   seconds/comparison   verdict
   ----------  -------------  -------------------   ----------------------------------------
-      0.0050          5,577                  8.5   feasible live (8s < 30s budget)
-      0.0020         34,851                 53.0   offline only (0.9 min per comparison)
-      0.0010        139,401                212.2   offline only (3.5 min per comparison)
+      0.0050          5,577                  8.6   within budget in this pilot (9s < 30s)
+      0.0020         34,851                 53.8   over budget in this pilot; offline (0.9 min per comparison)
+      0.0010        139,401                215.2   over budget in this pilot; offline (3.6 min per comparison)
 
-total sweep runtime 231.4s (19 levels x 16,000 seasons)
+total sweep runtime 234.7s (19 levels x 16,000 seasons)
 wrote docs/example_marginal_curve.csv
 
 REMINDER: synthetic inputs. This measures whether the ENGINE can resolve
