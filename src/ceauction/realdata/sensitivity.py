@@ -52,6 +52,7 @@ from .smoke import build_test_rosters, roster_assignment, rosters_from_assignmen
 
 __all__ = [
     "TeamDelta",
+    "Contrast",
     "ScenarioResult",
     "SensitivityGrid",
     "MIN_COMMITTED_SIMS",
@@ -109,6 +110,44 @@ class TeamDelta:
         if math.isnan(lo):
             return False
         return lo > 0.0 or hi < 0.0
+
+
+@dataclass(frozen=True)
+class Contrast:
+    """A paired comparison between two *scenarios*, neither of them baseline.
+
+    Every headline delta in this module is measured against the baseline, which
+    answers "does this assumption move CE?" but not "does the answer to one
+    question depend on the answer to another?". A season_sd effect measured at
+    one learning speed and a season_sd effect measured at another are two
+    numbers with overlapping intervals; whether they actually differ needs its
+    own paired comparison, which is what this is.
+    """
+
+    name: str
+    label_a: str
+    label_b: str
+    question: str
+    team_deltas: Tuple[TeamDelta, ...]
+    discordance: float
+
+    @property
+    def largest_delta(self) -> Optional[TeamDelta]:
+        if not self.team_deltas:
+            return None
+        return max(self.team_deltas, key=lambda d: abs(d.delta_ce))
+
+    @property
+    def resolved_teams(self) -> Tuple[TeamDelta, ...]:
+        return tuple(d for d in self.team_deltas if d.resolved)
+
+    @property
+    def any_resolved(self) -> bool:
+        return bool(self.resolved_teams)
+
+    @property
+    def max_resolved_delta(self) -> float:
+        return max((abs(d.delta_ce) for d in self.resolved_teams), default=0.0)
 
 
 @dataclass(frozen=True)
@@ -192,6 +231,7 @@ class SensitivityGrid:
     seed: int
     team_names: Tuple[str, ...] = ()
     roster_source: str = "deterministic snake over the mapped pool"
+    contrasts: List[Contrast] = field(default_factory=list)
 
     def by_axis(self, axis: str) -> List[ScenarioResult]:
         return [s for s in self.scenarios if s.axis in (axis, "baseline")]
@@ -239,6 +279,15 @@ class SensitivityGrid:
             "max_resolved_ce_shift_by_axis": {
                 a: round(self.max_resolved_shift(a), 5) for a in axes},
             "axis_resolved": {a: self.axis_is_resolved(a) for a in axes},
+            "contrasts": [
+                {"name": c.name, "question": c.question,
+                 "a": c.label_a, "b": c.label_b,
+                 "discordance": round(c.discordance, 4),
+                 "resolved_teams": len(c.resolved_teams),
+                 "max_abs_delta_ce": round(
+                     abs(c.largest_delta.delta_ce), 5) if c.largest_delta else 0.0,
+                 "max_resolved_delta_ce": round(c.max_resolved_delta, 5)}
+                for c in self.contrasts],
             "cells": [
                 {"label": s.label, "axis": s.axis,
                  "ce_min": round(s.ce_min, 4), "ce_max": round(s.ce_max, 4),
@@ -337,13 +386,23 @@ def _run_one(payload: Dict, cfg: PlayerSpecMappingConfig, axis: str,
     return result, out
 
 
-#: A deliberately small season_sd x signal-quality interaction grid.
-#: `season_sd` says how much there is to learn; `signal_quality` says how fast
-#: anyone learns it. Neither is interpretable alone -- a large latent shift
-#: nobody can detect is a different world from one everybody detects by week
-#: three -- so the corner cells are run rather than the axes only.
+#: The off-corner cells of a deliberately small season_sd x signal-quality
+#: grid. `season_sd` says how much there is to learn; `signal_quality` says how
+#: fast anyone learns it, and neither is interpretable alone -- a large latent
+#: shift nobody can detect is a different world from one everybody detects by
+#: week three.
+#:
+#: Together with the two single-axis sweeps below, the cells actually run form
+#: the complete 2 x 3 grid with no cell run twice:
+#:
+#:            sig=none   sig=week_sd    sig=2x_week_sd
+#:   ssd=0.00     -        BASELINE           -           (nothing to learn)
+#:   ssd=0.10  signal_q.   season_sd      signal_q.
+#:   ssd=0.20  ssd x sig   season_sd      ssd x sig
+#:
+#: At ssd = 0 there is no latent level to learn, so signal quality cannot bite
+#: and that row is not worth running.
 SEASON_SD_SIGNAL_GRID: Tuple[Tuple[float, str], ...] = (
-    (0.10, "none"), (0.10, "2x_week_sd"),
     (0.20, "none"), (0.20, "2x_week_sd"),
 )
 
@@ -393,18 +452,21 @@ def run_sensitivity(payload_by_fumble: Dict[str, Dict],
                       if m.spec.player_id in rostered)
 
     scenarios: List[ScenarioResult] = []
+    outcomes: Dict[str, SeasonOutcomes] = {}
 
     baseline, baseline_out = _run_one(
         base_payload, baseline_cfg, "baseline", positional_miss, positional_cv,
         assignment, only_keys, n_sims, seed, None, team_names)
     scenarios.append(baseline)
+    outcomes[baseline.label] = baseline_out
 
     def add(cfg: PlayerSpecMappingConfig, axis: str, payload: Dict = None) -> None:
-        res, _ = _run_one(payload if payload is not None else base_payload,
-                          cfg, axis, positional_miss, positional_cv,
-                          assignment, only_keys, n_sims, seed, baseline_out,
-                          team_names)
+        res, out = _run_one(payload if payload is not None else base_payload,
+                            cfg, axis, positional_miss, positional_cv,
+                            assignment, only_keys, n_sims, seed, baseline_out,
+                            team_names)
         scenarios.append(res)
+        outcomes[res.label] = out
 
     # 1. which statistic the season total reports
     add(PlayerSpecMappingConfig(target="mean_target", **common), "target")
@@ -455,8 +517,41 @@ def run_sensitivity(payload_by_fumble: Dict[str, Dict],
         add(PlayerSpecMappingConfig(fumble_interpretation="lost", **common),
             "fumbles", payload_by_fumble["lost"])
 
+    # Two cells with the same label would be the same run counted twice, and
+    # would make an axis look corroborated by its own duplicate.
+    labels = [s.label for s in scenarios]
+    if len(set(labels)) != len(labels):
+        dupes = sorted({lab for lab in labels if labels.count(lab) > 1})
+        raise AssertionError(f"duplicate scenario cells: {dupes}")
+
+    # --- does the season_sd answer depend on how fast anyone learns? -------
+    # Each of these cells is already measured against the baseline. Comparing
+    # two of those measurements by eye would be reading a difference off two
+    # overlapping intervals, so the difference gets its own paired run.
+    contrasts: List[Contrast] = []
+    for ssd in (probe_ssd, SEASON_SD_SCENARIOS[-1]):
+        ref = PlayerSpecMappingConfig(season_sd_fraction=ssd, **common).label()
+        if ref not in outcomes:
+            continue
+        for sq in SIGNAL_QUALITY_SCENARIOS:
+            if sq == baseline_cfg.signal_quality:
+                continue
+            other = PlayerSpecMappingConfig(
+                season_sd_fraction=ssd, signal_quality=sq, **common).label()
+            if other not in outcomes:
+                continue
+            deltas, disc = _paired_deltas(outcomes[ref], outcomes[other],
+                                          team_names)
+            contrasts.append(Contrast(
+                name=f"ssd={ssd:.2f}: sig={sq} vs sig={baseline_cfg.signal_quality}",
+                label_a=ref, label_b=other,
+                question=("at this much latent uncertainty, does changing how "
+                          "fast managers learn it change championship equity?"),
+                team_deltas=deltas, discordance=disc))
+
     return SensitivityGrid(scenarios=scenarios, baseline_label=baseline.label,
-                           n_sims=n_sims, seed=seed, team_names=team_names)
+                           n_sims=n_sims, seed=seed, team_names=team_names,
+                           contrasts=contrasts)
 
 
 # ---------------------------------------------------------------------------
@@ -519,6 +614,24 @@ def format_sensitivity(grid: SensitivityGrid, width: int = 100) -> str:
                    f"[{lo:+.5f}, {hi:+.5f}] {flag:>4}")
     out += ["-" * len(head2),
             "  ** = this team's own paired 95% interval excludes zero.", ""]
+
+    if grid.contrasts:
+        out += ["SCENARIO-VS-SCENARIO CONTRASTS (not against the baseline)",
+                "  Does the season_sd answer depend on how fast anyone learns?"]
+        head4 = (f"  {'contrast':<44}{'team':>6}{'dCE':>10}{'se':>9}"
+                 f"{'discord':>9}{'':>4}")
+        out += [head4, "  " + "-" * (len(head4) - 2)]
+        for c in grid.contrasts:
+            d = c.largest_delta
+            if d is None:
+                continue
+            out.append(f"  {c.name:<44}{d.team_name[-2:]:>6}{d.delta_ce:>+10.5f}"
+                       f"{d.delta_ce_se:>9.5f}{c.discordance:>9.4f}"
+                       f"{('**' if d.resolved else ''):>4}")
+        out += ["  " + "-" * (len(head4) - 2),
+                "  A resolved row means learning speed changes the season_sd",
+                "  conclusion and the two axes cannot be reported separately.",
+                "  An unresolved row means this run cannot separate them.", ""]
 
     out += ["WHAT EACH AXIS HAS ACTUALLY DEMONSTRATED"]
     head3 = f"  {'axis':<28}{'max |dCE|':>11}{'resolved':>10}{'max resolved':>14}"

@@ -75,22 +75,39 @@ configuration must never enter the CE engine. Enforced in two places:
 `build_contract` refuses any `n_teams` other than 12, and the semantic validator
 rejects a `league_config_id` that looks like the old configuration.
 
-### D2. Central tendency is median — SETTLED, with a consequence
+### D2. Central tendency is `hybrid_market_location` — SETTLED as a hybrid
 
-Recorded as `median`, provenance **"user asserted; vendor documentation not
-located"**. Carried on every player rather than assumed.
+**This supersedes an earlier entry that recorded the central tendency as
+`median` with the provenance "user asserted; vendor documentation not located".
+Both halves of that were wrong.** The vendor's published methodology *was*
+subsequently located and is now cited on every player row, and what it
+describes is not a median.
 
-**The consequence is not yet handled.** `PlayerSpec.base_mean` is an *expected*
-value. A median is not one, and for right-skewed categories — touchdowns above
-all — the median sits below the mean by an amount that varies with the
-distribution's shape and therefore by position. Populating `base_mean` directly
-from a median would bias every player low, and low by different amounts at
-different positions.
+The source builds its categories two ways: continuous categories (yards,
+receptions) take the over/under line, which the vendor calls an accurate median
+amount; discrete categories (touchdowns, interceptions) are devigged into
+implied probabilities and converted to probability-weighted expectations. A
+total summed from both is neither — it is recorded as
+**`hybrid_market_location`**, with the published provenance attached.
 
-**What would settle it:** either vendor documentation confirming the estimator,
-or a median-to-mean adjustment fitted from historical weekly distributions by
-position. Neither exists yet, and the ingestion layer deliberately does not
-invent one.
+**Both readings are carried as calibration targets and neither is asserted.**
+`median_target` and `mean_target` are swept, and the mapping calibrates the
+per-game level against whichever is selected rather than dividing a total by 17
+and hoping.
+
+**What the sweep found.** Under `full_health` every modelled weekly component is
+symmetric, so a full-season total is symmetric too and the two targets agree to
+0.02% — the difference is calibration Monte Carlo noise, not a modelling
+choice. The paired CE difference between them is **+0.00013 ± 0.00018**, which
+does not exclude zero. Under `availability_adjusted` they stop agreeing: absences
+truncate the lower tail only, so the two targets separate by 1.8% at the median
+player and 12.5% at the worst. **The equivalence is a property of the
+full-health configuration, not a general fact**, and it must be re-checked
+whenever any asymmetric component is populated.
+
+**What would still settle it outright:** confirmation from the vendor of a
+single estimator per category, or a category-level comparison of published lines
+against realised distributions.
 
 ### D3. The vendor fantasy total is never used — SETTLED
 
@@ -109,13 +126,33 @@ deviation, ceiling, floor or spike probability exists or may be created.
 Refused by column signature rather than by filename, because the danger is
 precisely that it can be renamed and still look like a real board.
 
-### D6. Injury fields stay separate — SETTLED
+### D6. Injury fields stay separate — SETTLED, and now jointly inverted
 
 `injury_prob` is season-level injury risk; `proj_games_missed` is projected
-games missed this season. They are different quantities, preserved separately,
-never combined. **No weekly injury process has been derived**, so
-`weekly_injury_hazard` is listed as uncalibrated. Deriving one needs a stated
-model, not an arithmetic convenience.
+games missed this season. They are different quantities, preserved separately
+in the contract, never combined into one.
+
+**This supersedes an earlier entry stating that no weekly injury process had
+been derived.** One now has been, and by inversion rather than by arithmetic
+convenience: `weekly_injury_hazard` and `injury_mean_weeks` are solved jointly
+against both supplied targets by inverting the engine's own availability
+process, and both residual errors are reported per player. The two targets
+interact — an absence blocks new onsets — so they are matched together rather
+than one after the other, and a pair with no solution is reported as infeasible
+instead of quietly fitted.
+
+**The horizon matters and is stated.** Both vendor figures describe the full NFL
+season, so the solve runs over **18 calendar weeks containing 17 scheduled games
+and one bye** and matches both targets there. The fitted per-week parameters
+then carry unchanged into fantasy Weeks 1–17, which contain 16 scheduled games,
+and the expected absence over *that* window is reported separately as a
+consequence. An earlier pass scaled projected games missed by 16/17 while
+leaving injury probability on the full-season basis, asking one fit to reproduce
+two targets defined on different spans; that is corrected.
+
+Current achieved error across 240 individually profiled players: median 0.003 on
+the full-season injury probability and 0.010 on full-season games missed, with 2
+players reported infeasible.
 
 ### D7. The availability treatment is unresolved — TWO READINGS, NO CHOICE
 
@@ -133,6 +170,23 @@ that sets it. Choosing wrongly either double-counts injuries or ignores them.
 Note the two are computed over different populations — B only exists for the
 300 players carrying a games-missed figure — so their aggregate medians are not
 comparable. `docs/INGESTION_AUDIT.md` says so explicitly.
+
+**Both readings are now modelled, not merely computed.**
+`PlayerSpecMappingConfig.projection_availability_interpretation` selects between
+them and both enter the sensitivity sweep:
+
+* **`full_health`** calibrates the scoring level with no injury process and
+  applies absences afterwards, so unconditional season output lands *below* the
+  source total — a median shortfall of 10.9 points across the top 300, up to
+  44.3. That shortfall is computed and reported rather than left implicit.
+* **`availability_adjusted`** puts the fitted process inside the solve, so the
+  simulated full-season total reproduces the source total after absences and the
+  per-active-game level is correspondingly higher.
+
+**This is currently the largest unresolved axis in the model.** Its paired CE
+effect is **+0.04869 [+0.04390, +0.05347]** at 16,000 seasons — larger than any
+other assumption swept, and larger than the two uncalibrated variance scenarios
+that previously topped the list.
 
 **What would settle it:** vendor documentation, or a comparison of the
 projections against realised per-game rates for players with known absences.

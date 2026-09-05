@@ -1,0 +1,87 @@
+====================================================================================================
+REAL-DATA CE SENSITIVITY (sanitized, paired)
+====================================================================================================
+16,000 seasons per scenario, seed 20260904, 12 integration rosters
+
+MODEL SENSITIVITY DIAGNOSTIC ONLY. The twelve rosters are a
+deterministic snake over the mapped pool, built once from the
+baseline mapping and reused verbatim in every scenario so that the
+arms differ only in the assumption under test. This is NOT a
+player-value analysis, NOT a price band, and the CE levels are not
+advice about anyone.
+
+Every delta below is a PAIRED difference, computed season by season
+against the baseline over identical simulated worlds. Every standard
+error comes from that same paired difference. An effect is called
+resolved only when its own 95% interval excludes zero.
+
+PER-SCENARIO LEVELS
+scenario                                                        CE min  CE max  pts/wk  discord infeas
+------------------------------------------------------------------------------------------------------
+median_target|avail=fh|f=0.00|ssd=0.00|sig=week_sd|inj=individual|fum=exclude  0.0505  0.1573   90.76   0.0000      2
+mean_target|avail=fh|f=0.00|ssd=0.00|sig=week_sd|inj=individual|fum=exclude  0.0504  0.1573   90.74   0.0004      2
+median_target|avail=aa|f=0.00|ssd=0.00|sig=week_sd|inj=individual|fum=exclude  0.0374  0.1195   97.67   0.5630      2
+median_target|avail=fh|f=0.25|ssd=0.00|sig=week_sd|inj=individual|fum=exclude  0.0437  0.1465   95.10   0.7193      2
+median_target|avail=fh|f=0.50|ssd=0.00|sig=week_sd|inj=individual|fum=exclude  0.0391  0.1424   98.56   0.7706      2
+median_target|avail=fh|f=0.00|ssd=0.10|sig=week_sd|inj=individual|fum=exclude  0.0559  0.1454   90.63   0.6258      2
+median_target|avail=fh|f=0.00|ssd=0.20|sig=week_sd|inj=individual|fum=exclude  0.0591  0.1356   91.19   0.7244      2
+median_target|avail=fh|f=0.00|ssd=0.10|sig=none|inj=individual|fum=exclude  0.0569  0.1482   90.56   0.5906      2
+median_target|avail=fh|f=0.00|ssd=0.10|sig=2x_week_sd|inj=individual|fum=exclude  0.0559  0.1472   90.58   0.6097      2
+median_target|avail=fh|f=0.00|ssd=0.20|sig=none|inj=individual|fum=exclude  0.0571  0.1353   90.55   0.6965      2
+median_target|avail=fh|f=0.00|ssd=0.20|sig=2x_week_sd|inj=individual|fum=exclude  0.0565  0.1348   90.80   0.7156      2
+median_target|avail=fh|f=0.00|ssd=0.00|sig=week_sd|inj=positional|fum=exclude  0.0496  0.1437   89.05   0.6674      0
+median_target|avail=fh|f=0.00|ssd=0.00|sig=week_sd|inj=individual|fum=lost  0.0527  0.1579   89.62   0.2695      2
+------------------------------------------------------------------------------------------------------
+
+  discord = fraction of seasons whose champion differs from the
+  baseline's. A large discordance with a near-zero delta means the
+  assumption changed the world a great deal without favouring anyone.
+
+PAIRED DELTA CE VS BASELINE -- LARGEST-MOVING TEAM PER SCENARIO
+scenario                                                          team       dCE       se              95% CI     
+------------------------------------------------------------------------------------------------------------------
+mean_target|avail=fh|f=0.00|ssd=0.00|sig=week_sd|inj=individual|fum=exclude      03  +0.00013  0.00009 [-0.00005, +0.00030]     
+median_target|avail=aa|f=0.00|ssd=0.00|sig=week_sd|inj=individual|fum=exclude      08  +0.04869  0.00244 [+0.04390, +0.05347]   **
+median_target|avail=fh|f=0.25|ssd=0.00|sig=week_sd|inj=individual|fum=exclude      04  +0.02056  0.00313 [+0.01443, +0.02669]   **
+median_target|avail=fh|f=0.50|ssd=0.00|sig=week_sd|inj=individual|fum=exclude      04  +0.02444  0.00323 [+0.01810, +0.03077]   **
+median_target|avail=fh|f=0.00|ssd=0.10|sig=week_sd|inj=individual|fum=exclude      06  -0.01181  0.00320 [-0.01808, -0.00554]   **
+median_target|avail=fh|f=0.00|ssd=0.20|sig=week_sd|inj=individual|fum=exclude      06  -0.02169  0.00344 [-0.02843, -0.01494]   **
+median_target|avail=fh|f=0.00|ssd=0.10|sig=none|inj=individual|fum=exclude      06  -0.00906  0.00314 [-0.01522, -0.00291]   **
+median_target|avail=fh|f=0.00|ssd=0.10|sig=2x_week_sd|inj=individual|fum=exclude      06  -0.01006  0.00319 [-0.01632, -0.00380]   **
+median_target|avail=fh|f=0.00|ssd=0.20|sig=none|inj=individual|fum=exclude      06  -0.02200  0.00338 [-0.02862, -0.01538]   **
+median_target|avail=fh|f=0.00|ssd=0.20|sig=2x_week_sd|inj=individual|fum=exclude      06  -0.02244  0.00343 [-0.02916, -0.01572]   **
+median_target|avail=fh|f=0.00|ssd=0.00|sig=week_sd|inj=positional|fum=exclude      06  -0.01356  0.00332 [-0.02006, -0.00706]   **
+median_target|avail=fh|f=0.00|ssd=0.00|sig=week_sd|inj=individual|fum=lost      01  +0.00544  0.00195 [+0.00161, +0.00926]   **
+------------------------------------------------------------------------------------------------------------------
+  ** = this team's own paired 95% interval excludes zero.
+
+SCENARIO-VS-SCENARIO CONTRASTS (not against the baseline)
+  Does the season_sd answer depend on how fast anyone learns?
+  contrast                                      team       dCE       se  discord    
+  ----------------------------------------------------------------------------------
+  ssd=0.10: sig=none vs sig=week_sd               12  -0.00481  0.00201   0.4554  **
+  ssd=0.10: sig=2x_week_sd vs sig=week_sd         01  -0.00344  0.00210   0.3389    
+  ssd=0.20: sig=none vs sig=week_sd               01  -0.01063  0.00253   0.5211  **
+  ssd=0.20: sig=2x_week_sd vs sig=week_sd         11  +0.00556  0.00212   0.4321  **
+  ----------------------------------------------------------------------------------
+  A resolved row means learning speed changes the season_sd
+  conclusion and the two axes cannot be reported separately.
+  An unresolved row means this run cannot separate them.
+
+WHAT EACH AXIS HAS ACTUALLY DEMONSTRATED
+  axis                          max |dCE|  resolved  max resolved
+  ---------------------------------------------------------------
+  availability_interpretation     0.04869       yes       0.04869
+  forecastable_share              0.02444       yes       0.02444
+  fumbles                         0.00544       yes       0.00544
+  injury_model                    0.01356       yes       0.01356
+  season_sd                       0.02169       yes       0.02169
+  season_sd_x_signal              0.02244       yes       0.02244
+  signal_quality                  0.01006       yes       0.01006
+  target                          0.00013        no       0.00000
+
+Read a resolved shift as: this unresolved assumption has to be
+settled before any number downstream of it can be trusted. Read an
+unresolved one as: this run cannot tell whether it matters -- which
+is not the same as showing that it does not.
+====================================================================================================

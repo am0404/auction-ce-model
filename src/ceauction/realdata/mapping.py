@@ -935,6 +935,40 @@ _POS = {"QB": Position.QB, "RB": Position.RB, "WR": Position.WR,
         "TE": Position.TE}
 
 
+def positional_fits_from_contract(payload: Dict
+                                  ) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """``(weekly_cv, weekly_miss_rate)`` per position, read back off the contract.
+
+    Ingestion already attaches each player's cohort fit to his row, and the
+    cohort is positional, so the positional fallbacks used for players with no
+    individual profile can be recovered from the contract itself rather than
+    from a second local file. That makes a sensitivity run reproducible from
+    the committed contract alone.
+
+    A position whose rows disagree is reported by raising: silently averaging
+    two different fits would hide a contract that had been assembled from
+    mismatched sources.
+    """
+    cv: Dict[str, float] = {}
+    miss: Dict[str, float] = {}
+    for row in payload.get("players", []):
+        pos = str(row.get("position") or "")
+        disp = row.get("cohort_dispersion") or {}
+        for store, key in ((cv, "weekly_cv"), (miss, "weekly_miss_rate")):
+            val = disp.get(key)
+            if val is None:
+                continue
+            val = round(float(val), 6)
+            prior = store.get(pos)
+            if prior is not None and abs(prior - val) > 1e-6:
+                raise ValueError(
+                    f"contract carries two different {key} values for {pos}: "
+                    f"{prior} and {val}; the cohort fit is supposed to be "
+                    f"positional")
+            store[pos] = val
+    return cv, miss
+
+
 def map_contract_to_playerspecs(
     payload: Dict,
     config: PlayerSpecMappingConfig,
