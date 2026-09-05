@@ -37,6 +37,7 @@ from .realdata.pipeline import IngestionPaths, ingest, write_outputs
 from .realdata.scoring import FUMBLE_INTERPRETATIONS
 from .realdata.sources import SyntheticSourceRefused, load_dispersion_fits
 from .lineup import select_lineup
+from .realdata.sensitivity import MIN_COMMITTED_SIMS
 from .simulate import DEFAULT_CHUNK, pregame_week, simulate_seasons
 from .synthetic import make_synthetic_league
 from .worlds import build_pool_arrays, generate_world
@@ -373,7 +374,10 @@ def cmd_calibrate(args) -> int:
 
     # --- mapping and calibration -----------------------------------------
     cfg = PlayerSpecMappingConfig(
-        target=args.target, forecastable_share=args.forecastable_share,
+        target=args.target,
+        projection_availability_interpretation=args.availability_interpretation,
+        signal_quality=args.signal_quality,
+        forecastable_share=args.forecastable_share,
         season_sd_fraction=args.season_sd, injury_model=args.injury_model)
     t0 = time.perf_counter()
     mapped = map_contract_to_playerspecs(
@@ -399,8 +403,10 @@ def cmd_calibrate(args) -> int:
         if args.contract_fumbles_lost and Path(args.contract_fumbles_lost).exists():
             payloads["lost"] = _json.loads(
                 Path(args.contract_fumbles_lost).read_text(encoding="utf-8"))
+        n_sens = args.sensitivity_sims or MIN_COMMITTED_SIMS
         grid = run_sensitivity(payloads, fits_miss, fits_cv, limit=args.limit,
-                               n_sims=args.sims, seed=args.seed)
+                               n_sims=n_sens, seed=args.seed,
+                               require_minimum=not args.allow_underpowered)
         print()
         print(format_sensitivity(grid))
         if args.report_out:
@@ -518,13 +524,29 @@ def build_parser() -> argparse.ArgumentParser:
                    help="map only the top N by recomputed season points")
     s.add_argument("--target", default="median_target",
                    choices=["median_target", "mean_target"])
+    s.add_argument("--availability-interpretation", default="full_health",
+                   choices=["full_health", "availability_adjusted"],
+                   help="what health state the season total describes; "
+                        "neither reading is preferred")
+    s.add_argument("--signal-quality", default="week_sd",
+                   choices=["none", "week_sd", "2x_week_sd"],
+                   help="how informative a week of usage is about the latent "
+                        "level; always explicit, never inferred")
     s.add_argument("--forecastable-share", type=float, default=0.0)
     s.add_argument("--season-sd", type=float, default=0.0)
     s.add_argument("--injury-model", default="individual",
                    choices=["individual", "positional", "none"])
-    s.add_argument("--sims", type=int, default=2000)
+    s.add_argument("--sims", type=int, default=2000,
+                   help="seasons for the smoke test")
     s.add_argument("--sensitivity", action="store_true",
-                   help="sweep every unresolved assumption")
+                   help="sweep every unresolved assumption, paired against "
+                        "the baseline")
+    s.add_argument("--sensitivity-sims", type=int, default=None,
+                   help=f"seasons per sensitivity scenario "
+                        f"(default {MIN_COMMITTED_SIMS:,}, the committed minimum)")
+    s.add_argument("--allow-underpowered", action="store_true",
+                   help="permit a sensitivity run below the committed minimum; "
+                        "the report is then labelled a preview")
     s.add_argument("--report-out", default=None,
                    help="sanitized sensitivity JSON (safe to commit)")
     s.add_argument("--unresolved-out", default=None,

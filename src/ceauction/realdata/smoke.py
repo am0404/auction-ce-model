@@ -25,7 +25,8 @@ from ..league import DEFAULT_LEAGUE, LeagueSettings, Position
 from ..players import PlayerSpec
 from ..roster import Roster, RosterSet
 
-__all__ = ["ROSTER_TEMPLATE", "build_test_rosters", "SmokeChecks", "run_smoke_checks"]
+__all__ = ["ROSTER_TEMPLATE", "build_test_rosters", "roster_assignment",
+           "rosters_from_assignment", "SmokeChecks", "run_smoke_checks"]
 
 #: Position counts per team. Guarantees eight legal starters are always
 #: available: 1 QB + 2 RB + 3 WR/TE + FLEX + SUPERFLEX.
@@ -79,6 +80,45 @@ def build_test_rosters(specs: Sequence[PlayerSpec],
     names = list(team_names) if team_names else [f"Real{i + 1:02d}"
                                                  for i in range(n_teams)]
     rosters = tuple(Roster(names[t], tuple(picks[t])) for t in range(n_teams))
+    return RosterSet(tuple(used), rosters, settings)
+
+
+def roster_assignment(rosters: RosterSet) -> Tuple[Tuple[int, ...], ...]:
+    """The twelve teams as tuples of ``player_id``, stripped of everything else.
+
+    This is the object a sensitivity sweep must hold fixed. Rebuilding the
+    snake under each scenario would let the allocation itself move whenever an
+    assumption changed ``base_mean``, so the "paired" comparison would be
+    between two different sets of teams and the difference attributed to the
+    assumption would partly be a difference in who was on which roster.
+    """
+    return tuple(tuple(r.player_ids) for r in rosters.rosters)
+
+
+def rosters_from_assignment(assignment: Sequence[Sequence[int]],
+                            specs: Sequence[PlayerSpec],
+                            settings: LeagueSettings = DEFAULT_LEAGUE,
+                            team_names: Optional[Sequence[str]] = None
+                            ) -> RosterSet:
+    """Rebuild a fixed roster assignment against a different set of specs.
+
+    ``specs`` must contain every ``player_id`` the assignment names -- which is
+    exactly what stable, key-derived ids guarantee across scenarios. A missing
+    id raises: quietly substituting anyone would break the pairing this
+    function exists to preserve.
+    """
+    by_id = {s.player_id: s for s in specs}
+    missing = sorted({pid for team in assignment for pid in team} - set(by_id))
+    if missing:
+        raise KeyError(
+            f"{len(missing)} player_id(s) in the fixed assignment are absent "
+            f"from this scenario's specs; a paired comparison needs the same "
+            f"people in both arms (first few: {missing[:5]})")
+    names = list(team_names) if team_names else [
+        f"Real{i + 1:02d}" for i in range(len(assignment))]
+    used = [by_id[pid] for team in assignment for pid in team]
+    rosters = tuple(Roster(names[t], tuple(team))
+                    for t, team in enumerate(assignment))
     return RosterSet(tuple(used), rosters, settings)
 
 

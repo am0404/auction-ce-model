@@ -14,7 +14,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-__all__ = ["normalize_name", "IdentityIndex", "MatchReport", "SUFFIXES"]
+__all__ = ["normalize_name", "IdentityIndex", "MatchReport", "SUFFIXES",
+           "canonical_player_key", "stable_player_id", "assign_stable_ids",
+           "IdentityCollision"]
 
 #: Generational and ordinal suffixes stripped before matching.  Kept explicit
 #: rather than regex-guessed: "Vi" and "Li" are real name fragments, and a rule
@@ -178,3 +180,98 @@ def join_report(left: IdentityIndex, right: IdentityIndex,
     rep.unmatched_right = sorted(right.keys - matched_right_keys
                                  - {k for k, _ in rep.ambiguous})
     return rep
+
+
+# ---------------------------------------------------------------------------
+# Stable player identity
+# ---------------------------------------------------------------------------
+#
+# A ``PlayerSpec.player_id`` is not a label -- it is a coordinate into the
+# engine's counter-based RNG.  Every random draw a player receives is keyed by
+# it, so if the id moves, the player's entire simulated career moves with it.
+#
+# Deriving it from a sorted row index, as an earlier pass did, makes the id a
+# function of *the pool* rather than of *the player*: change the fumble
+# interpretation, the projection interpretation, the pool limit or anything
+# else that reorders the rows, and a player silently inherits a different
+# season, different injuries and a different set of common random numbers.
+# Every paired comparison built on top of that is comparing two different
+# people.
+#
+# So the id is a pure function of the canonical player key and nothing else.
+
+
+class IdentityCollision(Exception):
+    """Two distinct canonical keys hashed to the same stable id.
+
+    Raised rather than worked around.  A silent collision would give two
+    players one shared random stream, and the resulting correlation would look
+    exactly like a modelling result.
+    """
+
+
+_FNV_OFFSET = 0xCBF29CE484222325
+_FNV_PRIME = 0x00000100000001B3
+_U64 = (1 << 64) - 1
+
+#: Ids are masked into 62 bits.  ``PoolArrays.stream_key`` is ``int64`` and the
+#: RNG multiplies the coordinate by an odd constant, so staying clear of the
+#: sign bit keeps the value representable without relying on wraparound.
+_ID_BITS = 62
+_ID_MASK = (1 << _ID_BITS) - 1
+
+
+def canonical_player_key(player_key: Optional[str] = None,
+                         name: Optional[str] = None) -> str:
+    """The single string a player's identity is derived from.
+
+    Prefers the contract's ``player_key`` (already a stable slug produced by
+    ingestion) and falls back to the normalised name.  Both are run through the
+    same lowercase/underscore canonicalisation so that ``"Josh Allen"`` and
+    ``"josh_allen"`` cannot become two different people.
+    """
+    raw = player_key if player_key else name
+    if not raw:
+        raise ValueError("a player needs either a player_key or a name")
+    text = normalize_name(str(raw).replace("_", " "))
+    if not text:
+        raise ValueError(f"player key {raw!r} normalises to nothing")
+    return text.replace(" ", "_")
+
+
+def stable_player_id(canonical_key: str) -> int:
+    """A deterministic positive integer id for one canonical key.
+
+    FNV-1a over the key's UTF-8 bytes, masked to 62 bits, with zero mapped
+    away so that ``0`` never doubles as a sentinel.  Pure: no seed, no
+    ordering, no process state.  The same key gives the same id in every
+    scenario, every run and every process.
+    """
+    if not canonical_key:
+        raise ValueError("canonical_key must be non-empty")
+    h = _FNV_OFFSET
+    for byte in canonical_key.encode("utf-8"):
+        h = ((h ^ byte) * _FNV_PRIME) & _U64
+    return (h & _ID_MASK) or 1
+
+
+def assign_stable_ids(canonical_keys: Iterable[str]) -> Dict[str, int]:
+    """``{canonical_key: stable id}``, failing loudly on any collision.
+
+    62 bits over a few hundred players makes a collision astronomically
+    unlikely, which is exactly why it must be checked rather than assumed: an
+    unchecked assumption that never fires is indistinguishable from one that
+    fires once.
+    """
+    out: Dict[str, int] = {}
+    seen: Dict[int, str] = {}
+    for key in canonical_keys:
+        pid = stable_player_id(key)
+        prior = seen.get(pid)
+        if prior is not None and prior != key:
+            raise IdentityCollision(
+                f"stable id {pid} is claimed by both {prior!r} and {key!r}; "
+                f"refusing to give two players one random stream")
+        seen[pid] = key
+        out[key] = pid
+    return out

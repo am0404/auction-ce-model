@@ -220,6 +220,10 @@ def build_pool_arrays(
         role_lag=col("role_reveal_lag", np.int64),
         # `signal_noise_sd=None` means "usage tells you about as much per week
         # as one observed score would have"; see PlayerSpec.signal_noise_sd.
+        # That implicit default is a convenience for synthetic pools only --
+        # it makes learning speed a silent function of scoring noise, so real
+        # specs set the field explicitly (see realdata.mapping.signal_quality).
+        # `inf` is permitted and means "never learns"; it is handled exactly.
         weekly_state_sd=col("weekly_state_sd"),
         signal_noise_sd=np.maximum(
             np.array(
@@ -539,9 +543,18 @@ def _draw_signals(
             observed=avail.available,
         )
 
+    # An infinite `signal_noise_sd` is the exact encoding of "this league
+    # never learns": the reading is infinitely noisy, so the posterior stays at
+    # the prior forever.  It is represented exactly rather than approximated by
+    # a large number -- the signal is set to zero here and `_build_pregame`
+    # gives those players a posterior of exactly zero, so no infinity or NaN
+    # ever enters the arithmetic.
+    finite = np.isfinite(pool.signal_noise_sd)
     noise = rng.normal(seed, rng.Kind.SIGNAL_NOISE, sims, keys, weeks)
-    noise *= pool.signal_noise_sd.reshape(1, p, 1)
-    level_signal = latent.season_shift.reshape(s, p, 1) + noise
+    noise *= np.where(finite, pool.signal_noise_sd, 0.0).reshape(1, p, 1)
+    level_signal = np.where(
+        finite.reshape(1, p, 1), latent.season_shift.reshape(s, p, 1) + noise, 0.0
+    )
     return SignalBatch(level_signal=level_signal, observed=avail.available)
 
 
@@ -670,8 +683,9 @@ def _build_pregame(
     # gives exactly 0 -- consensus is then known to be right and nothing is
     # learnable.
     with np.errstate(divide="ignore", invalid="ignore"):
+        learnable = (pool.season_sd > 0.0) & np.isfinite(pool.signal_noise_sd)
         ratio = np.where(
-            pool.season_sd > 0.0,
+            learnable,
             (pool.signal_noise_sd ** 2) / np.maximum(pool.season_sd ** 2, _EPS),
             np.inf,
         ).reshape(1, p, 1)

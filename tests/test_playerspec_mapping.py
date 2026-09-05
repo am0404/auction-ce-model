@@ -217,12 +217,19 @@ def test_injury_parameters_are_solved_against_both_targets():
     assert cal.weekly_injury_hazard > 0 and cal.injury_mean_weeks > 0
 
 
-def test_the_games_missed_target_is_scaled_to_the_fantasy_horizon():
-    """The vendor's figure spans 17 NFL games; the horizon holds 16."""
+def test_both_injury_targets_are_matched_on_the_span_they_describe():
+    """Both vendor figures span the full NFL season, so both are matched there.
+
+    An earlier pass scaled projected games missed by 16/17 onto the fantasy
+    window while leaving the injury probability untouched, asking one fit to
+    reproduce two targets defined on different spans. The target is now taken
+    as supplied.
+    """
     cfg = PlayerSpecMappingConfig(**FAST)
     cal = calibrate_injury(0.35, 1.7, cfg, position="RB", bye_index=8)
-    assert cal.target_games_missed == pytest.approx(1.7 * 16.0 / 17.0)
-    assert cal.target_games_missed < 1.7, "unscaled would inflate every absence"
+    assert cal.target_games_missed == pytest.approx(1.7), "no rescaling"
+    assert cal.target_injury_prob == pytest.approx(0.35)
+    assert cal.full_season_weeks == 18 and cal.full_season_games == 17
 
 
 def test_a_bye_week_absence_costs_no_scheduled_game():
@@ -343,7 +350,11 @@ def test_unsupported_fields_are_placeholders_not_estimates(payload):
         assert m.spec.shock_loadings == ()
         assert m.spec.contingency is None
         assert m.spec.proj_noise_sd == 0.0
-        assert m.spec.signal_noise_sd is None
+        # signal_noise_sd is deliberately NOT a placeholder any more: it is
+        # still uncalibrated, but it is set explicitly from the signal-quality
+        # scenario rather than left to default silently to week_sd.
+        assert m.spec.signal_noise_sd is not None
+        assert "signal_noise_sd" not in m.unresolved_placeholders
         # ...and every one of them is named as unresolved.
         for field in ("spike_rate", "spike_scale", "role_change_prob",
                       "shock_loadings", "contingency", "proj_noise_sd"):
