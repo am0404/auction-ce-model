@@ -128,7 +128,7 @@ src/ceauction/
   experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      482 tests
+tests/                      484 tests
 ```
 
 `stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
@@ -144,7 +144,7 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 482 tests, ~1m50s
+.venv/bin/python -m pytest              # 484 tests, ~1m50s
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
@@ -160,7 +160,7 @@ Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev depend
 
 ## 4. Test results
 
-**482 passed, 0 failed, 0 skipped, 0 warnings** in 108s (`filterwarnings = ["error"]`).
+**484 passed, 0 failed, 0 skipped, 0 warnings** in 108s (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
 `flaky` markers. 146 at the start of Phase 1, 46 added there, 39 in Phase 2, and 24 in the Phase 2 audit-correction pass.
 
@@ -169,7 +169,7 @@ Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw,
 | `test_real_player_input_schema.py` | 24 | **NEW (inventory phase).** the real-player contract's shape: nulls mean *not projected*; a missing scoring category can only be recorded as absent; the expert grades are pinned as non-distributional; raw source fields are required and non-empty; sources are identified by content hash; and a fabricated two-player fixture validates, one of them deliberately sparse |
 | `test_realdata_ingestion.py` | 87 | the ingestion layer on fabricated data: scoring arithmetic, median metadata, both availability readings, injury field separation, fumble exclusion, missing categories absent, identity matching and its four failure modes, refusal of the synthetic pool, schema failures, vendor-total and grade-to-variance prevention, determinism |
 | `test_playerspec_mapping.py` | 50 | the mapping on fabricated data: no assumption outside the config; the level solve is exact and proportional; both targets supported and agreeing under symmetry; injury solved against both full-season targets with the week/game distinction and infeasibility reported; the variance split preserves total dispersion; unsupported fields are named placeholders; coverage bands; aliases carry reasons; deterministic |
-| `test_calibration_audit_fixes.py` | 55 | **NEW.** the six defects the calibration audit found: ids survive reordering, pool limits, re-ranking and every scenario axis, and a collision raises; the twelve rosters are one fixed cast and a missing player refuses; both availability readings differ in the right direction and each reproduces its own target; **median and mean separate once absences are in the model**; the three horizons stay distinct and neither injury target is rescaled; signal quality is explicit and "no learning" is exactly zero posterior, not a small one; paired delta / SE / interval / discordance arithmetic, including that identical arms give exactly zero and that pairing is real on simulated worlds; and the committed docs carry no superseded claim |
+| `test_calibration_audit_fixes.py` | 57 | **NEW.** the six defects the calibration audit found: ids survive reordering, pool limits, re-ranking and every scenario axis, and a collision raises; the twelve rosters are one fixed cast and a missing player refuses; both availability readings differ in the right direction and each reproduces its own target; **median and mean separate once absences are in the model**; the three horizons stay distinct and neither injury target is rescaled; signal quality is explicit and "no learning" is exactly zero posterior, not a small one; paired delta / SE / interval / discordance arithmetic, including that identical arms give exactly zero and that pairing is real on simulated worlds; and the committed docs carry no superseded claim |
 | `test_curve.py` | 62 | **NEW (Phase 2).** exact-zero identical arms; order independence; CRN preserved across every level; agreement with a direct paired comparison; genuinely paired adjacent slopes; monotone shape within uncertainty; chunk determinism; the resolution report's `1/sqrt(n)` arithmetic; CSV schema; the isotonic column changing nothing; CLI |
 | `test_experiments.py` | 35 | every experiment builds a legal league and runs paired; the rival-placement **control** reads zero and `rival-fit` does not; the aggregate-spot arms and their byte-identical control; the floor helpers cannot return; every documented `ce-lab` command exits 0 |
 | `test_worlds.py` | 21 | byes, injury hazard/duration, latent persistence, **negative realized scores**, **realized mean == base_mean**, unavailable weeks still zero, spike mean-neutrality, correlation, contingency, role reveal lag, belief convergence, chunk independence across **all seven layers**, `crn_key` sharing |

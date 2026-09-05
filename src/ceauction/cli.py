@@ -334,7 +334,8 @@ def cmd_calibrate(args) -> int:
     from .realdata.mapping import (PlayerSpecMappingConfig,
                                    map_contract_to_playerspecs)
     from .realdata.sensitivity import format_sensitivity, run_sensitivity
-    from .realdata.smoke import build_test_rosters, run_smoke_checks
+    from .realdata.smoke import (ROSTER_TEMPLATE, build_test_rosters,
+                                 run_smoke_checks)
 
     contract_path = Path(args.contract)
     if not contract_path.exists():
@@ -390,7 +391,18 @@ def cmd_calibrate(args) -> int:
         print(f"  WARN {w}")
 
     # --- CE smoke test -----------------------------------------------------
-    rosters = build_test_rosters(mapped.specs, settings=cfg.settings)
+    # Both guards below are deliberate refusals rather than bugs, so they are
+    # reported as usage errors instead of tracebacks: a pool too small to fill
+    # twelve legal teams, and a sensitivity run too small to support the
+    # intervals it would print.
+    try:
+        rosters = build_test_rosters(mapped.specs, settings=cfg.settings)
+    except ValueError as exc:
+        print(f"\ncannot build the twelve integration rosters: {exc}\n"
+              f"raise --limit so the mapped pool covers "
+              f"{sum(ROSTER_TEMPLATE.values()) * cfg.settings.n_teams} players.",
+              file=sys.stderr)
+        return 2
     checks = run_smoke_checks(rosters, mapped.specs, n_sims=args.sims)
     print(f"\nREAL-DATA CE SMOKE TEST  ok={checks.ok}")
     print("\n".join(checks.lines()))
@@ -404,9 +416,14 @@ def cmd_calibrate(args) -> int:
             payloads["lost"] = _json.loads(
                 Path(args.contract_fumbles_lost).read_text(encoding="utf-8"))
         n_sens = args.sensitivity_sims or MIN_COMMITTED_SIMS
-        grid = run_sensitivity(payloads, fits_miss, fits_cv, limit=args.limit,
-                               n_sims=n_sens, seed=args.seed,
-                               require_minimum=not args.allow_underpowered)
+        try:
+            grid = run_sensitivity(payloads, fits_miss, fits_cv, limit=args.limit,
+                                   n_sims=n_sens, seed=args.seed,
+                                   require_minimum=not args.allow_underpowered)
+        except ValueError as exc:
+            print(f"\n{exc}\npass --allow-underpowered to run anyway; the "
+                  f"report is then labelled a preview.", file=sys.stderr)
+            return 2
         print()
         print(format_sensitivity(grid))
         if args.report_out:

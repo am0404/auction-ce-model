@@ -740,6 +740,38 @@ def test_an_underpowered_committed_run_is_refused():
                         require_minimum=True)
 
 
+def test_the_cli_refuses_an_underpowered_committed_run_without_a_traceback(
+        payload, tmp_path):
+    """A deliberate refusal should read as a usage error, not a crash."""
+    import subprocess
+    import sys as _sys
+    contract = tmp_path / "contract.json"
+    contract.write_text(json.dumps(payload), encoding="utf-8")
+    proc = subprocess.run(
+        [_sys.executable, "-m", "ceauction.cli", "calibrate",
+         "--contract", str(contract), "--limit", "250", "--sims", "40",
+         "--sensitivity", "--sensitivity-sims", "500"],
+        capture_output=True, text=True, cwd=str(REPO))
+    assert proc.returncode == 2
+    assert "at least 16,000 seasons" in proc.stderr
+    assert "--allow-underpowered" in proc.stderr
+    assert "Traceback" not in proc.stderr
+
+
+def test_the_cli_refuses_a_pool_too_small_without_a_traceback(payload, tmp_path):
+    import subprocess
+    import sys as _sys
+    contract = tmp_path / "contract.json"
+    contract.write_text(json.dumps(payload), encoding="utf-8")
+    proc = subprocess.run(
+        [_sys.executable, "-m", "ceauction.cli", "calibrate",
+         "--contract", str(contract), "--limit", "40", "--sims", "40"],
+        capture_output=True, text=True, cwd=str(REPO))
+    assert proc.returncode == 2
+    assert "refusing to build short rosters" in proc.stderr
+    assert "Traceback" not in proc.stderr
+
+
 def test_pairing_actually_pairs_on_real_simulated_worlds(payload, fits):
     """End to end: an unchanged scenario must give a byte-identical arm.
 
