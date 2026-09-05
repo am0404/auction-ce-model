@@ -1069,31 +1069,64 @@ roster-completion problem over the remaining board, and nothing here computes
 it. The twelve smoke-test rosters are a deterministic snake, explicitly not an
 allocation algorithm.
 
-**4. Resolution.** `docs/example_curve_output.txt` puts a paired CE difference
-at ~0.0015 standard error at 16,000 seasons, ~8.6s per comparison. A live
-auction decision is several comparisons. That pilot was measured on synthetic
-data and should be re-measured on real specs before anyone relies on it.
+**4. Resolution, now measured on real specs.** Across the 139 non-degenerate
+paired team-deltas in `docs/example_sensitivity_output.txt`, the paired
+standard error at 16,000 seasons has median **0.00247** and max 0.00362 —
+roughly 1.6x the ~0.0015 the synthetic curve pilot reported, because real
+rosters are less interchangeable than synthetic ones. Baseline CE across the
+twelve teams spans 0.0505 to 0.1573.
+
+So a single paired comparison on real data resolves differences of about
+**0.005** at 95% confidence, and a live auction decision is several
+comparisons.
 
 **Not blockers:** fumbles (+0.00544, resolved but small; excluding remains the
 right default) and the median-versus-mean reading (+0.00013, unresolved at
 16,000 seasons *under `full_health`* — it has not been measured under
 `availability_adjusted`, where the two targets do separate).
 
-### The next phase
+### The exact next step
 
-**Bound the error the four unresolved assumptions impose on a price, before
-building anything that produces one.** Their resolved paired effects are 0.049,
-0.024, 0.022 and 0.010 on a championship equity whose whole range across twelve
-teams is about 0.11. A pricing layer built on top of that would be resolving
-differences smaller than its own input uncertainty.
+**Measure the assumption band on one slot swap, before building anything that
+produces a price.**
 
-The concrete step: run the CE difference for one roster slot across the
-**cross-product** of `availability_interpretation` × `forecastable_share` ×
-(`season_sd`, `signal_quality`) rather than one axis at a time, and report the
-range as a band. If the band on a single slot's CE difference is wider than the
-CE difference between adjacent players, the answer is that this data cannot
-support point pricing, and that is a finding worth having before writing a
-solver rather than after.
+The reasoning. A price is
+`CE(roster with X at $p) − CE(best alternative use of $p)`. The four resolved
+assumption effects are 0.049, 0.024, 0.022 and 0.010, on a CE whose whole range
+across twelve teams is 0.107. Sampling noise is not the constraint — that is
+0.0025 — the assumptions are, by an order of magnitude. Building a solver for
+the second term first would produce a number whose precision is entirely
+fictitious.
 
-Only once that band is known does the best-alternative term become worth
-building.
+The step, concretely:
+
+1. Pick one roster slot on one of the twelve integration rosters and one
+   plausible replacement from the undrafted pool — a single swap, not a curve.
+2. Run that swap as a paired comparison in **every cell of the cross-product**
+   `availability_interpretation` (2) × `forecastable_share` (3) ×
+   `season_sd` (3) × `signal_quality` (3) = 54 cells at 16,000 seasons.
+   `run_sensitivity` already builds a fixed cast and pairs correctly; what is
+   needed is a cross-product driver over it rather than the one-axis-at-a-time
+   sweep, plus the swap itself.
+   Cost estimate: the current 13-cell sweep runs in a few minutes, so 54 cells
+   is well under an hour.
+3. Report `min` and `max` ΔCE over the 54 cells as a **band**, not a point, and
+   compare that band's width to the ΔCE between two adjacent players on the
+   board.
+
+The decision it produces:
+
+* **Band narrower than the player-to-player gap** → the assumptions do not
+  prevent ranking, and the best-alternative solver is worth building next.
+* **Band wider** → this data cannot support point pricing, and the honest
+  output is a price *range* carrying the assumption band, with
+  `availability_interpretation` named as the dominant term. Either the vendor
+  clarifies the health treatment or a weekly/multi-season feed is obtained to
+  estimate the three uncalibrated scenario parameters.
+
+Either way the answer is worth more than a solver built without it, and it is
+the smaller piece of work.
+
+**Explicitly not next:** dollar values, opening or live max bids, auction-room
+behaviour, opponent bidding, or a roster-completion solver. None of them is
+blocked on code, and all of them would inherit the band above.
