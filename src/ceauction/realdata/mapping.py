@@ -41,8 +41,8 @@ mapping always writes an explicit value chosen by ``signal_quality``.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field, replace
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from dataclasses import dataclass, field
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -987,6 +987,8 @@ def map_contract_to_playerspecs(
     what keeps a sensitivity sweep honest: every scenario maps *the same
     people*, so a paired comparison differs only in the assumption under test
     and not in who happens to have made the cut under this scenario's ordering.
+    It **overrides** ``limit``, which is a ranking cut and would reintroduce
+    exactly the dependence on ordering that ``only_keys`` exists to remove.
 
     ``player_id`` and ``crn_key`` are derived from the canonical key, so a
     player keeps the same identity and the same random streams across every

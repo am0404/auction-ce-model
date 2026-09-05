@@ -54,6 +54,8 @@ ever makes the first kind.
 | `docs/PLAYER_DATA_LINEAGE.md` | Source file to transformation code to derived field |
 | `docs/PLAYER_MAPPING_GAPS.md` | Every `PlayerSpec` field against that source |
 | `docs/INGESTION_AUDIT.md` | Sanitized result of running the ingestion layer |
+| `docs/CALIBRATION_AUDIT.md` | What the mapping calibrated, how well, and what is still unresolved |
+| `docs/example_sensitivity_output.txt` | Paired real-data CE sensitivity, 16,000 seasons per scenario |
 | `schemas/real_player_input_v1.schema.json` | The versioned real-player input contract |
 | `docs/example_curve_output.txt` | A 19-level marginal CE curve + resolution report |
 | `docs/example_marginal_curve.csv` | The same curve, machine-readable |

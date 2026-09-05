@@ -38,7 +38,6 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 
 from ..ce import paired_se
-from ..roster import RosterSet
 from ..simulate import SeasonOutcomes, simulate_seasons
 from .mapping import (
     AVAILABILITY_INTERPRETATIONS,

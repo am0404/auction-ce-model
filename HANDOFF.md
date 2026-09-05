@@ -105,6 +105,8 @@ docs/
   example_league_output.txt  CE table for all 12 teams, 20,000 seasons
   example_curve_output.txt   marginal CE curve, 19 levels x 16,000 seasons
   example_marginal_curve.csv the same curve, machine-readable
+  example_sensitivity_output.txt  paired real-data sensitivity, 16,000 seasons/cell
+  CALIBRATION_AUDIT.md       what the mapping calibrated, and how well
 src/ceauction/
   rng.py                    counter-based RNG; reproducibility + CRN
   scoring.py                the COMPLETE half-PPR rule set; the stat-line seam

@@ -50,6 +50,7 @@ from .mapping import (
     calibrate_injury,
     calibrate_level,
     map_contract_to_playerspecs,
+    positional_fits_from_contract,
     resolve_signal_noise_sd,
 )
 from .smoke import (
@@ -85,6 +86,7 @@ __all__ = [
     "calibrate_level",
     "calibrate_injury",
     "map_contract_to_playerspecs",
+    "positional_fits_from_contract",
     "build_test_rosters",
     "roster_assignment",
     "rosters_from_assignment",
