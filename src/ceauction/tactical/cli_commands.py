@@ -26,6 +26,7 @@ from .demo import build_tactical_demo, demo_sales
 from .endgame import assess_endgame, format_endgame
 from .maxbid import (DEFAULT_SCENARIOS, TacticalCache, TacticalScenario,
                      TacticalSettings, evaluate_tactical, format_tactical)
+from .nested import format_nested_ladder
 from .precompute import precompute, write_report
 
 __all__ = ["add_tactical_parser", "dispatch", "UsageError"]
@@ -133,14 +134,16 @@ def _settings(args) -> TacticalSettings:
     board = replace(s.board, seed=getattr(args, "seed", None) or s.board.seed)
     completion = s.completion
     if mode == "audited":
-        sims = getattr(args, "sims", None) or 1200
-        completion = replace(completion, selection_sims=sims,
+        sims = getattr(args, "sims", None) or 2000
+        sel = getattr(args, "selection_sims", None) or sims
+        completion = replace(completion, selection_sims=sel,
                              evaluation_sims=sims, rival_selection="proxy")
     return replace(s, board=board, completion=completion,
                    max_prices=getattr(args, "max_prices", None) or s.max_prices,
                    refine=bool(getattr(args, "refine", False)),
                    max_recipients=getattr(args, "max_recipients", None)
-                   or s.max_recipients)
+                   or s.max_recipients,
+                   max_worlds=getattr(args, "max_worlds", None) or s.max_worlds)
 
 
 # ---------------------------------------------------------------------------
@@ -275,17 +278,32 @@ def cmd_max_bid(args) -> int:
     scenarios = _scenarios(args)
     cache = TacticalCache()
     t0 = time.perf_counter()
-    r = evaluate_tactical(
-        d.state, d.cast, d.costs, cid, settings=settings, scenarios=scenarios,
-        market=d.market, candidate_key=d.key_for(cid), key_by_id=d.key_by_id,
-        current_price=args.price, increment=args.increment,
-        current_leader=args.leader, cache=cache)
+    from .joint import ConservationError
+    try:
+        r = evaluate_tactical(
+            d.state, d.cast, d.costs, cid, settings=settings,
+            scenarios=scenarios, market=d.market, candidate_key=d.key_for(cid),
+            key_by_id=d.key_by_id, current_price=args.price,
+            increment=args.increment, current_leader=args.leader, cache=cache,
+            regime=getattr(args, "regime", None))
+    except ConservationError as exc:
+        raise UsageError(
+            f"audited evaluation refused: {exc}")
     print(_FABRICATED)
     print()
     print(_PRICE_NOTE)
     print()
     print(format_tactical(r))
-    print(f"\nwall clock {time.perf_counter() - t0:.2f}s")
+    if r.nested_ladder is not None:
+        print()
+        print(format_nested_ladder(r.nested_ladder))
+    cached = cache.stats()
+    print(f"\nwall clock {time.perf_counter() - t0:.2f}s   "
+          f"cache entries {cached['entries']} hits {cached['hits']} "
+          f"misses {cached['misses']}")
+    if not r.is_audited:
+        print(f"\n  {r.PROXY_BANNER}. Re-run with --mode audited for a "
+              f"CE-backed threshold.")
     _write_json(args.json_out, r.to_dict())
     return 0
 
@@ -508,7 +526,14 @@ def add_tactical_parser(sub) -> None:
             sp.add_argument("--mode", default="immediate",
                             choices=["immediate", "audited"])
             sp.add_argument("--sims", type=int, default=None,
-                            help="seasons per sample in audited mode")
+                            help="holdout seasons per arm in audited mode")
+            sp.add_argument("--selection-sims", type=int, default=None,
+                            help="selection-sample seasons (default: --sims)")
+            sp.add_argument("--max-worlds", type=int, default=None,
+                            help="reconciled joint worlds compared per arm")
+            sp.add_argument("--regime", default=None,
+                            help="roster-strength regime label; part of the "
+                                 "cache key")
         sp.add_argument("--seed", type=int, default=None,
                         help="shared-board allocation seed")
         sp.add_argument("--json-out", default=None,

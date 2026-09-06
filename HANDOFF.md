@@ -1710,3 +1710,148 @@ we held six unpaid players.
 produces reconciled worlds, then re-derive the robust/base/permissive ladder from
 CE rather than the proxy. Until that is done the CLI still reports the withdrawn
 proxy numbers.
+
+---
+
+## Phase: audited max-bid over nested opportunity sets
+
+Branch `tactical-audited-maxbid`, from
+`d522235e2f52d41ebdc5690e568a47f1f7cc1c26`. Detail in
+`docs/TACTICAL_REGIMES.md` and the module docstrings of `tactical/nested.py`.
+
+### Proven cause of `$1 < $5`: beam path dependence
+
+Not economics, and not any of the market/seed/cache explanations:
+
+```
+best construction found at $5   cost $95
+our budget at $1                $109      -> affordable
+players of it taken by a rival  none      -> legal
+shadow held @$1  [..., 271]
+shadow held @$5  [..., 93]     symmetric difference: {93, 271}
+```
+
+The $5 construction was legal and affordable at $1 and the search **never found
+it**. The shadow continuation depends on our own remaining money, so a $4
+difference changed which two players we shadow-won, and a two-player difference
+in the beam's input board sent a bounded beam down a worse path.
+
+Ruled out by direct test, all now regression-tested: market fingerprint constant
+across prices; rival budgets identical to pre-buy at every price; board seed
+fixed; `PlayerSpec` carries no price so price cannot enter scoring; cache keys
+are mode-prefixed.
+
+### The fix: one nested opportunity set per ladder
+
+`tactical/nested.py`. Generate completions at every price, union them, re-offer
+the union to every price, keep what is legal and affordable there. Feasibility
+nesting then holds by construction, and audited mode **refuses** a ladder that
+is not nested.
+
+```
+      $   budget  generated  inherited  feasible  unafford
+      1      109          3         14        17         0
+      5      105          3         14        17         0
+     10      100          3         14        17         0
+     13       97          3         14        17         0
+     20       90          3         12        15         2
+     30       80          3          7        10         7
+nesting violations: 0
+```
+
+### Three monotonicities, kept separate
+
+* **Feasibility** — exact. `feasible($5) ⊆ feasible($1)`, tested directly.
+* **Selection objective** — exact here, and for a reason worth stating: a rival
+  continuation depends only on *which players we took*, never on what we paid
+  (rivals bid with `focus_bids=False` against the board we leave). So the same
+  construction yields the same joint allocation at every price, and the best
+  available at $1 is at least the best available at $5.
+* **Holdout estimate** — not forced. `favorite` still wiggles
+  (0.09050/0.08775/0.08775/0.09025) inside a ±0.009 interval. Reported, not
+  smoothed.
+
+### Audited ladder, corrected
+
+`--mode audited`, 800-season holdout, four recipients:
+
+```
+ $13  Owner07 +0.02625 ±0.0152  favorable
+ $13  Owner04 +0.02875 ±0.0144  favorable
+ $13  Owner02 +0.03375 ±0.0143  favorable
+ $13  unavail +0.03000 ±0.0146  favorable
+ $56  all four  -0.011 to -0.019  unfavorable
+ $99  all four  -0.011 to -0.019  unfavorable
+robust $13   base $13   permissive $13   bracket (13, 56)   legal max $99
+```
+
+### Roster-strength regimes: the headline result
+
+Budget alone was tried first and **does not work** — $28 to $179 moved our
+finished proxy by 0.2 points and left us 12th in every case. The board binds,
+not the wallet. The regimes therefore vary how much roster we start with. That
+failed fixture is documented in `regimes.py` because it is a real finding.
+
+```
+regime         pre-owned  our proxy  field mean  our CE   rank
+underdog           2         92.5      106.89    0.00000   12
+bubble             3        102.4      106.29    0.02325   12
+bye_contender      8        106.6      106.07    0.08575    6
+favorite          11        106.8      106.01    0.08200    7
+
+delta at $1:
+underdog       +0.02050 ±0.00439  FAVORABLE
+bubble         +0.02325 ±0.00745  FAVORABLE
+bye_contender  -0.00075 ±0.00864  unresolved
+favorite       +0.00850 ±0.00903  unresolved
+```
+
+**The candidate is worth most to teams that need him and is not resolvably
+worth anything to teams that do not.** Not predetermined: `bye_contender` came
+out very slightly negative. Valuing this player from one roster context and
+calling that his value would have been wrong in both directions.
+
+Within `underdog`, `bubble` and `bye_contender` the delta is **identical at
+every tested price** — the nested set makes the same construction available
+throughout, so the same joint world is selected and the same seasons give the
+same equity. Before this branch the same sweep moved 0.033 across prices purely
+through beam path dependence.
+
+### Recipient identity (`bubble`)
+
+```
+Owner12 pays $22 -> our CE 0.02325, his 0.13350
+Owner02 pays $21 -> our CE 0.01825, his 0.12900
+```
+
+Separate branches, separate allocations, no averaging.
+
+### Benchmarks
+
+```
+nested candidate generation (4 prices)     0.920s
+audited: 1 price, 1 recipient              6.578s
+audited: 4-price ladder                   11.573s
+audited: cache hit                         0.022s
+proxy mode: 4-price ladder                 1.427s
+```
+
+Audited is precomputation, as intended. The cached lookup is 22ms.
+
+### Still provisional
+
+* No real auction observed; bidder coefficients remain chosen.
+* The nested set is a union of **bounded beam searches**. Nesting is exact over
+  the evaluated set, not over all legal rosters, and `exactness` says so.
+* `underdog`'s pass arm sits at CE exactly 0.0 — a genuine floor, so its delta
+  is measured against a boundary.
+* Only the fabricated world is wired in; there is no live-room loader.
+* Regime fixtures vary pre-owned roster size, which also changes our budget;
+  the two are not separated.
+
+### Exact next step
+
+**Separate roster quality from budget in the regime fixtures** — hold
+`budget_remaining` constant across regimes by adjusting `spend_per_player`, so
+the regime comparison isolates roster strength. Then re-run
+`regime_experiment` and confirm the ordering survives.
