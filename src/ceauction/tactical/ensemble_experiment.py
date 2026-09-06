@@ -92,7 +92,7 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
     if rec is None:
         raise RuntimeError("no legal recipient for the primary candidate")
     if verbose:
-        print(f"primary: {primary_pos} expensive, price ${prim.price_base}, "
+        print(f"primary: {primary_pos} {prim.tier}, price ${prim.price_base}, "
               f"recipient {rec[0]} @${rec[1]}, k={k}\n")
 
     def progress(i, total, dr):

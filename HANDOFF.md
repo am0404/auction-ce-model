@@ -2402,3 +2402,115 @@ unconverged diagnostic.
 candidate selection**, so the CE confirmation covers the players the corrected
 diagnostic actually nominates — in particular TE1, which the template excluded
 entirely. Only then is the frontier work safe to start.
+
+---
+
+## Phase: search-effort convergence — PARTIAL GO
+
+Branch `marginal-search-convergence`, from
+`984b0ee46150e889f608bc915164e74965cdf181`. Detail in
+`docs/SEARCH_CONVERGENCE.md`.
+
+### The previous convergence claim was wrong
+
+Calling the diagnostic converged on price monotonicity alone was insufficient:
+its own table showed the $18 improvement moving 2.29 weekly points and reversing
+sign between 160/90 and 320/140.
+
+### Two monotonicities; only one had been enforced
+
+**Search-effort monotonicity** — more compute cannot give a worse answer — does
+not hold for independent beams. A wider beam is a different heuristic, not a
+strictly better one. Every level's completions are now accumulated into one
+union and re-scored with a single `ProxyEvaluator`, so the best construction any
+level found survives. Monotonicity is structural; the guard remains.
+
+**A second bug the union exposed:** the $1 and $p unions were independent, so
+cross-price nesting held only within each price's own search. The final union
+still violated price monotonicity by **5.94 weekly points**. Folding every $p
+member into the $1 union fixed it, and the two candidates previously reported
+`DIAGNOSTIC_NOT_CONVERGED` then converged.
+
+**Convergence now requires the decision to settle, not just the number.** Role
+and policy stability are part of `status()`; a candidate stable to 0.25 points
+whose role flips is not converged. A non-converged candidate is **UNRESOLVED**,
+never silently proxy-only.
+
+### Ladder results (64/60 → 160/90 → 240/120 → 320/140)
+
+```
+converged at tolerance 0.25         12/12
+converged at tolerance 0.50         12/12
+search-effort nesting violations     0   (structural)
+price nesting violations             0
+audited / proxy-only / UNRESOLVED    7 / 5 / 0
+effort required                      240/120 for all twelve
+```
+
+Every candidate's final rung moves ≤0.20 points, ten of twelve ≤0.02, while
+earlier rungs move up to +3.72.
+
+### Classification across three diagnostics
+
+```
+diagnostic                        audited  proxy-only  unresolved
+1/4/6/3 template                        6           6           -
+quota-free, single beam 160/90          8           4           -
+quota-free, converged ladder            7           5           0
+
+top QB   template 6.86 audit | beam 160/90 +0.05 proxy | converged +1.46 AUDIT
+top TE   template 0.22 proxy | beam 160/90 +1.89 audit | converged +0.77 AUDIT
+```
+
+The `8 / 4` count was **not** reproduced and was not preserved. The top QB has
+been classified three different ways; only the third is stable to 0.02 under a
+doubling of effort.
+
+### Corrected K=11 ensemble (converged selection)
+
+```
+pos  tier       $   improve   mean delta   between-SD  within-SE  CI95                   verdict
+RB   mid       25    +2.50     -0.03055     0.01975    0.00850   [-0.04381, -0.01728]   unfavorable
+QB   expensive 26    +1.46     +0.15752     0.00600    0.00810   [+0.15349, +0.16156]   favorable
+WR   expensive 32    +1.76     +0.08064     0.03199    0.00806   [+0.05915, +0.10212]   favorable
+TE   cheap      6    +1.32     -0.06714     0.01726    0.00808   [-0.07873, -0.05554]   unfavorable
+```
+
+All four resolved. Symmetry held: single-seed gap -0.03400, ensemble mean
++0.00116, CI95 [-0.01529, +0.01761], contains zero, no persistent label effect.
+These supersede the previous branch's stale selection.
+
+### Proxy direction vs CE direction
+
+All four have positive proxy improvement; RB and TE have **negative** CE.
+Candidate causes: opportunity cost through the shared board (CE lets eleven
+rivals re-complete, the proxy does not), denial running the wrong way (the
+recipient pays $30 for the RB), and playoff/bye nonlinearity. **This run does
+not separate them** — the decomposition needs a denial-isolated branch that is
+not built, and naming a dominant cause would be guessing.
+
+### VERDICT: PARTIAL GO
+
+Diagnostics converged (12/12), zero violations of either nesting kind, sampling
+stable, K=11 matches the final selection, symmetry and conservation valid.
+
+Not a full GO because the proxy that *selects* candidates disagrees in direction
+with the CE that *prices* them for two of four positions, and the cause is
+unseparated. A frontier search driven by a selector that disagrees with its own
+objective will spend effort in the wrong places.
+
+### Remaining limitations
+
+* Proxy/CE direction disagreement unexplained for RB and TE.
+* Contingency and handcuff value still unpriced; QB3 insurance still
+  unmeasurable from an empty room.
+* Convergence established on twelve candidates at one auction state.
+* Ladder costs ~12s per candidate; a full board would be ~1.8h at this width.
+
+### Exact next step
+
+**Decompose the proxy/CE disagreement for the RB and TE**: run the pass branch
+with the candidate withdrawn rather than sold to a rival, which isolates denial
+from opportunity cost, and compare against the sold-to-rival branch at the same
+eleven allocation draws. If denial explains the sign, the selector needs a
+denial term before it can drive a frontier search.
