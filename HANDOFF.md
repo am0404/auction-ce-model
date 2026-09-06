@@ -2280,3 +2280,125 @@ never replaced by a single arbitrary future auction.
 Money must be scarce for a ladder to bind, so seed the room with a plausible set
 of recorded sales, then walk each ladder at K=11 and see whether a frontier
 appears. That is the first point at which a real maximum bid could be quoted.
+
+---
+
+## Phase: quota-free marginal diagnostics — PARTIAL GO
+
+Branch `real-board-marginal-diagnostics`, from
+`fcb0cd0fbb6d0e0743196a9c2edad31b5e860324`. Detail in
+`docs/MARGINAL_DIAGNOSTICS.md`.
+
+### Exact reach of the 1/4/6/3 template
+
+It controlled the lineup-improvement number, displaced-player identification,
+starter/bench classification, **the proxy-only vs CE-audited sampling decision**,
+which positions got an ensemble run, and every position finding. It did **not**
+touch candidate selection, completion search, shared-board allocation, buy/pass
+CE, or max-bid. So the CE mathematics was never wrong — but the template decided
+*which real players ever reached it*, which is worse, because a wrong number can
+be checked and an unsimulated player cannot.
+
+### Replacement
+
+Two bounded completion searches over the real board — without the candidate, and
+with him bought at price `p` — under exact eligibility and the $1-per-slot
+reserve. `improvement = best_legal_eight(with) - best_legal_eight(without)`.
+Composition is an output. `ProxyEvaluator.lineup_shares` reports per-player start
+rates from the same mask the simulator uses: 15 QBs start exactly 2.0, a mixed
+roster starts 7.98.
+
+### A search-convergence defect this exposed
+
+Acquiring a player for less can never be worse. The first run violated that:
+
+```
+beam/pool    improve@$18   improve@$1   violation
+   24/30          +1.30        -4.64      +5.94
+   64/60          +2.19        -6.04      +8.23
+  160/90          +1.21        +1.16      +0.05
+ 320/140          -1.08        +0.86      -1.94
+```
+
+At the pilot's width the search error exceeded the effects being measured. **My
+first quota-free table was untrustworthy and was discarded, not published.**
+Defaults are now 160/90; `price_monotonicity_violation` is computed per
+candidate and printed. Current run: **0/12 violations, worst +0.45/wk**.
+
+### Naturally selected compositions
+
+```
+template (old):      QB1/RB4/WR6/TE3
+naturally selected:  QB3/RB7/WR3/TE2, QB3/RB8/WR2/TE2, QB3/RB7/WR4/TE1,
+                     QB4/RB5/WR2/TE4, QB3/RB8/WR3/TE1, QB3/RB7/WR2/TE3
+```
+
+The board wants three or four QBs and seven or eight RBs, and it varies by
+candidate — which a fixed template cannot do by construction.
+
+### Before vs after (12-player pilot)
+
+```
+                        template        quota-free, converged
+audited / proxy-only    6 / 6           8 / 4
+TE1 improvement         0.22            +1.89
+TE1 policy              proxy only      4,000-season audit
+all three TEs           proxy only      all three audited
+QB1 improvement         6.86            +0.05 @ $26  (+5.02 @ $1)
+QB1 policy              audit           proxy only (replaceable at his price)
+```
+
+**Both headline pilot findings reversed.** The TE result ("no scarcity premium,
+TE1 proxy-only") was an artefact of three reserved TE places; the QB result
+("all three QBs show the largest improvements") was an artefact of one reserved
+QB place.
+
+### Roles now measured, not assumed
+
+Improvement leads, not start share — a share threshold alone audited all twelve,
+because 8 of 15 start most weeks. New role **replaceable starter**: he starts,
+but the completion is as good without him because his price buys more elsewhere.
+`improvement_at_min` separates player quality from price.
+
+**Contingency value is not priced.** No conditional-backfield or QB-insurance
+mapping exists; bench raw points are never converted into lineup value. QB3
+insurance cannot be measured from an empty room.
+
+### K=11 ensemble confirmation
+
+```
+position      K   mean delta   between-SD   within-SE   CI95                     verdict
+RB (primary) 11    +0.00775      0.01862     0.00804    [-0.00476, +0.02026]     unresolved
+QB           11    -0.03814      0.02901     0.00810    [-0.05762, -0.01865]     unfavorable
+WR           11    -0.02727      0.01987     0.00805    [-0.04062, -0.01392]     unfavorable
+TE           11    -0.06091      0.02636     0.00808    [-0.07862, -0.04320]     unfavorable
+```
+
+**A TE qualified and was run**, impossible under the template. Symmetry held:
+single-seed gap -0.01725, ensemble mean +0.00070, CI95 [-0.00766, +0.00907],
+contains zero, no persistent label effect.
+
+**Caveat:** this ensemble ran with the pre-convergence (beam 32) diagnostic
+choosing which candidate to audit per position, so its candidates are not the
+ones the converged table nominates. The CE numbers are valid for the candidates
+actually run; the selection needs re-running.
+
+### VERDICT: PARTIAL GO for real price-frontier testing
+
+No quota affects diagnostics or sampling; roles come from legal completion; QB
+and TE follow exact eligibility; conservation and symmetry intact. But only three
+of four positions resolved at K=11, and the ensemble was selected by an
+unconverged diagnostic.
+
+### Remaining unsupported roles
+
+* Contingency / handcuff value — no conditional mapping exists.
+* QB3 injury insurance — unmeasurable from an empty room.
+* Bench depth value beyond its effect on the best legal eight.
+
+### Exact next step
+
+**Re-run the K=11 ensemble with the converged (160/90) diagnostic driving
+candidate selection**, so the CE confirmation covers the players the corrected
+diagnostic actually nominates — in particular TE1, which the template excluded
+entirely. Only then is the frontier work safe to start.

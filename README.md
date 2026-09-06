@@ -66,6 +66,7 @@ ever makes the first kind.
 | `docs/TACTICAL_POWER.md` | Estimator power by candidate tier, the sampling plan, and the GO verdict |
 | `docs/REAL_BOARD_PILOT.md` | First real-board pilot: twelve players, and the NO-GO it produced |
 | `docs/ALLOCATION_ENSEMBLE.md` | Exchangeable allocation ensembles, opening symmetry, and the GO that discharged it |
+| `docs/MARGINAL_DIAGNOSTICS.md` | Quota-free with/without completion diagnostics; the 1/4/6/3 template and what it distorted |
 | `docs/example_slot_swap_54cell.txt` | The 54-cell scenario band on one roster's two marginal slots |
 | `docs/examples/` | Sanitized `ce-lab auction` runs on a fabricated auction, including a sparse-versus-refined price ladder |
 | `docs/example_sensitivity_output.txt` | Paired real-data CE sensitivity, 16,000 seasons per scenario |

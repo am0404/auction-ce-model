@@ -38,40 +38,42 @@
       "price": 26,
       "without": {
         "composition": {
-          "QB": 4,
+          "QB": 3,
+          "RB": 8,
           "WR": 3,
-          "RB": 7,
           "TE": 1
         },
-        "best_eight": 100.6828,
-        "added_cost": 196,
-        "budget_left": 4,
+        "best_eight": 101.4192,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
           "QB": 3,
-          "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "RB": 8,
+          "WR": 2,
+          "TE": 2
         },
-        "best_eight": 100.0055,
-        "added_cost": 170,
-        "budget_left": 4,
+        "best_eight": 101.4643,
+        "added_cost": 174,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
-      "lineup_improvement": -0.6774,
-      "improvement_at_min": 5.5113,
-      "price_cost_of_slot": 6.1886,
+      "lineup_improvement": 0.0451,
+      "improvement_at_min": 5.0238,
+      "price_cost_of_slot": 4.9787,
       "start_share": 0.8125,
       "displaced_start_share": 0.9152,
       "bench_delta": 0,
       "role": "replaceable starter",
       "policy": "proxy only",
-      "reason": "the candidate starts 81% of weeks but the best-legal-eight improves only -0.68/wk at $26: the completion is as good without him, because the $26 buys more elsewhere. He is worth +5.51/wk at the $1 minimum, so this is a PRICE judgement, not a verdict on the player",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "reason": "the candidate starts 81% of weeks but the best-legal-eight improves only +0.05/wk at $26: the completion is as good without him, because the $26 buys more elsewhere. He is worth +5.02/wk at the $1 minimum, so this is a PRICE judgement, not a verdict on the player",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -4.9787,
+      "search_is_converged": true
     },
     {
       "position": "QB",
@@ -81,38 +83,40 @@
         "composition": {
           "QB": 3,
           "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "WR": 3,
+          "TE": 2
         },
-        "best_eight": 99.2076,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 101.15,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
           "QB": 3,
-          "WR": 4,
-          "RB": 7,
+          "RB": 8,
+          "WR": 3,
           "TE": 1
         },
-        "best_eight": 101.4928,
+        "best_eight": 102.2328,
         "added_cost": 178,
         "budget_left": 1,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
-      "lineup_improvement": 2.2852,
-      "improvement_at_min": 1.8304,
-      "price_cost_of_slot": -0.4548,
+      "lineup_improvement": 1.0828,
+      "improvement_at_min": 5.5541,
+      "price_cost_of_slot": 4.4713,
       "start_share": 0.8705,
-      "displaced_start_share": 0.8929,
+      "displaced_start_share": 0.8795,
       "bench_delta": 0,
       "role": "marginal starter",
       "policy": "4000-season audit",
-      "reason": "best-legal-eight improves +2.29/wk at $21 and the candidate holds a starting slot 87% of scoring weeks in his own quota-free completion",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "reason": "best-legal-eight improves +1.08/wk at $21 and the candidate holds a starting slot 87% of scoring weeks in his own quota-free completion",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -4.4713,
+      "search_is_converged": true
     },
     {
       "position": "QB",
@@ -122,38 +126,40 @@
         "composition": {
           "QB": 3,
           "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "WR": 3,
+          "TE": 2
         },
-        "best_eight": 99.2076,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 101.15,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
-          "QB": 3,
-          "WR": 4,
-          "RB": 7,
-          "TE": 1
+          "QB": 4,
+          "RB": 5,
+          "WR": 2,
+          "TE": 4
         },
-        "best_eight": 98.415,
-        "added_cost": 174,
-        "budget_left": 7,
+        "best_eight": 99.3709,
+        "added_cost": 179,
+        "budget_left": 2,
         "exactness": "heuristic",
         "n_starters": 8
       },
-      "lineup_improvement": -0.7926,
-      "improvement_at_min": 2.8408,
-      "price_cost_of_slot": 3.6334,
-      "start_share": 0.8214,
-      "displaced_start_share": 0.8527,
-      "bench_delta": 0,
-      "role": "replaceable starter",
+      "lineup_improvement": -1.7791,
+      "improvement_at_min": 2.9698,
+      "price_cost_of_slot": 4.7489,
+      "start_share": 0.2545,
+      "displaced_start_share": 0.8795,
+      "bench_delta": 1,
+      "role": "aggregate depth",
       "policy": "proxy only",
-      "reason": "the candidate starts 82% of weeks but the best-legal-eight improves only -0.79/wk at $19: the completion is as good without him, because the $19 buys more elsewhere. He is worth +2.84/wk at the $1 minimum, so this is a PRICE judgement, not a verdict on the player",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "reason": "best-legal-eight improves -1.78/wk (< 0.25) and the candidate starts 25% of weeks; zero-improvement candidates never resolved in the power study, so CE seasons on him are waste. This is a measured role, not a positional rule",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -4.7489,
+      "search_is_converged": true
     },
     {
       "position": "RB",
@@ -166,9 +172,9 @@
           "WR": 4,
           "TE": 1
         },
-        "best_eight": 98.9224,
-        "added_cost": 191,
-        "budget_left": 9,
+        "best_eight": 102.2854,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
         "n_starters": 8
       },
@@ -179,22 +185,24 @@
           "WR": 4,
           "TE": 1
         },
-        "best_eight": 99.8839,
-        "added_cost": 149,
-        "budget_left": 7,
+        "best_eight": 101.8939,
+        "added_cost": 156,
+        "budget_left": 0,
         "exactness": "heuristic",
         "n_starters": 8
       },
-      "lineup_improvement": 0.9614,
-      "improvement_at_min": 9.5452,
-      "price_cost_of_slot": 8.5838,
+      "lineup_improvement": -0.3915,
+      "improvement_at_min": 8.3024,
+      "price_cost_of_slot": 8.6938,
       "start_share": 0.8304,
-      "displaced_start_share": 0.8795,
+      "displaced_start_share": 0.8839,
       "bench_delta": 0,
-      "role": "marginal starter",
-      "policy": "4000-season audit",
-      "reason": "best-legal-eight improves +0.96/wk at $44 and the candidate holds a starting slot 83% of scoring weeks in his own quota-free completion",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "role": "replaceable starter",
+      "policy": "proxy only",
+      "reason": "the candidate starts 83% of weeks but the best-legal-eight improves only -0.39/wk at $44: the completion is as good without him, because the $44 buys more elsewhere. He is worth +8.30/wk at the $1 minimum, so this is a PRICE judgement, not a verdict on the player",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -8.6938,
+      "search_is_converged": true
     },
     {
       "position": "RB",
@@ -207,9 +215,9 @@
           "WR": 4,
           "TE": 1
         },
-        "best_eight": 99.2076,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 101.87,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
         "n_starters": 8
       },
@@ -217,25 +225,27 @@
         "composition": {
           "RB": 7,
           "QB": 3,
-          "WR": 4,
-          "TE": 1
+          "WR": 3,
+          "TE": 2
         },
-        "best_eight": 98.4447,
-        "added_cost": 160,
-        "budget_left": 15,
+        "best_eight": 104.3306,
+        "added_cost": 174,
+        "budget_left": 1,
         "exactness": "heuristic",
         "n_starters": 8
       },
-      "lineup_improvement": -0.7629,
-      "improvement_at_min": 6.9865,
-      "price_cost_of_slot": 7.7494,
+      "lineup_improvement": 2.4606,
+      "improvement_at_min": 5.7541,
+      "price_cost_of_slot": 3.2934,
       "start_share": 0.9152,
-      "displaced_start_share": 0.8527,
+      "displaced_start_share": 0.8795,
       "bench_delta": 0,
-      "role": "replaceable starter",
-      "policy": "proxy only",
-      "reason": "the candidate starts 92% of weeks but the best-legal-eight improves only -0.76/wk at $25: the completion is as good without him, because the $25 buys more elsewhere. He is worth +6.99/wk at the $1 minimum, so this is a PRICE judgement, not a verdict on the player",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +2.46/wk at $25 and the candidate holds a starting slot 92% of scoring weeks in his own quota-free completion",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -3.2934,
+      "search_is_converged": true
     },
     {
       "position": "RB",
@@ -245,38 +255,40 @@
         "composition": {
           "QB": 3,
           "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "WR": 3,
+          "TE": 2
         },
-        "best_eight": 99.1513,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 101.15,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
-          "RB": 7,
+          "RB": 8,
           "QB": 3,
-          "WR": 4,
-          "TE": 1
+          "WR": 2,
+          "TE": 2
         },
-        "best_eight": 100.6318,
-        "added_cost": 182,
-        "budget_left": 3,
+        "best_eight": 101.4591,
+        "added_cost": 185,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
-      "lineup_improvement": 1.4805,
-      "improvement_at_min": 2.9337,
-      "price_cost_of_slot": 1.4532,
+      "lineup_improvement": 0.3091,
+      "improvement_at_min": 2.3625,
+      "price_cost_of_slot": 2.0534,
       "start_share": 0.8795,
-      "displaced_start_share": 0.8304,
+      "displaced_start_share": 0.8795,
       "bench_delta": 0,
       "role": "marginal starter",
       "policy": "4000-season audit",
-      "reason": "best-legal-eight improves +1.48/wk at $15 and the candidate holds a starting slot 88% of scoring weeks in his own quota-free completion",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "reason": "best-legal-eight improves +0.31/wk at $15 and the candidate holds a starting slot 88% of scoring weeks in his own quota-free completion",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -2.0534,
+      "search_is_converged": true
     },
     {
       "position": "WR",
@@ -285,15 +297,15 @@
       "without": {
         "composition": {
           "QB": 3,
-          "WR": 4,
           "RB": 7,
-          "TE": 1
+          "WR": 3,
+          "TE": 2
         },
-        "best_eight": 101.615,
+        "best_eight": 101.15,
         "added_cost": 200,
         "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
@@ -302,22 +314,24 @@
           "RB": 7,
           "TE": 1
         },
-        "best_eight": 100.0366,
-        "added_cost": 164,
-        "budget_left": 4,
+        "best_eight": 102.5565,
+        "added_cost": 168,
+        "budget_left": 0,
         "exactness": "heuristic",
         "n_starters": 8
       },
-      "lineup_improvement": -1.5783,
-      "improvement_at_min": 5.0574,
-      "price_cost_of_slot": 6.6357,
+      "lineup_improvement": 1.4065,
+      "improvement_at_min": 7.5142,
+      "price_cost_of_slot": 6.1076,
       "start_share": 0.8839,
-      "displaced_start_share": 0.9152,
-      "bench_delta": 0,
-      "role": "replaceable starter",
-      "policy": "proxy only",
-      "reason": "the candidate starts 88% of weeks but the best-legal-eight improves only -1.58/wk at $32: the completion is as good without him, because the $32 buys more elsewhere. He is worth +5.06/wk at the $1 minimum, so this is a PRICE judgement, not a verdict on the player",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "displaced_start_share": 0.8304,
+      "bench_delta": 1,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +1.41/wk at $32 and the candidate holds a starting slot 88% of scoring weeks in his own quota-free completion",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -6.1076,
+      "search_is_converged": true
     },
     {
       "position": "WR",
@@ -327,38 +341,40 @@
         "composition": {
           "QB": 3,
           "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "WR": 3,
+          "TE": 2
         },
-        "best_eight": 99.1513,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 101.15,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
-          "WR": 4,
+          "WR": 3,
           "QB": 3,
           "RB": 7,
-          "TE": 1
+          "TE": 2
         },
-        "best_eight": 99.9191,
-        "added_cost": 175,
-        "budget_left": 8,
+        "best_eight": 100.7328,
+        "added_cost": 182,
+        "budget_left": 1,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
-      "lineup_improvement": 0.7679,
-      "improvement_at_min": 3.467,
-      "price_cost_of_slot": 2.6992,
+      "lineup_improvement": -0.4172,
+      "improvement_at_min": 3.4091,
+      "price_cost_of_slot": 3.8263,
       "start_share": 0.808,
       "displaced_start_share": 0.8795,
       "bench_delta": 0,
-      "role": "marginal starter",
-      "policy": "4000-season audit",
-      "reason": "best-legal-eight improves +0.77/wk at $17 and the candidate holds a starting slot 81% of scoring weeks in his own quota-free completion",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "role": "replaceable starter",
+      "policy": "proxy only",
+      "reason": "the candidate starts 81% of weeks but the best-legal-eight improves only -0.42/wk at $17: the completion is as good without him, because the $17 buys more elsewhere. He is worth +3.41/wk at the $1 minimum, so this is a PRICE judgement, not a verdict on the player",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -3.8263,
+      "search_is_converged": true
     },
     {
       "position": "WR",
@@ -368,37 +384,40 @@
         "composition": {
           "QB": 3,
           "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "WR": 2,
+          "TE": 3
         },
-        "best_eight": 99.1513,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 99.865,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
-          "WR": 5,
+          "WR": 3,
           "QB": 3,
-          "RB": 7
+          "RB": 8,
+          "TE": 1
         },
-        "best_eight": 100.424,
+        "best_eight": 102.0685,
         "added_cost": 192,
         "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
-      "lineup_improvement": 1.2727,
-      "improvement_at_min": 0.6961,
-      "price_cost_of_slot": -0.5766,
+      "lineup_improvement": 2.2034,
+      "improvement_at_min": 2.0594,
+      "price_cost_of_slot": -0.144,
       "start_share": 0.8616,
-      "displaced_start_share": 0.8527,
+      "displaced_start_share": 0.8795,
       "bench_delta": 0,
       "role": "marginal starter",
       "policy": "4000-season audit",
-      "reason": "best-legal-eight improves +1.27/wk at $8 and the candidate holds a starting slot 86% of scoring weeks in his own quota-free completion",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "reason": "best-legal-eight improves +2.20/wk at $8 and the candidate holds a starting slot 86% of scoring weeks in his own quota-free completion",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.144,
+      "search_is_converged": true
     },
     {
       "position": "TE",
@@ -408,14 +427,14 @@
         "composition": {
           "QB": 3,
           "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "WR": 3,
+          "TE": 2
         },
-        "best_eight": 99.1513,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 101.15,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
@@ -424,22 +443,24 @@
           "RB": 7,
           "WR": 3
         },
-        "best_eight": 104.0135,
-        "added_cost": 186,
-        "budget_left": 1,
+        "best_eight": 103.0443,
+        "added_cost": 187,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
-      "lineup_improvement": 4.8623,
-      "improvement_at_min": 4.521,
-      "price_cost_of_slot": -0.3413,
+      "lineup_improvement": 1.8943,
+      "improvement_at_min": 4.4242,
+      "price_cost_of_slot": 2.5299,
       "start_share": 0.8795,
-      "displaced_start_share": 0.8929,
+      "displaced_start_share": 0.8795,
       "bench_delta": 0,
-      "role": "clear starter",
+      "role": "marginal starter",
       "policy": "4000-season audit",
-      "reason": "best-legal-eight improves +4.86/wk at $13 and the candidate holds a starting slot 88% of scoring weeks in his own quota-free completion",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "reason": "best-legal-eight improves +1.89/wk at $13 and the candidate holds a starting slot 88% of scoring weeks in his own quota-free completion",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -2.5299,
+      "search_is_converged": true
     },
     {
       "position": "TE",
@@ -449,14 +470,14 @@
         "composition": {
           "QB": 3,
           "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "WR": 2,
+          "TE": 3
         },
-        "best_eight": 99.1513,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 99.865,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
@@ -465,22 +486,24 @@
           "RB": 7,
           "WR": 3
         },
-        "best_eight": 97.982,
-        "added_cost": 181,
-        "budget_left": 9,
+        "best_eight": 101.8429,
+        "added_cost": 190,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
-      "lineup_improvement": -1.1692,
-      "improvement_at_min": 0.5782,
-      "price_cost_of_slot": 1.7474,
+      "lineup_improvement": 1.9779,
+      "improvement_at_min": 2.1131,
+      "price_cost_of_slot": 0.1352,
       "start_share": 0.8438,
-      "displaced_start_share": 0.8929,
+      "displaced_start_share": 0.8795,
       "bench_delta": 0,
-      "role": "replaceable starter",
-      "policy": "proxy only",
-      "reason": "the candidate starts 84% of weeks but the best-legal-eight improves only -1.17/wk at $10: the completion is as good without him, because the $10 buys more elsewhere. He is worth +0.58/wk at the $1 minimum, so this is a PRICE judgement, not a verdict on the player",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +1.98/wk at $10 and the candidate holds a starting slot 84% of scoring weeks in his own quota-free completion",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": -0.1352,
+      "search_is_converged": true
     },
     {
       "position": "TE",
@@ -490,67 +513,63 @@
         "composition": {
           "QB": 3,
           "RB": 7,
-          "WR": 4,
-          "TE": 1
+          "WR": 2,
+          "TE": 3
         },
-        "best_eight": 99.1513,
-        "added_cost": 192,
-        "budget_left": 8,
+        "best_eight": 99.865,
+        "added_cost": 200,
+        "budget_left": 0,
         "exactness": "heuristic",
-        "n_starters": 8
+        "n_starters": 9
       },
       "with_candidate": {
         "composition": {
-          "TE": 2,
+          "TE": 3,
           "QB": 3,
-          "RB": 6,
-          "WR": 4
+          "RB": 7,
+          "WR": 2
         },
-        "best_eight": 99.8224,
-        "added_cost": 188,
-        "budget_left": 6,
+        "best_eight": 102.1068,
+        "added_cost": 193,
+        "budget_left": 1,
         "exactness": "heuristic",
         "n_starters": 8
       },
-      "lineup_improvement": 0.6712,
-      "improvement_at_min": 0.7901,
-      "price_cost_of_slot": 0.1189,
-      "start_share": 0.4018,
-      "displaced_start_share": 0.8527,
-      "bench_delta": 0,
+      "lineup_improvement": 2.2418,
+      "improvement_at_min": 1.7882,
+      "price_cost_of_slot": -0.4536,
+      "start_share": 0.4688,
+      "displaced_start_share": 0.8795,
+      "bench_delta": 1,
       "role": "marginal starter",
       "policy": "4000-season audit",
-      "reason": "best-legal-eight improves +0.67/wk at $6 and the candidate holds a starting slot 40% of scoring weeks in his own quota-free completion",
-      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value"
+      "reason": "best-legal-eight improves +2.24/wk at $6 and the candidate holds a starting slot 47% of scoring weeks in his own quota-free completion",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.4536,
+      "search_is_converged": true
     }
   ],
   "results": {
-    "audited": 7,
-    "proxy_only": 5,
+    "audited": 8,
+    "proxy_only": 4,
     "compositions": [
       {
         "QB": 3,
-        "RB": 7,
-        "WR": 4,
-        "TE": 1
+        "RB": 8,
+        "WR": 2,
+        "TE": 2
       },
       {
         "QB": 3,
-        "WR": 4,
-        "RB": 7,
+        "RB": 8,
+        "WR": 3,
         "TE": 1
       },
       {
-        "QB": 3,
-        "WR": 4,
-        "RB": 7,
-        "TE": 1
-      },
-      {
-        "RB": 7,
-        "QB": 3,
-        "WR": 4,
-        "TE": 1
+        "QB": 4,
+        "RB": 5,
+        "WR": 2,
+        "TE": 4
       },
       {
         "RB": 7,
@@ -561,8 +580,14 @@
       {
         "RB": 7,
         "QB": 3,
-        "WR": 4,
-        "TE": 1
+        "WR": 3,
+        "TE": 2
+      },
+      {
+        "RB": 8,
+        "QB": 3,
+        "WR": 2,
+        "TE": 2
       },
       {
         "WR": 4,
@@ -571,15 +596,16 @@
         "TE": 1
       },
       {
-        "WR": 4,
+        "WR": 3,
         "QB": 3,
         "RB": 7,
-        "TE": 1
+        "TE": 2
       },
       {
-        "WR": 5,
+        "WR": 3,
         "QB": 3,
-        "RB": 7
+        "RB": 8,
+        "TE": 1
       },
       {
         "TE": 2,
@@ -594,10 +620,10 @@
         "WR": 3
       },
       {
-        "TE": 2,
+        "TE": 3,
         "QB": 3,
-        "RB": 6,
-        "WR": 4
+        "RB": 7,
+        "WR": 2
       }
     ]
   },

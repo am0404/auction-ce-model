@@ -362,6 +362,18 @@ class CandidateDiagnostics:
     policy: str
     reason: str
     contingency_note: str
+    price_monotonicity_violation: float = 0.0
+    """``improvement(price) - improvement($1)``, which economics says is <= 0.
+
+    Money not spent stays available, so acquiring the same player for less can
+    never be worse. A positive value here is bounded-search error, not a
+    finding, and it is reported rather than smoothed: at beam_width=32 it
+    reached +8.2 points on the fabricated board, which is larger than the
+    effects this diagnostic exists to measure."""
+
+    @property
+    def search_is_converged(self) -> bool:
+        return self.price_monotonicity_violation <= 0.5
 
     def to_dict(self, *, include_identity: bool = False) -> Dict[str, object]:
         out: Dict[str, object] = {
@@ -378,6 +390,9 @@ class CandidateDiagnostics:
             "bench_delta": self.bench_delta,
             "role": self.role, "policy": self.policy, "reason": self.reason,
             "contingency_note": self.contingency_note,
+            "price_monotonicity_violation": round(
+                self.price_monotonicity_violation, 4),
+            "search_is_converged": self.search_is_converged,
         }
         if include_identity:
             out["player_id"] = self.player_id
@@ -451,9 +466,15 @@ def diagnose(board: "RealBoard", cand: Candidate, *,
     focus = board.focus_owner_id
     cid = cand.player_id
     p = int(price if price is not None else (cand.price_base or 1))
+    # Beam width matters more here than anywhere else in the project. The
+    # with/without difference is a few points; at beam_width=32 the search was
+    # not converged and produced violations of the price monotonicity invariant
+    # of +5.9 to +8.2 points -- larger than the effects being measured. At
+    # beam_width=160 the same violation collapses to +0.05. Anything narrower
+    # is measuring the beam, not the player.
     cs = settings or CompletionSettings(
-        beam_width=32, candidate_pool=40, proxy_candidates=32, finalists=3,
-        max_candidates=160, proxy_reps=16)
+        beam_width=160, candidate_pool=90, proxy_candidates=48, finalists=3,
+        max_candidates=400, proxy_reps=16)
 
     without = _branch(board, st, board.cast, board.costs["base"], cs, proxy,
                       frozenset({cid}), "quota-free completion WITHOUT candidate")
@@ -535,7 +556,8 @@ def diagnose(board: "RealBoard", cand: Candidate, *,
         improvement_at_min=at_min, start_share=share, displaced_player_id=displaced,
         displaced_start_share=disp_share,
         bench_delta=bench_with - bench_without, role=role, policy=policy,
-        reason=reason, contingency_note=NO_CONTINGENCY_MODEL)
+        reason=reason, contingency_note=NO_CONTINGENCY_MODEL,
+        price_monotonicity_violation=(gain - at_min if p > 1 else 0.0))
 
 
 # ---------------------------------------------------------------------------

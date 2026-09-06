@@ -711,8 +711,8 @@ def cmd_marginal_diagnostics(args) -> int:
     px = ProxyEvaluator(board.state.pool, board.state.settings, 16, 7)
     cs = CompletionSettings(beam_width=args.beam_width,
                             candidate_pool=args.candidate_pool,
-                            proxy_candidates=32, finalists=3,
-                            max_candidates=160, proxy_reps=16)
+                            proxy_candidates=48, finalists=3,
+                            max_candidates=400, proxy_reps=16)
     positions = tuple(args.position or ("QB", "RB", "WR", "TE"))
     cands, notes = select_candidates(board, per_position=args.per_position,
                                      positions=positions)
@@ -735,6 +735,11 @@ def cmd_marginal_diagnostics(args) -> int:
     print(f"  audited {audited}/{len(rows)}, proxy-only {len(rows) - audited}")
     print(f"  completion exactness: "
           f"{sorted({r['with_candidate']['exactness'] for r in rows})}")
+    bad = [r for r in rows if not r["search_is_converged"]]
+    worst = max((r["price_monotonicity_violation"] for r in rows), default=0.0)
+    print(f"  price-monotonicity violations: {len(bad)}/{len(rows)} "
+          f"(worst {worst:+.2f}/wk) -- a positive value is SEARCH ERROR, not a "
+          f"finding")
     print(f"  contingency: {NO_CONTINGENCY_MODEL}")
 
     out = _P(args.out_dir)
@@ -976,8 +981,11 @@ def add_tactical_parser(sub) -> None:
     s.add_argument("--per-position", type=int, default=3)
     s.add_argument("--position", action="append",
                    choices=["QB", "RB", "WR", "TE"])
-    s.add_argument("--beam-width", type=int, default=32)
-    s.add_argument("--candidate-pool", type=int, default=40)
+    s.add_argument("--beam-width", type=int, default=160,
+                   help="narrower than ~160 does not converge: the with/without "
+                        "difference is a few points and a narrow beam produced "
+                        "price-monotonicity violations larger than that")
+    s.add_argument("--candidate-pool", type=int, default=90)
     s.add_argument("--market-scenario", default="base",
                    choices=["low", "base", "high"])
     s.add_argument("--performance-scenario",

@@ -176,23 +176,37 @@ def diags(fake_board):
     return [(c, diagnose(fake_board, c, proxy=px)) for c in cands]
 
 
-def test_the_reference_roster_is_legal_and_not_all_quarterbacks(fake_board):
-    """The first pilot run filled fourteen slots with QBs and read QB1 at 0.03."""
+def test_a_cheaper_candidate_is_never_worth_less_than_a_dearer_one(fake_board):
+    """The real invariant, after two reference rosters got QBs wrong.
+
+    Filling fourteen slots with the top fourteen projections gave fourteen QBs
+    and read QB1 at 0.03. Replacing that with a fixed 1-QB template flattered
+    every second QB. With no template at all there is no sign to assert -- a
+    player can genuinely be worth negative points if forcing him onto the
+    roster displaces someone better, even for free. What must hold is that
+    paying LESS is never worse, because the money not spent stays available.
+    """
     px = ProxyEvaluator(fake_board.state.pool, fake_board.state.settings, 32, 7)
     cands, _ = select_candidates(fake_board)
     qb = next(c for c in cands if c.position == "QB" and c.tier == "expensive")
     d = diagnose(fake_board, qb, proxy=px)
-    assert d.lineup_improvement > 0.0, \
-        "a top QB must gain something in an open superflex seat"
+    if d.price > 1:
+        assert d.improvement_at_min >= d.lineup_improvement - 1.0, (
+            "acquiring the same player for $1 cannot be materially worse than "
+            "paying his market price; a violation beyond beam-search noise "
+            "would mean price was leaking into player value")
 
 
 def test_policy_follows_lineup_improvement_not_price(diags):
+    """Sub-threshold improvement never earns CE seasons, whatever the price."""
     for c, d in diags:
         if d.lineup_improvement < BENCH_IMPROVEMENT:
             assert d.policy == "proxy only"
-            assert d.role == "bench/insurance"
+            assert d.role in ("replaceable starter", "aggregate depth",
+                              "bench/insurance", "currently redundant")
         else:
             assert d.policy == "4000-season audit"
+            assert d.role in ("clear starter", "marginal starter")
     # An expensive player with no lineup effect must still be proxy-only, and
     # a cheap player with a real effect must still earn an audit. Price alone
     # decides nothing.
@@ -207,8 +221,12 @@ def test_policy_follows_lineup_improvement_not_price(diags):
 def test_a_bench_candidate_is_never_given_an_audited_reservation(diags):
     for c, d in diags:
         if d.policy == "proxy only":
-            assert "waste" in d.reason or "resolve" in d.reason
             assert d.lineup_improvement < BENCH_IMPROVEMENT
+            # Either it is waste (no lineup effect) or a price judgement (he
+            # starts, but the money buys more elsewhere). Both are reasons a
+            # human can check; neither is "he plays this position".
+            assert ("waste" in d.reason or "resolve" in d.reason
+                    or "PRICE judgement" in d.reason)
 
 
 def test_no_hard_coded_tight_end_premium():
