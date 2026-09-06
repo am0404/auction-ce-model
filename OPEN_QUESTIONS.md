@@ -68,6 +68,59 @@ injury may already have depressed a given projection. Recorded as
 
 ---
 
+### D0. The auction layer's own open questions — NEW
+
+Added by the best-alternative foundation. These are separate from the
+calibration questions below and none of them is blocked on code.
+
+**A1. Acquisition costs for this league do not exist.** Every completion search
+needs an assumed price for every player it might buy. The nearest data to hand
+prices a 10-team half-PPR league, which is a different scarcity, a different
+roster shape and a different superflex rule. The cost contract refuses to treat
+it as this league's prices: a book is `REAL`, `TRANSFORMED`, `PROVISIONAL` or
+`FABRICATED`, and everything downstream carries that label.
+*What would settle it:* recorded prices from this league's own auctions, or a
+documented transform from a comparable format with its error stated.
+
+**A2. Nobody knows who would bid.** The state reports who *may* legally bid the
+next dollar, from budget, roster room and feasibility. Who *would* is a
+behavioural model this package does not contain. Until it does, the pass
+destination is an input a human supplies, and a reservation price cannot become
+a tactical bid.
+*What would settle it:* observed nomination and bidding behaviour from this
+league, or an explicit opponent model the user is willing to state.
+
+**A3. The other eleven rosters are held fixed.** The completion search optimises
+one owner against a frozen cast. That answers "which completion is best against
+*this* league" and not "against a league that is also still drafting".
+*What would settle it:* simultaneous multi-owner completion, which is the
+natural next phase.
+
+**A4. Real backfield contingencies do not exist here.** The model can express a
+direct handcuff, a partial one, a committee share, an ambiguous backfield and a
+standalone backup — but every one in the tests is fabricated. No real depth
+chart has been mapped.
+*What would settle it:* conditional workload inputs per backup, which nothing in
+the current source files provides.
+
+**A5. In-season replacement is not modelled at all.** No waivers, no FAAB, no
+trades, no post-draft acquisition. A quarterback's real scarcity depends on
+whether a replacement can be picked up in week 6, and this engine says nothing
+about that. Every scarcity number here is therefore an upper bound on scarcity
+as the draft sees it.
+*What would settle it:* a modelled in-season acquisition process, which is a
+larger piece of work than it sounds and would change QB3 and handcuff values in
+particular.
+
+**A6. The 54-cell band is wide, and one experiment is not a survey.** Two
+marginal slots on one integration roster were run through all 54 scenarios. The
+direction of the starter-slot effect held in every cell; its magnitude varied
+sixfold, and the band exceeded the CE gap between adjacent players. That governs
+presentation — ranges, not points — and says nothing about whether every other
+pair on the board keeps its order.
+*What would settle it:* the same test over the pairs a pricing layer would
+actually have to rank.
+
 ### D1. The target league is the 12-team superflex league — SETTLED
 
 `SPEC.md` is definitive. The previous model's 10-team non-superflex
