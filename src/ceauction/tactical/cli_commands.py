@@ -888,8 +888,93 @@ def cmd_decompose(args) -> int:
     return 0
 
 
+def cmd_midauction_frontier(args) -> int:
+    """SIMULATED mid-auction reservation frontier for one QB and one RB."""
+    from pathlib import Path as _P
+    from .frontier_experiment import run
+    from .midauction import SIMULATED_WATERMARK, PassPriceMode, STATE_SPECS
+    from .realpilot import PilotInputs
+
+    inputs = PilotInputs(
+        contract=_P(args.contract), sleeper_csv=_P(args.sleeper_csv),
+        out_dir=_P(args.out_dir), pool_limit=args.pool_limit,
+        market_scenario=args.market_scenario,
+        performance_scenario=args.performance_scenario)
+    missing = inputs.missing()
+    if missing:
+        raise UsageError(
+            "real inputs are missing: " + ", ".join(missing) + ". See "
+            "`ce-lab tactical real-pilot` for setup; both live under "
+            "local_data/, which is gitignored.")
+    if "local_data" not in _P(args.out_dir).parts:
+        raise UsageError(
+            f"--out-dir must sit under local_data/ (got {args.out_dir!r})")
+    if args.state not in STATE_SPECS:
+        raise UsageError(
+            f"unknown state {args.state!r}; known: "
+            f"{', '.join(sorted(STATE_SPECS))}")
+    if args.draws < 2:
+        raise UsageError("--draws must be at least 2")
+    if args.sims < 100:
+        raise UsageError("--sims must be at least 100")
+    if args.increment < 1:
+        raise UsageError("--increment must be at least 1")
+    if args.audit_budget < 2:
+        raise UsageError(
+            "--audit-budget must be at least 2; one audited price cannot "
+            "bracket a frontier")
+    if args.pass_mode == "stop_now" and args.standing_price is None:
+        raise UsageError(
+            "--pass-mode stop_now needs --standing-price: the rule is that "
+            "the rival already leads at q and we consider q+increment")
+    if args.pass_mode == "fixed_market" and args.rival_price is None:
+        raise UsageError(
+            "--pass-mode fixed_market needs --rival-price: an explicit q is "
+            "what makes it a stated counterfactual")
+    if args.pass_mode == "rival_outbids" and (args.standing_price is not None
+                                              or args.rival_price is not None):
+        raise UsageError(
+            "--pass-mode rival_outbids derives q as p+increment; supplying a "
+            "standing or rival price would mix pass-price semantics")
+
+    print("=" * 78)
+    print(SIMULATED_WATERMARK)
+    print("=" * 78)
+    print()
+    blob, local = run(inputs, frontier_state=args.state, k=args.draws,
+                      holdout_sims=args.sims,
+                      selection_sims=args.selection_sims,
+                      increment=args.increment,
+                      audit_budget=args.audit_budget,
+                      runtime_budget_s=args.runtime_budget)
+    d = _P(args.out_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "midauction_frontier.json").write_text(
+        json.dumps(local, indent=2, default=str), encoding="utf-8")
+    if args.json_out:
+        _write_json(args.json_out, blob)
+    print()
+    for pos, fr in blob["frontiers"].items():
+        if "classification" not in fr:
+            print(f"  {pos}: {fr.get('status')}")
+            continue
+        print(f"  {pos}: {fr['classification']}  highest favorable "
+              f"{fr['highest_favorable']}  next unfavorable "
+              f"{fr['next_unfavorable']}  bracket {fr['bracket']}  "
+              f"legal max ${fr['legal_max']}  cache hits {fr['cache_hits']}")
+    print()
+    print(f"  player-level output -> {d / 'midauction_frontier.json'} "
+          f"(IGNORED)")
+    print(f"  runtime {blob['runtime_s']:.0f}s")
+    print()
+    print("  REMINDER: the auction history above is SIMULATED. No league sale "
+          "has ever been recorded.")
+    return 0
+
+
 _COMMANDS = {
     "validate": cmd_validate,
+    "midauction-frontier": cmd_midauction_frontier,
     "decompose": cmd_decompose,
     "marginal-diagnostics": cmd_marginal_diagnostics,
     "allocation-ensemble": cmd_allocation_ensemble,
@@ -1131,6 +1216,41 @@ def add_tactical_parser(sub) -> None:
     s.add_argument("--performance-scenario",
                    default="median_target/full_health/week_sd/exclude")
     s.add_argument("--runtime-budget", type=float, default=3600.0)
+
+    s = inner.add_parser(
+        "midauction-frontier",
+        help="SIMULATED mid-auction reservation frontier (real board inputs)")
+    s.add_argument("--contract",
+                   default="local_data/real_player_contract_v1.json")
+    s.add_argument("--sleeper-csv",
+                   default="local_data/sleeper_2qb_values_2026_clean.csv")
+    s.add_argument("--out-dir", default="local_data/tactical")
+    s.add_argument("--json-out", default=None,
+                   help="sanitized position-level aggregate (safe to commit)")
+    s.add_argument("--pool-limit", type=int, default=260)
+    s.add_argument("--state", default="balanced",
+                   help="simulated state scenario: balanced, qb_inflation, "
+                        "skill_inflation")
+    s.add_argument("--pass-mode", default="stop_now",
+                   choices=["stop_now", "rival_outbids", "fixed_market"],
+                   help="pass-price semantics; a frontier is conditional on it")
+    s.add_argument("--standing-price", type=int, default=None,
+                   help="stop_now only: the rival's current high bid")
+    s.add_argument("--rival-price", type=int, default=None,
+                   help="fixed_market only: the explicit rival price q")
+    s.add_argument("--increment", type=int, default=1)
+    s.add_argument("--draws", type=int, default=11)
+    s.add_argument("--sims", type=int, default=4000)
+    s.add_argument("--selection-sims", type=int, default=800)
+    s.add_argument("--audit-budget", type=int, default=7,
+                   help="how many ladder prices earn K=11 CE audits")
+    s.add_argument("--refine", action="store_true",
+                   help="walk every integer inside the bracket")
+    s.add_argument("--market-scenario", default="base",
+                   choices=["low", "base", "high"])
+    s.add_argument("--performance-scenario",
+                   default="median_target/full_health/week_sd/exclude")
+    s.add_argument("--runtime-budget", type=float, default=4200.0)
 
     s = inner.add_parser("benchmark", help="runtime for every live stage")
     common(s, scenarios=True, mode=True)

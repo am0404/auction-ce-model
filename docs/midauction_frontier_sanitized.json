@@ -1,0 +1,1296 @@
+{
+  "provenance": "SIMULATED MID-AUCTION STATE -- invented from the market prior for frontier testing. NOT observed, NOT recorded, NOT historical, NOT calibrated. No league sale has ever been recorded.",
+  "simulated": true,
+  "states": {
+    "balanced": {
+      "spec": {
+        "name": "balanced",
+        "description": "SIMULATED: ~66 sales at base market prices, no positional tilt",
+        "n_sales": 66,
+        "market_scenario": "base",
+        "position_inflation": {},
+        "seed": 20260906
+      },
+      "fingerprint": "44209a94d76fce67",
+      "validation": {
+        "simulated": true,
+        "n_sales": 66,
+        "total_spent": 1488,
+        "dollars_reconcile": true,
+        "duplicate_ownership": false,
+        "reserve_ok": true,
+        "owners": {
+          "Team01": {
+            "budget_remaining": 139,
+            "spent": 61,
+            "open_slots": 12,
+            "n_players": 3,
+            "positions": {
+              "QB": 3
+            },
+            "financial_max_bid": 128
+          },
+          "Team02": {
+            "budget_remaining": 63,
+            "spent": 137,
+            "open_slots": 8,
+            "n_players": 7,
+            "positions": {
+              "WR": 4,
+              "RB": 2,
+              "QB": 1
+            },
+            "financial_max_bid": 56
+          },
+          "Team03": {
+            "budget_remaining": 27,
+            "spent": 173,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 2,
+              "RB": 2,
+              "QB": 2
+            },
+            "financial_max_bid": 19
+          },
+          "Team04": {
+            "budget_remaining": 100,
+            "spent": 100,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "QB": 1,
+              "WR": 1
+            },
+            "financial_max_bid": 90
+          },
+          "Team05": {
+            "budget_remaining": 50,
+            "spent": 150,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 2,
+              "RB": 1,
+              "QB": 3
+            },
+            "financial_max_bid": 42
+          },
+          "Team06": {
+            "budget_remaining": 8,
+            "spent": 192,
+            "open_slots": 6,
+            "n_players": 9,
+            "positions": {
+              "RB": 4,
+              "WR": 3,
+              "QB": 2
+            },
+            "financial_max_bid": 3
+          },
+          "Team07": {
+            "budget_remaining": 68,
+            "spent": 132,
+            "open_slots": 10,
+            "n_players": 5,
+            "positions": {
+              "RB": 4,
+              "WR": 1
+            },
+            "financial_max_bid": 59
+          },
+          "Team08": {
+            "budget_remaining": 116,
+            "spent": 84,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "QB": 2
+            },
+            "financial_max_bid": 106
+          },
+          "Team09": {
+            "budget_remaining": 151,
+            "spent": 49,
+            "open_slots": 12,
+            "n_players": 3,
+            "positions": {
+              "QB": 1,
+              "RB": 1,
+              "WR": 1
+            },
+            "financial_max_bid": 140
+          },
+          "Team10": {
+            "budget_remaining": 100,
+            "spent": 100,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "WR": 1,
+              "QB": 1
+            },
+            "financial_max_bid": 90
+          },
+          "Team11": {
+            "budget_remaining": 82,
+            "spent": 118,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 4,
+              "QB": 1,
+              "RB": 1
+            },
+            "financial_max_bid": 74
+          },
+          "Team12": {
+            "budget_remaining": 8,
+            "spent": 192,
+            "open_slots": 6,
+            "n_players": 9,
+            "positions": {
+              "WR": 5,
+              "QB": 2,
+              "RB": 2
+            },
+            "financial_max_bid": 3
+          }
+        },
+        "pool_remaining": {
+          "QB": 16,
+          "RB": 47,
+          "WR": 88,
+          "TE": 43
+        },
+        "candidates": {
+          "QB": {
+            "position": "QB",
+            "our_legal_max": 128,
+            "highest_rival_legal_max": 140,
+            "owners_able_to_bid": 11,
+            "top_rival": "Team09"
+          },
+          "RB": {
+            "position": "RB",
+            "our_legal_max": 128,
+            "highest_rival_legal_max": 140,
+            "owners_able_to_bid": 11,
+            "top_rival": "Team09"
+          }
+        },
+        "focus_budget_can_bind": true,
+        "refusals": [],
+        "ok": true
+      }
+    },
+    "qb_inflation": {
+      "spec": {
+        "name": "qb_inflation",
+        "description": "SIMULATED: same stage, quarterbacks clearing 40% over the base prior. A stated scenario, not observed behaviour.",
+        "n_sales": 66,
+        "market_scenario": "base",
+        "position_inflation": {
+          "QB": 1.4
+        },
+        "seed": 20260906
+      },
+      "fingerprint": "97b3ab17582a81ad",
+      "validation": {
+        "simulated": true,
+        "n_sales": 66,
+        "total_spent": 1613,
+        "dollars_reconcile": true,
+        "duplicate_ownership": false,
+        "reserve_ok": true,
+        "owners": {
+          "Team01": {
+            "budget_remaining": 115,
+            "spent": 85,
+            "open_slots": 12,
+            "n_players": 3,
+            "positions": {
+              "QB": 3
+            },
+            "financial_max_bid": 104
+          },
+          "Team02": {
+            "budget_remaining": 54,
+            "spent": 146,
+            "open_slots": 8,
+            "n_players": 7,
+            "positions": {
+              "WR": 4,
+              "RB": 2,
+              "QB": 1
+            },
+            "financial_max_bid": 47
+          },
+          "Team03": {
+            "budget_remaining": 13,
+            "spent": 187,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 2,
+              "RB": 2,
+              "QB": 2
+            },
+            "financial_max_bid": 5
+          },
+          "Team04": {
+            "budget_remaining": 93,
+            "spent": 107,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "QB": 1,
+              "WR": 1
+            },
+            "financial_max_bid": 83
+          },
+          "Team05": {
+            "budget_remaining": 24,
+            "spent": 176,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 2,
+              "RB": 1,
+              "QB": 3
+            },
+            "financial_max_bid": 16
+          },
+          "Team06": {
+            "budget_remaining": 9,
+            "spent": 191,
+            "open_slots": 6,
+            "n_players": 9,
+            "positions": {
+              "RB": 4,
+              "WR": 3,
+              "QB": 2
+            },
+            "financial_max_bid": 4
+          },
+          "Team07": {
+            "budget_remaining": 68,
+            "spent": 132,
+            "open_slots": 10,
+            "n_players": 5,
+            "positions": {
+              "RB": 4,
+              "WR": 1
+            },
+            "financial_max_bid": 59
+          },
+          "Team08": {
+            "budget_remaining": 100,
+            "spent": 100,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "QB": 2
+            },
+            "financial_max_bid": 90
+          },
+          "Team09": {
+            "budget_remaining": 141,
+            "spent": 59,
+            "open_slots": 12,
+            "n_players": 3,
+            "positions": {
+              "QB": 1,
+              "RB": 1,
+              "WR": 1
+            },
+            "financial_max_bid": 130
+          },
+          "Team10": {
+            "budget_remaining": 91,
+            "spent": 109,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "WR": 1,
+              "QB": 1
+            },
+            "financial_max_bid": 81
+          },
+          "Team11": {
+            "budget_remaining": 73,
+            "spent": 127,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 4,
+              "QB": 1,
+              "RB": 1
+            },
+            "financial_max_bid": 65
+          },
+          "Team12": {
+            "budget_remaining": 6,
+            "spent": 194,
+            "open_slots": 6,
+            "n_players": 9,
+            "positions": {
+              "WR": 5,
+              "QB": 2,
+              "RB": 2
+            },
+            "financial_max_bid": 1
+          }
+        },
+        "pool_remaining": {
+          "QB": 16,
+          "RB": 47,
+          "WR": 88,
+          "TE": 43
+        },
+        "candidates": {
+          "QB": {
+            "position": "QB",
+            "our_legal_max": 104,
+            "highest_rival_legal_max": 130,
+            "owners_able_to_bid": 11,
+            "top_rival": "Team09"
+          },
+          "RB": {
+            "position": "RB",
+            "our_legal_max": 104,
+            "highest_rival_legal_max": 130,
+            "owners_able_to_bid": 11,
+            "top_rival": "Team09"
+          }
+        },
+        "focus_budget_can_bind": true,
+        "refusals": [],
+        "ok": true
+      }
+    },
+    "skill_inflation": {
+      "spec": {
+        "name": "skill_inflation",
+        "description": "SIMULATED: same stage, RB and WR clearing 35% over the base prior. A stated scenario, not observed behaviour.",
+        "n_sales": 66,
+        "market_scenario": "base",
+        "position_inflation": {
+          "RB": 1.35,
+          "WR": 1.35
+        },
+        "seed": 20260906
+      },
+      "fingerprint": "e2e650a9d6b0e956",
+      "validation": {
+        "simulated": true,
+        "n_sales": 66,
+        "total_spent": 1734,
+        "dollars_reconcile": true,
+        "duplicate_ownership": false,
+        "reserve_ok": true,
+        "owners": {
+          "Team01": {
+            "budget_remaining": 139,
+            "spent": 61,
+            "open_slots": 12,
+            "n_players": 3,
+            "positions": {
+              "QB": 3
+            },
+            "financial_max_bid": 128
+          },
+          "Team02": {
+            "budget_remaining": 21,
+            "spent": 179,
+            "open_slots": 8,
+            "n_players": 7,
+            "positions": {
+              "WR": 4,
+              "RB": 2,
+              "QB": 1
+            },
+            "financial_max_bid": 14
+          },
+          "Team03": {
+            "budget_remaining": 14,
+            "spent": 186,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 2,
+              "RB": 2,
+              "QB": 2
+            },
+            "financial_max_bid": 6
+          },
+          "Team04": {
+            "budget_remaining": 71,
+            "spent": 129,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "QB": 1,
+              "WR": 1
+            },
+            "financial_max_bid": 61
+          },
+          "Team05": {
+            "budget_remaining": 20,
+            "spent": 180,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 2,
+              "RB": 1,
+              "QB": 3
+            },
+            "financial_max_bid": 12
+          },
+          "Team06": {
+            "budget_remaining": 8,
+            "spent": 192,
+            "open_slots": 6,
+            "n_players": 9,
+            "positions": {
+              "RB": 4,
+              "WR": 3,
+              "QB": 2
+            },
+            "financial_max_bid": 3
+          },
+          "Team07": {
+            "budget_remaining": 23,
+            "spent": 177,
+            "open_slots": 10,
+            "n_players": 5,
+            "positions": {
+              "RB": 4,
+              "WR": 1
+            },
+            "financial_max_bid": 14
+          },
+          "Team08": {
+            "budget_remaining": 101,
+            "spent": 99,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "QB": 2
+            },
+            "financial_max_bid": 91
+          },
+          "Team09": {
+            "budget_remaining": 141,
+            "spent": 59,
+            "open_slots": 12,
+            "n_players": 3,
+            "positions": {
+              "QB": 1,
+              "RB": 1,
+              "WR": 1
+            },
+            "financial_max_bid": 130
+          },
+          "Team10": {
+            "budget_remaining": 73,
+            "spent": 127,
+            "open_slots": 11,
+            "n_players": 4,
+            "positions": {
+              "RB": 2,
+              "WR": 1,
+              "QB": 1
+            },
+            "financial_max_bid": 63
+          },
+          "Team11": {
+            "budget_remaining": 48,
+            "spent": 152,
+            "open_slots": 9,
+            "n_players": 6,
+            "positions": {
+              "WR": 4,
+              "QB": 1,
+              "RB": 1
+            },
+            "financial_max_bid": 40
+          },
+          "Team12": {
+            "budget_remaining": 7,
+            "spent": 193,
+            "open_slots": 6,
+            "n_players": 9,
+            "positions": {
+              "WR": 5,
+              "QB": 2,
+              "RB": 2
+            },
+            "financial_max_bid": 2
+          }
+        },
+        "pool_remaining": {
+          "QB": 16,
+          "RB": 47,
+          "WR": 88,
+          "TE": 43
+        },
+        "candidates": {
+          "QB": {
+            "position": "QB",
+            "our_legal_max": 128,
+            "highest_rival_legal_max": 130,
+            "owners_able_to_bid": 11,
+            "top_rival": "Team09"
+          },
+          "RB": {
+            "position": "RB",
+            "our_legal_max": 128,
+            "highest_rival_legal_max": 130,
+            "owners_able_to_bid": 11,
+            "top_rival": "Team09"
+          }
+        },
+        "focus_budget_can_bind": true,
+        "refusals": [],
+        "ok": true
+      }
+    }
+  },
+  "frontiers": {
+    "QB": {
+      "state": "balanced",
+      "leader": "Team07",
+      "standing_price": 35,
+      "market_band": [
+        24,
+        26,
+        28
+      ],
+      "anchor": 52,
+      "lineup_improvement": 1.4576903843854154,
+      "role": "marginal starter",
+      "simulated_state": true,
+      "candidate_position": "QB",
+      "legal_max": 128,
+      "recipient": "Team07",
+      "pass_price": {
+        "mode": "stop_now",
+        "increment": 1,
+        "standing_price": 35,
+        "fixed_q": null,
+        "note": "a reservation price is conditional on this rule; a result under one rule is not a universal max bid"
+      },
+      "k": 11,
+      "holdout_sims": 4000,
+      "selection_sims": 800,
+      "cache_hits": 11,
+      "state_fingerprint": "44209a94d76fce67",
+      "refined": false,
+      "n_tested": 14,
+      "n_audited": 7,
+      "highest_favorable": 40,
+      "next_unfavorable": 65,
+      "bracket": [
+        40,
+        65
+      ],
+      "untested_gap": [
+        41,
+        64
+      ],
+      "classification": "RESERVATION_BRACKET",
+      "nonmonotonic": [],
+      "runtime_s": 374.6,
+      "note": "a reservation price is conditional on the pass-price rule above; a sparse bracket is NOT an exact max bid",
+      "points": [
+        {
+          "p": 1,
+          "q": 35,
+          "audited": true,
+          "feasible_count": 39,
+          "focus_fingerprint": "c31417515a710f26",
+          "alloc_fingerprint": "c9b6b6059eb7662a",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": 0.057545,
+          "between_sd": 0.00699,
+          "within_se": 0.006082,
+          "ci95": [
+            0.05285,
+            0.062241
+          ],
+          "sign_positive": 1.0,
+          "verdict": "favorable",
+          "runtime_s": 56.01,
+          "note": ""
+        },
+        {
+          "p": 5,
+          "q": 35,
+          "audited": true,
+          "feasible_count": 39,
+          "focus_fingerprint": "c31417515a710f26",
+          "alloc_fingerprint": "8fb353bc95df3b1d",
+          "roster_changed": false,
+          "reused_ce": true,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": 0.057545,
+          "between_sd": 0.00699,
+          "within_se": 0.006082,
+          "ci95": [
+            0.05285,
+            0.062241
+          ],
+          "sign_positive": 1.0,
+          "verdict": "favorable",
+          "runtime_s": 26.2,
+          "note": ""
+        },
+        {
+          "p": 10,
+          "q": 35,
+          "audited": false,
+          "feasible_count": 39,
+          "focus_fingerprint": "c31417515a710f26",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 20,
+          "q": 35,
+          "audited": false,
+          "feasible_count": 39,
+          "focus_fingerprint": "c31417515a710f26",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 24,
+          "q": 35,
+          "audited": false,
+          "feasible_count": 39,
+          "focus_fingerprint": "c31417515a710f26",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 26,
+          "q": 35,
+          "audited": false,
+          "feasible_count": 39,
+          "focus_fingerprint": "c31417515a710f26",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 28,
+          "q": 35,
+          "audited": false,
+          "feasible_count": 39,
+          "focus_fingerprint": "c31417515a710f26",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 30,
+          "q": 35,
+          "audited": false,
+          "feasible_count": 38,
+          "focus_fingerprint": "c31417515a710f26",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 40,
+          "q": 35,
+          "audited": true,
+          "feasible_count": 35,
+          "focus_fingerprint": "ab39dfba1932aa46",
+          "alloc_fingerprint": "d995a70713b901b2",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": 0.016659,
+          "between_sd": 0.00917,
+          "within_se": 0.005606,
+          "ci95": [
+            0.010499,
+            0.022819
+          ],
+          "sign_positive": 1.0,
+          "verdict": "favorable",
+          "runtime_s": 57.11,
+          "note": ""
+        },
+        {
+          "p": 50,
+          "q": 35,
+          "audited": false,
+          "feasible_count": 30,
+          "focus_fingerprint": "ab39dfba1932aa46",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 65,
+          "q": 35,
+          "audited": true,
+          "feasible_count": 21,
+          "focus_fingerprint": "6339f9c08b7e965b",
+          "alloc_fingerprint": "b4cb93c98000c6e9",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": -0.028068,
+          "between_sd": 0.005644,
+          "within_se": 0.005011,
+          "ci95": [
+            -0.031859,
+            -0.024277
+          ],
+          "sign_positive": 0.0,
+          "verdict": "unfavorable",
+          "runtime_s": 56.31,
+          "note": ""
+        },
+        {
+          "p": 80,
+          "q": 35,
+          "audited": true,
+          "feasible_count": 14,
+          "focus_fingerprint": "49e894ca259e7377",
+          "alloc_fingerprint": "0e7dce4c17b28815",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": -0.071068,
+          "between_sd": 0.005575,
+          "within_se": 0.004211,
+          "ci95": [
+            -0.074813,
+            -0.067323
+          ],
+          "sign_positive": 0.0,
+          "verdict": "unfavorable",
+          "runtime_s": 57.12,
+          "note": ""
+        },
+        {
+          "p": 100,
+          "q": 35,
+          "audited": true,
+          "feasible_count": 8,
+          "focus_fingerprint": "33b50e020b4b4273",
+          "alloc_fingerprint": "91ebb7fa9122150d",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": -0.073955,
+          "between_sd": 0.005469,
+          "within_se": 0.004153,
+          "ci95": [
+            -0.077628,
+            -0.070281
+          ],
+          "sign_positive": 0.0,
+          "verdict": "unfavorable",
+          "runtime_s": 58.81,
+          "note": ""
+        },
+        {
+          "p": 128,
+          "q": 35,
+          "audited": true,
+          "feasible_count": 3,
+          "focus_fingerprint": "cdf5eeb0858fe078",
+          "alloc_fingerprint": "12e5b32d3b77c0c2",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": -0.07425,
+          "between_sd": 0.005562,
+          "within_se": 0.004145,
+          "ci95": [
+            -0.077986,
+            -0.070514
+          ],
+          "sign_positive": 0.0,
+          "verdict": "unfavorable",
+          "runtime_s": 56.03,
+          "note": ""
+        }
+      ]
+    },
+    "RB": {
+      "state": "balanced",
+      "leader": "Team11",
+      "standing_price": 30,
+      "market_band": [
+        24,
+        25,
+        27
+      ],
+      "anchor": 28,
+      "lineup_improvement": 2.5038827090470193,
+      "role": "marginal starter",
+      "simulated_state": true,
+      "candidate_position": "RB",
+      "legal_max": 128,
+      "recipient": "Team11",
+      "pass_price": {
+        "mode": "stop_now",
+        "increment": 1,
+        "standing_price": 30,
+        "fixed_q": null,
+        "note": "a reservation price is conditional on this rule; a result under one rule is not a universal max bid"
+      },
+      "k": 11,
+      "holdout_sims": 4000,
+      "selection_sims": 800,
+      "cache_hits": 15,
+      "state_fingerprint": "44209a94d76fce67",
+      "refined": false,
+      "n_tested": 14,
+      "n_audited": 7,
+      "highest_favorable": 80,
+      "next_unfavorable": 100,
+      "bracket": [
+        80,
+        100
+      ],
+      "untested_gap": [
+        81,
+        99
+      ],
+      "classification": "RESERVATION_BRACKET",
+      "nonmonotonic": [],
+      "runtime_s": 361.4,
+      "note": "a reservation price is conditional on the pass-price rule above; a sparse bracket is NOT an exact max bid",
+      "points": [
+        {
+          "p": 1,
+          "q": 30,
+          "audited": true,
+          "feasible_count": 36,
+          "focus_fingerprint": "5bd801bd43abce48",
+          "alloc_fingerprint": "4a48864b458187ec",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": 0.052977,
+          "between_sd": 0.005771,
+          "within_se": 0.004363,
+          "ci95": [
+            0.0491,
+            0.056854
+          ],
+          "sign_positive": 1.0,
+          "verdict": "favorable",
+          "runtime_s": 55.64,
+          "note": ""
+        },
+        {
+          "p": 5,
+          "q": 30,
+          "audited": true,
+          "feasible_count": 36,
+          "focus_fingerprint": "5bd801bd43abce48",
+          "alloc_fingerprint": "5869f453e407254b",
+          "roster_changed": false,
+          "reused_ce": true,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": 0.052864,
+          "between_sd": 0.005831,
+          "within_se": 0.004359,
+          "ci95": [
+            0.048946,
+            0.056781
+          ],
+          "sign_positive": 1.0,
+          "verdict": "favorable",
+          "runtime_s": 28.29,
+          "note": ""
+        },
+        {
+          "p": 10,
+          "q": 30,
+          "audited": false,
+          "feasible_count": 36,
+          "focus_fingerprint": "5bd801bd43abce48",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 20,
+          "q": 30,
+          "audited": false,
+          "feasible_count": 36,
+          "focus_fingerprint": "5bd801bd43abce48",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 24,
+          "q": 30,
+          "audited": false,
+          "feasible_count": 36,
+          "focus_fingerprint": "5bd801bd43abce48",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 25,
+          "q": 30,
+          "audited": false,
+          "feasible_count": 36,
+          "focus_fingerprint": "5bd801bd43abce48",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 27,
+          "q": 30,
+          "audited": false,
+          "feasible_count": 36,
+          "focus_fingerprint": "5bd801bd43abce48",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 30,
+          "q": 30,
+          "audited": false,
+          "feasible_count": 36,
+          "focus_fingerprint": "5bd801bd43abce48",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 40,
+          "q": 30,
+          "audited": true,
+          "feasible_count": 31,
+          "focus_fingerprint": "47aa5a6eb2b4b307",
+          "alloc_fingerprint": "5c4b35b24d6d1516",
+          "roster_changed": true,
+          "reused_ce": true,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": 0.050545,
+          "between_sd": 0.006177,
+          "within_se": 0.004312,
+          "ci95": [
+            0.046396,
+            0.054695
+          ],
+          "sign_positive": 1.0,
+          "verdict": "favorable",
+          "runtime_s": 42.15,
+          "note": ""
+        },
+        {
+          "p": 50,
+          "q": 30,
+          "audited": false,
+          "feasible_count": 28,
+          "focus_fingerprint": "47aa5a6eb2b4b307",
+          "alloc_fingerprint": "",
+          "roster_changed": false,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": null,
+          "between_sd": null,
+          "within_se": null,
+          "ci95": null,
+          "sign_positive": null,
+          "verdict": "not audited",
+          "runtime_s": 0.0,
+          "note": "proxy pre-pass only; no CE spent"
+        },
+        {
+          "p": 65,
+          "q": 30,
+          "audited": true,
+          "feasible_count": 19,
+          "focus_fingerprint": "0e9020199c59f3b5",
+          "alloc_fingerprint": "6d3d5bc1b796da08",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": 0.019795,
+          "between_sd": 0.004842,
+          "within_se": 0.003578,
+          "ci95": [
+            0.016543,
+            0.023048
+          ],
+          "sign_positive": 1.0,
+          "verdict": "favorable",
+          "runtime_s": 55.86,
+          "note": ""
+        },
+        {
+          "p": 80,
+          "q": 30,
+          "audited": true,
+          "feasible_count": 12,
+          "focus_fingerprint": "27cdaf149534a235",
+          "alloc_fingerprint": "69510552aa878f28",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": 0.012977,
+          "between_sd": 0.005362,
+          "within_se": 0.003462,
+          "ci95": [
+            0.009375,
+            0.01658
+          ],
+          "sign_positive": 1.0,
+          "verdict": "favorable",
+          "runtime_s": 58.82,
+          "note": ""
+        },
+        {
+          "p": 100,
+          "q": 30,
+          "audited": true,
+          "feasible_count": 7,
+          "focus_fingerprint": "a42bf13f8b9ff614",
+          "alloc_fingerprint": "d25a01faa7a40103",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": -0.012114,
+          "between_sd": 0.004253,
+          "within_se": 0.002699,
+          "ci95": [
+            -0.014971,
+            -0.009256
+          ],
+          "sign_positive": 0.0,
+          "verdict": "unfavorable",
+          "runtime_s": 57.75,
+          "note": ""
+        },
+        {
+          "p": 128,
+          "q": 30,
+          "audited": true,
+          "feasible_count": 3,
+          "focus_fingerprint": "5810cff0c91efdff",
+          "alloc_fingerprint": "b83d40a38ee032e0",
+          "roster_changed": true,
+          "reused_ce": false,
+          "ce_buy": null,
+          "ce_pass": null,
+          "delta": -0.021023,
+          "between_sd": 0.002762,
+          "within_se": 0.002301,
+          "ci95": [
+            -0.022878,
+            -0.019167
+          ],
+          "sign_positive": 0.0,
+          "verdict": "unfavorable",
+          "runtime_s": 56.15,
+          "note": ""
+        }
+      ]
+    }
+  },
+  "decompositions": {},
+  "by_recipient": {},
+  "runtime_s": 829.1,
+  "chosen": {
+    "QB": {
+      "tier": "expensive",
+      "band": [
+        24,
+        26,
+        28
+      ],
+      "anchor": 52,
+      "improvement": 1.4576903843854154,
+      "role": "marginal starter"
+    },
+    "RB": {
+      "tier": "mid",
+      "band": [
+        24,
+        25,
+        27
+      ],
+      "anchor": 28,
+      "improvement": 2.5038827090470193,
+      "role": "marginal starter"
+    }
+  }
+}
