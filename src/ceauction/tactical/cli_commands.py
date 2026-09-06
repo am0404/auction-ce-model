@@ -817,8 +817,80 @@ def cmd_marginal_diagnostics(args) -> int:
     return 0
 
 
+def cmd_decompose(args) -> int:
+    """Split a tactical CE effect into possession, payment and denial."""
+    from pathlib import Path as _P
+    from .decompose_experiment import run
+    from .realpilot import PilotInputs
+
+    inputs = PilotInputs(
+        contract=_P(args.contract), sleeper_csv=_P(args.sleeper_csv),
+        out_dir=_P(args.out_dir), pool_limit=args.pool_limit,
+        market_scenario=args.market_scenario,
+        performance_scenario=args.performance_scenario)
+    missing = inputs.missing()
+    if missing:
+        raise UsageError(
+            "real inputs are missing: " + ", ".join(missing) + ". See "
+            "`ce-lab tactical real-pilot` for setup; both live under "
+            "local_data/, which is gitignored.")
+    if "local_data" not in _P(args.out_dir).parts:
+        raise UsageError(
+            f"--out-dir must sit under local_data/ (got {args.out_dir!r})")
+    if args.draws < 2:
+        raise UsageError(
+            "--draws must be at least 2; one allocation draw has no "
+            "between-allocation interval")
+    if args.sims < 100:
+        raise UsageError("--sims must be at least 100")
+
+    print("TACTICAL CE DECOMPOSITION")
+    print()
+    print("  ANALYTICAL BRANCH WARNING: W (withdrawn), UF (we get him free)")
+    print("  and RF (the rival gets him free) are decomposition instruments,")
+    print("  NOT possible auction outcomes. They isolate one change at a time.")
+    print("  They carry no recipient probability and must never be weighted")
+    print("  into a summary of what might happen.")
+    print()
+    print("  Declared telescoping path: UP -> UF -> W -> RF -> RP. It sums")
+    print("  exactly because it telescopes, not because completion is")
+    print("  additive; a different ordering moves the labels, not the total.")
+    print()
+    blob, local = run(inputs, k=args.draws, holdout_sims=args.sims,
+                      selection_sims=args.selection_sims,
+                      positions=tuple(args.position
+                                      or ("RB", "TE", "QB", "WR")),
+                      runtime_budget_s=args.runtime_budget)
+    d = _P(args.out_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "decomposition.json").write_text(
+        json.dumps(local, indent=2, default=str), encoding="utf-8")
+    if args.json_out:
+        _write_json(args.json_out, blob)
+    print()
+    print(f"  {'pos':<4}{'improve':>9}{'our pay':>10}{'our poss':>10}"
+          f"{'denial':>10}{'rival pay':>11}{'total':>10}{'resid':>10}  class")
+    for pos, v in blob["positions"].items():
+        if "components" not in v:
+            print(f"  {pos:<4}  {v.get('status', 'n/a')}")
+            continue
+        c = v["components"]
+        print(f"  {pos:<4}{v['lineup_improvement']:>9.2f}"
+              f"{c['our_payment']['mean']:>+10.5f}"
+              f"{c['our_possession']['mean']:>+10.5f}"
+              f"{c['rival_denial']['mean']:>+10.5f}"
+              f"{c['rival_payment']['mean']:>+11.5f}"
+              f"{v['total']['mean']:>+10.5f}"
+              f"{v['ensemble_residual']:>10.1e}  {v['classification']}")
+    print()
+    print(f"  player-level output -> {d / 'decomposition.json'} (IGNORED)")
+    print(f"  runtime {blob['runtime_s']:.0f}s")
+    return 0
+
+
 _COMMANDS = {
     "validate": cmd_validate,
+    "decompose": cmd_decompose,
     "marginal-diagnostics": cmd_marginal_diagnostics,
     "allocation-ensemble": cmd_allocation_ensemble,
     "real-pilot": cmd_real_pilot,
@@ -1037,6 +1109,28 @@ def add_tactical_parser(sub) -> None:
                    choices=["low", "base", "high"])
     s.add_argument("--performance-scenario",
                    default="median_target/full_health/week_sd/exclude")
+
+    s = inner.add_parser(
+        "decompose",
+        help="split tactical CE into possession/payment/denial (real inputs)")
+    s.add_argument("--contract",
+                   default="local_data/real_player_contract_v1.json")
+    s.add_argument("--sleeper-csv",
+                   default="local_data/sleeper_2qb_values_2026_clean.csv")
+    s.add_argument("--out-dir", default="local_data/tactical")
+    s.add_argument("--json-out", default=None,
+                   help="sanitized position-level aggregate (safe to commit)")
+    s.add_argument("--pool-limit", type=int, default=260)
+    s.add_argument("--position", action="append",
+                   choices=["QB", "RB", "WR", "TE"])
+    s.add_argument("--draws", type=int, default=11)
+    s.add_argument("--sims", type=int, default=4000)
+    s.add_argument("--selection-sims", type=int, default=800)
+    s.add_argument("--market-scenario", default="base",
+                   choices=["low", "base", "high"])
+    s.add_argument("--performance-scenario",
+                   default="median_target/full_health/week_sd/exclude")
+    s.add_argument("--runtime-budget", type=float, default=3600.0)
 
     s = inner.add_parser("benchmark", help="runtime for every live stage")
     common(s, scenarios=True, mode=True)
