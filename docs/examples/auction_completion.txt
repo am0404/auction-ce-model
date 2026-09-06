@@ -8,20 +8,27 @@ ROSTER COMPLETION -- Owner01
 result        HEURISTIC
 method        beam (heuristic)
 cost source   FABRICATED
-              Acquisition costs are FABRICATED (ceauction.auction.demo straight-line curve) and exist only to exercise the machinery. Nothing derived from them describes any real player.
+selected by   championship equity
+cost note     Acquisition costs are FABRICATED (ceauction.auction.demo straight-line curve) and exist only to exercise the machinery. Nothing derived from them describes any real player.
 
-FINALISTS
-  rank  added   cost     proxy        CE      +/-  QB/RB/WR/TE   
-  ---------------------------------------------------------------
- *1       12    102   105.352    0.0670   0.0089  3/5/4/3         
-  2       12     92   102.373       n/a           3/5/3/4         
-  3       12     75    94.386       n/a           3/6/1/5         
-  4       12     62    87.767       n/a           3/5/2/5         
-  ---------------------------------------------------------------
+FINALISTS  (selected by championship equity)
+  rank  added   cost     proxy   sel CE  holdout      +/-  QB/RB/WR/TE   
+  -----------------------------------------------------------------------
+ *1       12    102   105.352   0.0723   0.0670   0.0089  3/5/4/3         
+  2       12     92   102.373   0.0327        -           3/5/3/4         
+  3       12     75    94.386   0.0010        -           3/6/1/5         
+  4       12     62    87.767   0.0003        -           3/5/2/5         
+  -----------------------------------------------------------------------
 
-  proxy = expected weekly starting projection under this roster's
-  own byes and injuries. It is EXPECTED POINTS, not championship
-  equity, and it exists only to choose which rosters to simulate.
+  proxy   = expected weekly starting projection under this roster's
+            own byes and injuries. EXPECTED POINTS, not equity; it
+            exists only to choose which rosters to simulate.
+  sel CE  = equity on the 3,000-season SELECTION sample that ranked
+            these finalists. Upward-biased for whichever one won.
+  holdout = equity on an INDEPENDENT 3,000-season sample the
+            search never saw while choosing. This is the number to
+            quote, and it is computed only for the winner and any
+            finalist it cannot be separated from.
 
 SEARCH
   board                142 available, 85 considered
@@ -32,7 +39,7 @@ SEARCH
   candidates found     128 (128 distinct)
   finalists simulated  4
   stop reason          search completed
-  runtime              4.97s (proxy 0.19s, CE 4.48s)
+  runtime              4.74s (proxy 0.15s, CE 4.31s)
 
   This is a BOUNDED SEARCH. It is not a proof of optimality and
   the best completion found may not be the best that exists.

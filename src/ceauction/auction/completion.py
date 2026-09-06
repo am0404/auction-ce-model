@@ -1039,8 +1039,11 @@ def format_completion(result: CompletionResult, width: int = 88,
            f"result        {result.result_kind.upper()}",
            f"method        {d.method} ({'exact' if d.is_exact else 'heuristic'})",
            f"cost source   {result.cost_level}"]
+    out.append(f"selected by   {result.selection_basis}")
     if cost_disclaimer:
-        out.append(f"              {cost_disclaimer}")
+        out.append(f"cost note     {cost_disclaimer}")
+    if result.notes:
+        out.append(f"note          {result.notes}")
     out.append("")
     if result.best is None:
         out += ["No legal completion was found.",
@@ -1048,21 +1051,31 @@ def format_completion(result: CompletionResult, width: int = 88,
         return "\n".join(out)
 
     head = (f"  {'rank':<5}{'added':>6}{'cost':>7}{'proxy':>10}"
-            f"{'CE':>10}{'+/-':>9}  {'QB/RB/WR/TE':<14}")
-    out += ["FINALISTS", head, "  " + "-" * (len(head) - 2)]
+            f"{'sel CE':>9}{'holdout':>9}{'+/-':>9}  {'QB/RB/WR/TE':<14}")
+    out += [f"FINALISTS  (selected by {result.selection_basis})",
+            head, "  " + "-" * (len(head) - 2)]
     for i, c in enumerate(result.finalists):
         cnt = c.counts
-        ce = "n/a" if c.ce is None else f"{c.ce:.4f}"
+        sel = "-" if c.selection_ce is None else f"{c.selection_ce:.4f}"
+        ce = "-" if c.ce is None else f"{c.ce:.4f}"
         se = "" if c.ce_se is None else f"{1.96 * c.ce_se:.4f}"
         mark = "*" if result.best and c.key == result.best.key else " "
         unres = " (co-best)" if any(u.key == c.key for u in result.unresolved) else ""
         out.append(f" {mark}{i + 1:<4}{len(c.added):>6}{c.added_cost:>7}"
-                   f"{c.proxy:>10.3f}{ce:>10}{se:>9}  "
+                   f"{c.proxy:>10.3f}{sel:>9}{ce:>9}{se:>9}  "
                    f"{cnt.qb}/{cnt.rb}/{cnt.wr}/{cnt.te:<10}{unres}")
     out += ["  " + "-" * (len(head) - 2), ""]
-    out += ["  proxy = expected weekly starting projection under this roster's",
-            "  own byes and injuries. It is EXPECTED POINTS, not championship",
-            "  equity, and it exists only to choose which rosters to simulate.", ""]
+    out += ["  proxy   = expected weekly starting projection under this roster's",
+            "            own byes and injuries. EXPECTED POINTS, not equity; it",
+            "            exists only to choose which rosters to simulate.",
+            f"  sel CE  = equity on the {d.selection_sims:,}-season SELECTION "
+            f"sample that ranked",
+            "            these finalists. Upward-biased for whichever one won.",
+            f"  holdout = equity on an INDEPENDENT {d.evaluation_sims:,}-season "
+            f"sample the",
+            "            search never saw while choosing. This is the number to",
+            "            quote, and it is computed only for the winner and any",
+            "            finalist it cannot be separated from.", ""]
 
     if result.unresolved:
         out += [f"UNRESOLVED: {len(result.unresolved)} finalist(s) are not "

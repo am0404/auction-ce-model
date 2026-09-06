@@ -190,7 +190,10 @@ the real bye and injury process and picks lineups with the real slot rules.
 
 **Stage 3 chooses by championship equity**, simulating the finalists against a
 fixed cast under common random numbers. **Stage 4 reports the winner on an
-independent holdout sample** at an unrelated seed. Those last two are separate
+independent holdout sample** at an unrelated seed. The gap between the two is
+visible in the committed example: the winning completion scores 0.0723 on the
+sample that chose it and 0.0670 on the sample that did not. Quoting the first
+would overstate it by about 8%. Those last two are separate
 on purpose: the maximum of several noisy estimates is biased upward, because
 the winner won partly because its sample was kind to it, and quoting that same
 sample would carry the bias into every price and every reservation frontier

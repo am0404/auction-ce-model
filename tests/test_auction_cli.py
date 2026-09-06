@@ -92,7 +92,16 @@ def test_complete_solves_and_labels_itself_heuristic():
 
 def test_complete_without_ce_says_it_is_expected_points():
     p = run("complete", "--no-ce", *TINY)
-    assert "EXPECTED POINTS, not championship" in p.stdout
+    assert "EXPECTED POINTS, not equity" in p.stdout
+    assert "selected by expected-points proxy" in p.stdout
+    assert "PROXY-SELECTED" in p.stdout
+
+
+def test_complete_with_ce_names_equity_as_the_selection_rule():
+    p = run("complete", *TINY)
+    assert "selected by championship equity" in p.stdout
+    assert "SELECTION sample that ranked" in p.stdout
+    assert "INDEPENDENT" in p.stdout
 
 
 def test_buy_pass_runs_both_destinations():
