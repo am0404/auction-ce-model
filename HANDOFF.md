@@ -1572,3 +1572,141 @@ sims and plot `ce_buy`; if equity collapses toward zero the moment he is
 removed, the continuation is leaving our roster balanced exactly at the cutoff
 and the shared board is still handing rivals too much. Until that is understood,
 treat the audited delta as directionally right and its *size* as unverified.
+
+---
+
+## Phase: joint allocation and conservation
+
+Branch `tactical-joint-allocation-fix`, from
+`d86e2da6be1eb4f2a8c056b5eba1e179952cb583`. Full sweep in
+`docs/TACTICAL_JOINT_SWEEP.md`.
+
+### Free shadow blocking existed. It was 6 players.
+
+The previous branch's shadow ledger was audited before being accepted, and it
+failed:
+
+```
+shadow budget        $110 -> $2        shadow slots  12 -> 0
+shadow-won players   12  ($108 notional)
+  of those we bought  6
+  of those we did not 6  ($18 notional)
+actual focus cost    $101              cost divergence $7
+unselected reaching a rival   0
+unselected left undrafted     6
+FREE BLOCKS          6  ($18 of denial we never paid for)
+```
+
+We held twelve mutually exclusive completion options, bought six, paid for six,
+and denied the other six to eleven opponents at zero cost. Rivals were never
+offered them back. That inflated our roster (we picked from a protected
+shortlist), inflated our denial value, and deflated every rival.
+
+Answers to the six audit questions: (1) yes, six were excluded from every final
+roster; (2) yes, we blocked without paying or rostering; (3) yes, shadow spend
+$108 vs actual $101; (4) rivals completed against the **larger shadow-held
+set**, which is the defect; (5) yes, changing an unselected hold changed
+opponent rosters and our CE; (6) six free blocks in the committed fabricated
+example.
+
+### The correction: conditional reallocation
+
+`tactical/joint.py`. Per focus finalist: buy exactly what it names at cost-book
+prices out of our real budget, return every unselected hold to the board, then
+recomplete the eleven rivals against that. `validate_joint_world` refuses any
+world failing the conservation invariant, and nothing unvalidated is evaluated.
+
+A second, smaller hole surfaced and is now explicit: **the `unavailable` pass
+branch is not conservation-neutral.** Withdrawing a player denies him to eleven
+rivals at nobody's expense. It must now be `declared_withdrawn`; undeclared, it
+is refused as an unpaid reservation. It is reported but is not a fair comparator
+against a branch where somebody pays.
+
+### Reconciliation (fabricated demo, every row of the sweep)
+
+```
+pool 310 = 135 initially owned + 1 branch + 12 focus bought
+         + 33 rival bought + 129 undrafted            balances: True
+dollars $2400 = $1600 paid + $800 remaining           balances: True
+duplicate owners none | over budget none | reserve violations none
+illegal rosters none  | wrong size none | unpaid reservations none
+```
+
+Returned to board 6, reclaimed by rivals 2, the rest genuinely undrafted and
+available to everyone.
+
+### Proxy strengths
+
+```
+focus-silent (2 branches ago)   ours  86.9   field 105.3-109.4
+shadow-hold (previous branch)   ours 105.7   field 105.1-106.7  [6 free blocks]
+joint reconciled (this branch)  ours 104.9   field 105.5-106.9  [0 free blocks]
+```
+
+Removing the free blocks cost us ~0.8 proxy points, which is the size of the
+advantage we were taking for nothing.
+
+### The measured effect, corrected
+
+4,000 sims, six prices, buy vs pass to Owner04, paired SE. Full table in the
+sweep doc.
+
+```
+  $1  ce_buy 0.04275  ce_pass 0.01950  delta +0.02325 +/-0.00698  favorable
+  $5  ce_buy 0.05375  ce_pass 0.01950  delta +0.03425 +/-0.00756  favorable
+ $10  ce_buy 0.05425  ce_pass 0.01950  delta +0.03475 +/-0.00747  favorable
+ $13  ce_buy 0.04950  ce_pass 0.01950  delta +0.03000 +/-0.00721  favorable
+ $20  ce_buy 0.04850  ce_pass 0.01950  delta +0.02900 +/-0.00718  favorable
+ $30  ce_buy 0.02375  ce_pass 0.01950  delta +0.00425 +/-0.00590  UNRESOLVED
+```
+
+The previous branch's `0.002 -> 0.063` swing was an artifact of unpaid blocking.
+The honest figure at $13 is `0.0195 -> 0.0495`, delta `+0.030`, **half the
+previously reported effect**. League equity sums to exactly `1.000000` at every
+price; mean `0.08333`. We rank **12th of 12 at every price**, bought or passed.
+
+Six prices produced six distinct allocation fingerprints, so CE moved only where
+the allocation moved. The sweep is **not monotone** ($1 < $5 < $10 then falling)
+— allocation instability, reported not smoothed.
+
+### Where the swing comes from, quantified
+
+At $13 vs passing to Owner04: passing costs **more** ($102 vs $89) and buys
+**less** (101.7 vs 104.9 proxy). Five players differ between the arms. Field
+mean moves only `+0.27` across eleven teams, so denial value is real but small.
+The amplifier is playoff-cutoff convexity — we are last in both arms, where
+proxy points convert to championship probability steeply. Allocation instability
+contributes and is not separable at this sample size.
+
+### Corrected tactical thresholds
+
+```
+CE-audited robust maximum   $20      resolved
+robust bracket              ($20, $30)
+base maximum                $20      resolved
+permissive ceiling          $30      unresolved vs Owner04; a CEILING
+expected clearing band      $17/$19/$21   proxy-only, market layer
+previous $1 opening max     WITHDRAWN     invalidated by conservation
+previous $13 live max       WITHDRAWN     invalidated by conservation
+```
+
+$1 and $13 are **withdrawn, not revised**: they were computed over worlds where
+we held six unpaid players.
+
+### Still provisional
+
+* No real auction observed; every bidder coefficient is still chosen.
+* We rank 12th at every price. Our completion is genuinely the weakest roster in
+  the fabricated league, so every delta is measured near the floor where
+  convexity is largest. This is the main reason not to trust the *magnitudes*.
+* The sweep is non-monotone; the finalist set moves with the shadow clearing.
+* Only the fabricated world is wired in.
+* `tactical/maxbid.py` still runs the **old** proxy/audited path. The joint
+  machinery is not yet wired into `ce-lab tactical max-bid`.
+
+### Exact next step
+
+**Wire `joint.py` into `maxbid.py`** so `ce-lab tactical max-bid --mode audited`
+produces reconciled worlds, then re-derive the robust/base/permissive ladder from
+CE rather than the proxy. Until that is done the CLI still reports the withdrawn
+proxy numbers.
