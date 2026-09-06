@@ -366,6 +366,8 @@ def format_buy_pass(result: BuyPassResult, width: int = 88,
             f"  seasons that differ {result.discordance:.2%}",
             f"  verdict at ${result.price}      {result.verdict.upper()}",
             ""]
+    if result.notes:
+        out += [f"note              {result.notes}", ""]
     div = result.divergence
     out += ["WHAT THE BRANCHES DISAGREE ABOUT",
             f"  bought only if we buy him   {div['only_in_buy_branch']}",

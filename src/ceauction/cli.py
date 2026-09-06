@@ -7,6 +7,8 @@
     ce-lab curve         marginal CE curve for one roster slot, + resolution report
     ce-lab ingest        validate real player sources; write the contract locally
     ce-lab calibrate     map the contract to PlayerSpecs; CE smoke + sensitivity
+    ce-lab auction       auction room state, roster completion, buy/pass,
+                         CE reservation ranges, the 54-cell slot swap
     ce-lab bench         runtime benchmarks and Monte Carlo uncertainty
 
 Everything it touches is SYNTHETIC data (see ``synthetic.py``).
@@ -569,6 +571,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--unresolved-out", default=None,
                    help="unresolved identity names; LOCAL ONLY, must be ignored")
     s.set_defaults(func=cmd_calibrate)
+
+    from .auction.cli_commands import add_auction_parser
+    add_auction_parser(sub)
 
     s = sub.add_parser("bench", help="runtime benchmarks")
     s.add_argument("--counts", type=int, nargs="+", default=None)
