@@ -69,7 +69,7 @@ class BoardSettings:
     bidder_scenario: str = DEFAULT_BIDDER_SCENARIO
     market_scenario: str = "base"
     """Which point of the clearing band prices the pool: low/base/high."""
-    pool_depth: int = 260
+    pool_depth: int = 200
     """How far down the board the continuation looks. A real bound: a player
     below this cut cannot be allocated, and the result says whether it bit."""
     max_allocations: int = 200

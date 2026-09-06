@@ -10,6 +10,8 @@
     ce-lab auction       auction room state, roster completion, buy/pass,
                          CE reservation ranges, the 54-cell slot swap
     ce-lab market        Sleeper anchors, expected clearing prices, live sales
+    ce-lab tactical      named pass recipients, endgame arithmetic, shared-board
+                         continuation, immediate and audited tactical max bids
     ce-lab bench         runtime benchmarks and Monte Carlo uncertainty
 
 Everything it touches is SYNTHETIC data (see ``synthetic.py``).
@@ -578,6 +580,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     from .market.cli_commands import add_market_parser
     add_market_parser(sub)
+
+    from .tactical.cli_commands import add_tactical_parser
+    add_tactical_parser(sub)
 
     s = sub.add_parser("bench", help="runtime benchmarks")
     s.add_argument("--counts", type=int, nargs="+", default=None)

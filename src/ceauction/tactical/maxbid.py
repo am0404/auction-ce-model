@@ -114,9 +114,9 @@ class TacticalSettings:
     """``immediate`` (proxy/cached) or ``audited`` (CE-backed)."""
     board: BoardSettings = BoardSettings()
     completion: CompletionSettings = CompletionSettings(
-        beam_width=60, candidate_pool=45, proxy_candidates=60, finalists=3,
-        proxy_reps=48, max_candidates=400)
-    max_prices: int = 8
+        beam_width=48, candidate_pool=40, proxy_candidates=48, finalists=3,
+        proxy_reps=32, max_candidates=320)
+    max_prices: int = 6
     refine: bool = False
     """Walk every integer in the unresolved transition gap. Without it a sparse
     ladder is reported as a BRACKET and never as an exact frontier."""
@@ -124,7 +124,7 @@ class TacticalSettings:
     include_unavailable: bool = True
     default_cost: int = 1
     proxy_seed: int = 20260906
-    proxy_reps: int = 48
+    proxy_reps: int = 32
 
     def __post_init__(self) -> None:
         if self.mode not in ("immediate", "audited"):
@@ -464,8 +464,21 @@ def _complete_against_board(state: AuctionState, cast: ComparisonCast,
                           proxy=proxy,
                           reserved_ids=board.reserved_ids(exclude_owner=focus),
                           notes="proxy branch over a shared board")
-    value = res.best.proxy if res.best is not None else float("-inf")
-    return _Branch(value=value, board=board, completion_kind=res.result_kind)
+    if res.best is None:
+        return _Branch(value=float("-inf"), board=board,
+                       completion_kind=res.result_kind)
+    # Our strength RELATIVE to the league we would be playing in. Absolute
+    # starting points would be blind to who bought the candidate, which is the
+    # one thing this layer exists to see: a player strengthening the rival we
+    # already trail is worse for us than the same player strengthening the team
+    # in last, even though our own roster is identical in both branches.
+    rivals = [tuple(o.player_ids) for o in board.state.owners
+              if o.owner_id != focus and len(o.player_ids) == len(res.best.roster)]
+    field = 0.0
+    if rivals:
+        field = float(proxy.strength_many(rivals).mean())
+    return _Branch(value=res.best.proxy - field, board=board,
+                   completion_kind=res.result_kind)
 
 
 def _proxy_verdict(delta: float) -> str:
@@ -635,11 +648,11 @@ def evaluate_tactical(
                         performance_scenario=sc.performance_scenario,
                         recipient_label=label, recipient_owner=b.owner_id,
                         recipient_price=b.price, delta=bp.delta_ce,
-                        se=bp.delta_se, verdict=bp.verdict,
+                        se=bp.delta_ce_se, verdict=bp.verdict,
                         basis="championship equity (matched seasons, holdout "
                               "sample)",
-                        selection_sims=settings.completion.selection_sims,
-                        holdout_sims=settings.completion.evaluation_sims,
+                        selection_sims=bp.selection_sims,
+                        holdout_sims=bp.n_sims,
                         board_exactness=board.exactness,
                         completion_kind=bp.buy.result_kind,
                         runtime_s=time.perf_counter() - bt))
