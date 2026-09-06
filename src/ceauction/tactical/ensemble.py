@@ -256,7 +256,29 @@ class EnsembleResult:
 
     @property
     def distinct_allocations(self) -> int:
-        return len({d.alloc_fingerprint for d in self.draws})
+        """Distinct JOINT worlds, not distinct board fingerprints.
+
+        ``BoardResult.fingerprint`` hashes its settings, which include the
+        seed, so two draws that produced byte-identical rosters at different
+        seeds report as different boards. On the real run that read 15 when the
+        truth was 11, and an interval built on 15 'independent' draws would
+        have been narrower than its own coverage."""
+        return len({d.joint_fingerprint for d in self.draws})
+
+    @property
+    def redundant_draws(self) -> int:
+        """Draws that reproduced an allocation an earlier draw already gave.
+
+        With the preference shock off, the allocation is a function of the
+        rotation alone, so exactly ``n_rivals`` rotations exhaust the balanced
+        set and every further draw is a duplicate that adds no information.
+        """
+        return self.k - self.distinct_allocations
+
+    @property
+    def effective_k(self) -> int:
+        """Draws that actually carry information. Use this, not ``k``."""
+        return self.distinct_allocations
 
     def running(self, ks: Sequence[int]) -> List[Dict[str, object]]:
         """Prefix results at each k. The schedule is predetermined, so this is
@@ -286,6 +308,8 @@ class EnsembleResult:
             "candidate_id": self.candidate_id, "price": self.price,
             "recipient": self.recipient, "cache_key": self.cache_key,
             "k": self.k, "distinct_allocations": self.distinct_allocations,
+            "effective_k": self.effective_k,
+            "redundant_draws": self.redundant_draws,
             "tie_break": self.tie_break, "shock_scenario": self.shock_scenario,
             "holdout_sims": self.holdout_sims,
             "selection_sims": self.selection_sims,

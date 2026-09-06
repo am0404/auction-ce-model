@@ -220,6 +220,18 @@ def test_the_interval_is_cluster_level_not_pseudoreplicated():
     assert half != pytest.approx(math.sqrt(e.between_sd**2 + e.rms_within_se**2))
 
 
+def test_duplicate_allocations_are_counted_not_treated_as_independent():
+    """15 draws of an 11-rotation schedule carry 11 draws of information."""
+    e = _ens([0.05, -0.02, 0.03, 0.04])
+    dup = replace(e, draws=e.draws + e.draws[:2])
+    # Same joint fingerprints reappear, so effective_k must not grow.
+    assert dup.k == 6
+    assert dup.effective_k == 4
+    assert dup.redundant_draws == 2
+    blob = dup.to_dict(include_draws=False)
+    assert blob["effective_k"] == 4 and blob["redundant_draws"] == 2
+
+
 def test_a_single_draw_yields_no_between_allocation_interval():
     e = _ens([0.05])
     assert math.isnan(e.ci95[0])

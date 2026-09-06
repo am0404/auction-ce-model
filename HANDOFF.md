@@ -2158,3 +2158,125 @@ Then either report a between-allocation interval alongside the paired SE, or
 reduce the continuation's dependence on tie-breaking jitter. Until a single
 number is stable across continuations, no real-board price is defensible — and
 the opening-symmetry failure is the cheapest test that the fix worked.
+
+---
+
+## Phase: allocation ensemble and opening symmetry — GO
+
+Branch `allocation-ensemble-symmetry`, from
+`c8b4cb1d2322685aad0eed86a53abfba687a65f3`. Detail in
+`docs/ALLOCATION_ENSEMBLE.md`; aggregates in
+`docs/allocation_ensemble_sanitized.json`.
+
+### What the old jitter was, measured before changing it
+
+```
+sigma 0.06, multiplicative on WILLINGNESS (not a tie-break), 180 allocations:
+exact ties in raw willingness            152/180  84.4%
+winner changed by jitter                 130/180  72.2%
+  ...overturned a genuine non-tied gap     8/180   4.4%  (mean gap $0.07)
+clearing price changed                    92/180  51.1%
+identical winner to a no-jitter run       50/180  27.8%
+```
+
+84% of allocations were genuine ties — twelve identical owners in an empty room
+have identical willingness — so tie-breaking was real work done by the wrong
+instrument. The fatal part: it was indexed by each owner's *position in a
+tuple*, so at a fixed seed one team drew the same noise column every time.
+
+### The fix
+
+**Mechanical tie-break**: highest willingness wins outright; only bids within
+$0.50 count as tied, broken by this draw's priority slot. No randomness.
+**Preference shock**: explicit, scenario-labelled, zero by default, forced to
+zero in symmetry tests, indexed by priority slot so it permutes.
+**Balanced schedule**: eleven rivals rotate through eleven priority slots, each
+exactly once; the focus team keeps its slot.
+
+### Opening symmetry: RESTORED
+
+```
+                        before (1 seed)    after (ensemble)
+Team02 vs Team03 gap    +0.01175 (3.6 SE)  mean +0.00187
+                                           CI95 [-0.00726, +0.01099]
+single-seed gap now                        +0.00325
+persistent label effect                    False
+```
+
+### Primary RB — the candidate that flipped sign
+
+Before: three arbitrary seeds gave `[+0.0645, -0.02875, +0.03025]`.
+After, over 11 exchangeable draws:
+
+```
+deltas          [-0.0905, -0.10125, -0.09225, -0.04625, -0.06475, -0.07375,
+                 -0.0335, -0.0345, -0.0445, -0.05575, -0.069]
+mean            -0.06418      median -0.06475      min/max -0.10125/-0.03350
+between-alloc SD 0.02361      RMS within-alloc SE 0.00873   ratio 2.70
+SE of mean       0.00712      95% t-interval [-0.08004, -0.04832] (df=10)
+sign positive    0.00  (11 of 11 negative)
+```
+
+**The sign instability was the shock, not the economics.** Between-allocation SD
+is 2.7x the season SE: more seasons would not help, more draws would. Pooling
+11 x 4,000 seasons flat would have given an interval ~60x too narrow.
+
+### Convergence
+
+```
+ K      mean   between SD   SE(mean)   CI95                    verdict
+ 1   -0.09050    0.00000        n/a    none                    unresolved (no interval exists)
+ 3   -0.09467    0.00577    0.00333    [-0.10900, -0.08034]    unfavorable
+ 6   -0.07812    0.02050    0.00837    [-0.09964, -0.05661]    unfavorable
+12   -0.06638    0.02375    0.00686    [-0.08147, -0.05128]    unfavorable
+15   -0.06908    0.02448    0.00632    [-0.08264, -0.05553]    unfavorable
+```
+
+**Required K = 11.** With the shock off the allocation is a function of the
+rotation alone, so eleven rotations exhaust the balanced set: draws 12-15
+reproduced draws 1-4 exactly. The run reported 15 distinct board fingerprints
+because those hash the seed; there were **11 distinct joint worlds**.
+`effective_k` and `redundant_draws` now report this — a K=15 interval built on
+11 real draws would have been narrower than its coverage.
+
+### Positions
+
+```
+position   K    mean delta   between SD   CI95                     verdict
+RB        11    -0.06418     0.02361      [-0.08004, -0.04832]     unfavorable
+QB         6    +0.15596     0.00576      [+0.14991, +0.16200]     favorable
+WR         6    +0.07700     0.03213      [+0.04327, +0.11073]     favorable
+TE         -    proxy only (0.22 lineup improvement; no CE seasons spent)
+```
+
+QB is the most stable effect (between-SD 3.7% of the mean), consistent with the
+open superflex seat.
+
+### Runtime
+
+7.3s per allocation draw (buy + pass, 4,000-season holdout); ~80s per candidate
+at K=11; 328s total including symmetry and two secondary positions.
+
+### VERDICT: GO for targeted real-player precomputation
+
+Symmetry restored, no owner-ID effect, sign stable across the exchangeable
+ensemble, K=11 practical, invariants pass on every draw. The earlier NO-GO is
+discharged. What remains is honest allocation uncertainty, which must be
+reported as an interval over futures — never folded into one CE interval, and
+never replaced by a single arbitrary future auction.
+
+### Remaining limitations
+
+* One real candidate at K=11; QB/WR only at K=6.
+* Preference shock is implemented and tested but has not been exercised on the
+  real board with a non-zero sigma, so no behavioural scenario is calibrated.
+* Price ladders remain `FRONTIER_NOT_REACHED` — an empty room cannot bind.
+* Between-allocation SD is large in absolute terms (RB 0.024 against a 0.064
+  mean, 37%); the estimate is stable in sign, not tight in magnitude.
+
+### Exact next step
+
+**Re-run the four priority ladders at a mid-auction state under the ensemble.**
+Money must be scarce for a ladder to bind, so seed the room with a plausible set
+of recorded sales, then walk each ladder at K=11 and see whether a frontier
+appears. That is the first point at which a real maximum bid could be quoted.

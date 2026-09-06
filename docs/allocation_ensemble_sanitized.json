@@ -1,0 +1,563 @@
+{
+  "positions": {
+    "QB": {
+      "tier": "expensive",
+      "candidate_id": 3655628085077906594,
+      "price": 26,
+      "recipient": "Team12",
+      "cache_key": "ens-0ec837d1f59905181dc62c5b",
+      "k": 6,
+      "distinct_allocations": 6,
+      "tie_break": "mechanical",
+      "shock_scenario": "none",
+      "holdout_sims": 4000,
+      "selection_sims": 800,
+      "mean": 0.155958,
+      "median": 0.156375,
+      "min": 0.1465,
+      "max": 0.16375,
+      "between_allocation_sd": 0.005761,
+      "rms_within_allocation_se": 0.008449,
+      "se_of_ensemble_mean": 0.002352,
+      "ci95_of_mean": [
+        0.149912,
+        0.162005
+      ],
+      "quantiles": {
+        "p05": 0.148375,
+        "p25": 0.15425,
+        "p50": 0.156375,
+        "p75": 0.1585,
+        "p95": 0.1625
+      },
+      "sign_frequency": {
+        "positive": 1.0,
+        "negative": 0.0,
+        "zero": 0.0
+      },
+      "sign_stable": true,
+      "verdict": "favorable",
+      "runtime_s": 43.8,
+      "interval_note": "t-interval for the ENSEMBLE MEAN over allocation draws, df=k-1. Draws are clusters of seasons; between-allocation SD and within-allocation SE are reported separately and are never added."
+    },
+    "WR": {
+      "tier": "expensive",
+      "candidate_id": 4338873909304181467,
+      "price": 32,
+      "recipient": "Team12",
+      "cache_key": "ens-437a4b3f6a1a5b96f4895e5f",
+      "k": 6,
+      "distinct_allocations": 6,
+      "tie_break": "mechanical",
+      "shock_scenario": "none",
+      "holdout_sims": 4000,
+      "selection_sims": 800,
+      "mean": 0.077,
+      "median": 0.07425,
+      "min": 0.0415,
+      "max": 0.11875,
+      "between_allocation_sd": 0.032135,
+      "rms_within_allocation_se": 0.008918,
+      "se_of_ensemble_mean": 0.013119,
+      "ci95_of_mean": [
+        0.043271,
+        0.110729
+      ],
+      "quantiles": {
+        "p05": 0.044,
+        "p25": 0.051937,
+        "p50": 0.07425,
+        "p75": 0.100125,
+        "p95": 0.1145
+      },
+      "sign_frequency": {
+        "positive": 1.0,
+        "negative": 0.0,
+        "zero": 0.0
+      },
+      "sign_stable": true,
+      "verdict": "favorable",
+      "runtime_s": 43.8,
+      "interval_note": "t-interval for the ENSEMBLE MEAN over allocation draws, df=k-1. Draws are clusters of seasons; between-allocation SD and within-allocation SE are reported separately and are never added."
+    },
+    "TE": {
+      "status": "PROXY ONLY -- retained; no CE seasons spent",
+      "lineup_improvement": 0.216,
+      "reason": "weekly starting improvement 0.22 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence"
+    }
+  },
+  "primary": {
+    "position": "RB",
+    "tier": "expensive",
+    "candidate_id": 1573046950532115374,
+    "price": 44,
+    "recipient": "Team12",
+    "cache_key": "ens-61c4b90ae48ac680b4a1baf7",
+    "k": 15,
+    "distinct_allocations": 15,
+    "tie_break": "mechanical",
+    "shock_scenario": "none",
+    "holdout_sims": 4000,
+    "selection_sims": 800,
+    "mean": -0.069083,
+    "median": -0.069,
+    "min": -0.10125,
+    "max": -0.0335,
+    "between_allocation_sd": 0.024477,
+    "rms_within_allocation_se": 0.008728,
+    "se_of_ensemble_mean": 0.00632,
+    "ci95_of_mean": [
+      -0.08264,
+      -0.055527
+    ],
+    "quantiles": {
+      "p05": -0.10125,
+      "p25": -0.091375,
+      "p50": -0.069,
+      "p75": -0.04625,
+      "p95": -0.0342
+    },
+    "sign_frequency": {
+      "positive": 0.0,
+      "negative": 1.0,
+      "zero": 0.0
+    },
+    "sign_stable": true,
+    "verdict": "unfavorable",
+    "runtime_s": 109.9,
+    "interval_note": "t-interval for the ENSEMBLE MEAN over allocation draws, df=k-1. Draws are clusters of seasons; between-allocation SD and within-allocation SE are reported separately and are never added.",
+    "convergence": [
+      {
+        "k": 1,
+        "mean": -0.0905,
+        "between_sd": 0.0,
+        "se_of_mean": null,
+        "ci95": null,
+        "sign_positive": 0.0,
+        "verdict": "unresolved (k<2: no between-allocation interval exists)",
+        "distinct_allocations": 1,
+        "runtime_s": 7.3
+      },
+      {
+        "k": 3,
+        "mean": -0.094667,
+        "between_sd": 0.005768,
+        "se_of_mean": 0.00333,
+        "ci95": [
+          -0.108997,
+          -0.080337
+        ],
+        "sign_positive": 0.0,
+        "verdict": "unfavorable",
+        "distinct_allocations": 3,
+        "runtime_s": 21.9
+      },
+      {
+        "k": 6,
+        "mean": -0.078125,
+        "between_sd": 0.020501,
+        "se_of_mean": 0.00837,
+        "ci95": [
+          -0.099643,
+          -0.056607
+        ],
+        "sign_positive": 0.0,
+        "verdict": "unfavorable",
+        "distinct_allocations": 6,
+        "runtime_s": 43.8
+      },
+      {
+        "k": 12,
+        "mean": -0.066375,
+        "between_sd": 0.023754,
+        "se_of_mean": 0.006857,
+        "ci95": [
+          -0.081468,
+          -0.051282
+        ],
+        "sign_positive": 0.0,
+        "verdict": "unfavorable",
+        "distinct_allocations": 12,
+        "runtime_s": 87.9
+      },
+      {
+        "k": 15,
+        "mean": -0.069083,
+        "between_sd": 0.024477,
+        "se_of_mean": 0.00632,
+        "ci95": [
+          -0.08264,
+          -0.055527
+        ],
+        "sign_positive": 0.0,
+        "verdict": "unfavorable",
+        "distinct_allocations": 15,
+        "runtime_s": 109.9
+      }
+    ]
+  },
+  "symmetry": {
+    "owner_a": "Team02",
+    "owner_b": "Team03",
+    "k": 15,
+    "single_seed_gap": 0.00325,
+    "per_draw": [
+      0.00325,
+      0.01675,
+      -0.007,
+      -0.00225,
+      0.0015,
+      -0.023,
+      0.02925,
+      -0.00875,
+      -0.00025,
+      -0.025,
+      0.03275,
+      0.00325,
+      0.01675,
+      -0.007,
+      -0.00225
+    ],
+    "ensemble_mean_difference": 0.001867,
+    "paired_se": 0.004253,
+    "ci95": [
+      -0.007257,
+      0.01099
+    ],
+    "max_abs_paired_difference": 0.03275,
+    "contains_zero": true,
+    "persistent_label_effect": false,
+    "cache_key": "ens-e384f02774eb3fc156ab584b",
+    "note": "before any sale two rivals are structurally identical; the expected difference is exactly zero and the preference shock is forced off here"
+  },
+  "schedule": {
+    "k": 15,
+    "secondary_k": 6,
+    "draws": [
+      {
+        "index": 0,
+        "seed": 20260906,
+        "permutation": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "rotation": 0
+      },
+      {
+        "index": 1,
+        "seed": 20268825,
+        "permutation": [
+          0,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "rotation": 1
+      },
+      {
+        "index": 2,
+        "seed": 20276744,
+        "permutation": [
+          0,
+          10,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "rotation": 2
+      },
+      {
+        "index": 3,
+        "seed": 20284663,
+        "permutation": [
+          0,
+          9,
+          10,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "rotation": 3
+      },
+      {
+        "index": 4,
+        "seed": 20292582,
+        "permutation": [
+          0,
+          8,
+          9,
+          10,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rotation": 4
+      },
+      {
+        "index": 5,
+        "seed": 20300501,
+        "permutation": [
+          0,
+          7,
+          8,
+          9,
+          10,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "rotation": 5
+      },
+      {
+        "index": 6,
+        "seed": 20308420,
+        "permutation": [
+          0,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "rotation": 6
+      },
+      {
+        "index": 7,
+        "seed": 20316339,
+        "permutation": [
+          0,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          1,
+          2,
+          3,
+          4
+        ],
+        "rotation": 7
+      },
+      {
+        "index": 8,
+        "seed": 20324258,
+        "permutation": [
+          0,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          1,
+          2,
+          3
+        ],
+        "rotation": 8
+      },
+      {
+        "index": 9,
+        "seed": 20332177,
+        "permutation": [
+          0,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          1,
+          2
+        ],
+        "rotation": 9
+      },
+      {
+        "index": 10,
+        "seed": 20340096,
+        "permutation": [
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          1
+        ],
+        "rotation": 10
+      },
+      {
+        "index": 11,
+        "seed": 20348015,
+        "permutation": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "rotation": 0
+      },
+      {
+        "index": 12,
+        "seed": 20355934,
+        "permutation": [
+          0,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "rotation": 1
+      },
+      {
+        "index": 13,
+        "seed": 20363853,
+        "permutation": [
+          0,
+          10,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "rotation": 2
+      },
+      {
+        "index": 14,
+        "seed": 20371772,
+        "permutation": [
+          0,
+          9,
+          10,
+          11,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "rotation": 3
+      }
+    ],
+    "balanced": true,
+    "note": "predetermined rotation schedule; every rival occupies every priority slot equally often"
+  },
+  "settings": {
+    "tie_break": "mechanical",
+    "tie_tolerance": 0.5,
+    "preference_shock": 0.0,
+    "shock_scenario": "none",
+    "holdout_sims": 4000,
+    "selection_sims": 800,
+    "selection_seed": 555000111,
+    "holdout_seed": 917324011,
+    "performance_scenario": "median_target/full_health/week_sd/exclude"
+  },
+  "coverage": {
+    "contract_players": 549,
+    "mapped_playerspecs": 260,
+    "pool_limit": 260,
+    "position_counts": {
+      "QB": 35,
+      "RB": 70,
+      "WR": 112,
+      "TE": 43
+    },
+    "with_market_anchor": 149,
+    "without_market_anchor": 111,
+    "with_individual_injury": 222,
+    "injury_fallback_positional": 38,
+    "unresolved_placeholder_fields": 260,
+    "mapping_warnings": 3,
+    "mapping_skipped": 0,
+    "anchor_rows": 1024,
+    "market_scenario": "base",
+    "performance_scenario": "median_target/full_health/week_sd/exclude"
+  },
+  "runtime_s": 327.8,
+  "price_ladder_policy": {
+    "status": "FRONTIER_NOT_REACHED",
+    "note": "no ladder is run here. The pilot's ladders never changed the allocation over their tested range, so no maximum bid may be quoted from them; that is a statement about an empty room where money is not scarce, not about price insensitivity."
+  }
+}
