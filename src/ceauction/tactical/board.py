@@ -42,6 +42,7 @@ from ..auction.costs import CostBook
 from ..auction.state import AuctionState
 from ..league import Position
 from ..market.live import MarketState
+from ..auction.feasibility import PositionCounts, can_complete
 from ..market.pressure import _roster_fit
 from .bidders import BIDDER_SCENARIOS, DEFAULT_BIDDER_SCENARIO
 from .endgame import candidate_legal_max
@@ -78,9 +79,22 @@ class BoardSettings:
     scenario willingness are not identical bidders in a real room, and a
     deterministic tie would hand every such player to the alphabetically first
     owner. Seeded, so a fixed seed reproduces exactly."""
-    include_focus: bool = False
-    """Whether the focus team drafts here too. Normally False: our roster is
-    chosen by the CE-backed completion search against the board this leaves."""
+    focus_bids: bool = True
+    """Whether the focus team competes in the continuation.
+
+    It must, and the default says so. With the focus team silent, eleven rivals
+    draft the whole top of the board against an empty seat: they never have to
+    outbid us, they get better players for less money, and our CE-backed search
+    is handed the leftovers. Measured on the fabricated demo that put our proxy
+    strength at 86.9 against rivals' 105-109 and drove our championship equity
+    to exactly zero in BOTH branches, which made every audited buy/pass
+    comparison a difference of two zeroes.
+
+    What the focus team does NOT do here is take delivery. Players it wins are
+    *held* -- kept out of rival hands, but left on our board and unpaid for --
+    because which of them we actually end up with is the question the CE
+    completion search exists to answer, and letting a willingness proxy decide
+    it would replace the real search with the cheap one."""
 
     def cache_key(self) -> Tuple:
         import dataclasses
@@ -127,6 +141,10 @@ class BoardResult:
     unfilled: Dict[str, int]
     pool_considered: int
     pool_exhausted: bool
+    held_for_focus: FrozenSet[int] = frozenset()
+    """Players the focus team outbid the room for, kept out of rival rosters and
+    left on our board for the CE-backed search to choose among. Not owned, not
+    paid for, and never counted against our budget twice."""
     method: str = OPPONENT_METHOD
 
     @property
@@ -158,6 +176,8 @@ class BoardResult:
         h.update(f"settings={self.settings.cache_key()}\n".encode())
         for a in self.allocations:
             h.update(f"{a.sequence}|{a.player_id}|{a.owner_id}|{a.price}\n".encode())
+        h.update(("held=" + ",".join(str(p) for p in sorted(self.held_for_focus))
+                  + "\n").encode())
         return h.hexdigest()[:16]
 
     def to_dict(self, *, include_allocations: bool = True) -> Dict[str, object]:
@@ -170,6 +190,7 @@ class BoardResult:
             "pool_considered": self.pool_considered,
             "pool_exhausted": self.pool_exhausted,
             "unfilled_slots": self.unfilled,
+            "held_for_focus": sorted(self.held_for_focus),
             "all_rosters_complete": self.all_complete,
             "duplicate_ownership": self.has_duplicates,
             "spend": {o.owner_id: o.spent for o in self.state.owners},
@@ -196,6 +217,30 @@ def _pool_prices(state: AuctionState, costs: Optional[CostBook],
             price = costs.cost_of(spec.player_id)
         out[spec.player_id] = max(1, int(price if price is not None else 1))
     return out
+
+
+def _remaining_after(state: AuctionState,
+                     taken: Position) -> Dict[Position, int]:
+    """Board positions left once one player of ``taken`` is gone."""
+    remaining = state.available_by_position()
+    remaining[taken] = remaining.get(taken, 0) - 1
+    return remaining
+
+
+def _roster_fit_counts(counts: PositionCounts,
+                       position: Position) -> Tuple[str, float]:
+    """:func:`_roster_fit` against bare counts, for the focus shadow ledger.
+
+    The focus team's continuation roster exists only in local variables -- it is
+    never written into the auction state -- so it has no ``OwnerAuctionState``
+    to hand the shared helper. Same rules, same numbers, different container.
+    """
+    class _Shim:
+        pass
+
+    shim = _Shim()
+    shim.counts = counts                                  # type: ignore[attr-defined]
+    return _roster_fit(None, shim, position)              # type: ignore[arg-type]
 
 
 def continue_shared_board(
@@ -239,26 +284,54 @@ def continue_shared_board(
     owner_index = {o.owner_id: i for i, o in enumerate(state.owners)}
 
     allocations: List[Allocation] = []
+    held: List[int] = []
     cur = state
     truncated = False
+    # The focus team's shadow money and slots. It bids for real -- rivals must
+    # outbid it or pay more -- but it never takes delivery, so its purchases
+    # are tracked here instead of in the auction state. Without this ledger it
+    # would win the entire board for free.
+    focus_owner = state.owner(focus)
+    focus_budget = focus_owner.budget_remaining
+    focus_slots = focus_owner.open_slots
+    focus_counts = focus_owner.counts
+
     for i, spec in enumerate(order):
-        if len(allocations) >= settings.max_allocations:
+        if len(allocations) + len(held) >= settings.max_allocations:
             truncated = True
             break
-        if all(o.open_slots <= 0 for o in cur.owners):
+        rivals_done = all(o.open_slots <= 0 for o in cur.owners
+                          if o.owner_id != focus)
+        if rivals_done and (focus_slots <= 0 or not settings.focus_bids):
             break
         position = Position(int(spec.position))
         market_price = prices[spec.player_id]
         bids: List[Tuple[float, int, str]] = []
         for o in cur.owners:
-            if o.owner_id == focus and not settings.include_focus:
-                continue
-            legal_max = candidate_legal_max(cur, o.owner_id, spec.player_id)
-            if legal_max <= 0:
-                continue
-            _, fit = _roster_fit(cur, o, position)
+            if o.owner_id == focus:
+                if not settings.focus_bids or focus_slots <= 0:
+                    continue
+                # Same arithmetic the state applies to everyone: keep $1 for
+                # every other open slot, and refuse a purchase that would leave
+                # no legal completion.
+                legal_max = focus_budget - (focus_slots - 1) * o.min_bid
+                if legal_max < o.min_bid:
+                    continue
+                after = focus_counts.plus(position)
+                if not can_complete(after, focus_slots - 1,
+                                    _remaining_after(cur, position)):
+                    continue
+                fit_counts = after
+                _, fit = _roster_fit_counts(focus_counts, position)
+                discretionary = focus_budget - focus_slots * o.min_bid
+            else:
+                legal_max = candidate_legal_max(cur, o.owner_id, spec.player_id)
+                if legal_max <= 0:
+                    continue
+                _, fit = _roster_fit(cur, o, position)
+                discretionary = o.discretionary
             want = market_price * sc.aggression * (1.0 + sc.fit_weight * (fit - 0.5))
-            want = min(want, sc.budget_share * max(0, o.discretionary) + o.min_bid)
+            want = min(want, sc.budget_share * max(0, discretionary) + o.min_bid)
             want *= (1.0 + float(noise[i, owner_index[o.owner_id]]))
             w = int(max(0, min(legal_max, round(want))))
             if w >= o.min_bid:
@@ -271,6 +344,20 @@ def continue_shared_board(
         second = runner[1] if runner else 0
         price = max(cur.owner(winner).min_bid, second + 1)
         price = min(price, winner_w)
+        if winner == focus:
+            # Held, not bought. The player leaves the rivals' reach and stays
+            # on our board, unpaid for; the CE completion search decides which
+            # of these we actually take, inside our real budget.
+            held.append(spec.player_id)
+            focus_budget -= price
+            focus_slots -= 1
+            focus_counts = focus_counts.plus(position)
+            allocations.append(Allocation(
+                sequence=len(allocations), player_id=spec.player_id,
+                position=position.name, owner_id=focus, price=price,
+                runner_up=runner[2] if runner else None,
+                runner_up_willingness=second))
+            continue
         problem = cur.purchase_shortfall(spec.player_id, winner, price)
         if problem is not None:
             # Legality is the authority, not the willingness model. Skipping is
@@ -285,7 +372,7 @@ def continue_shared_board(
             runner_up_willingness=second))
 
     unfilled = {o.owner_id: o.open_slots for o in cur.owners
-                if o.owner_id != focus or settings.include_focus}
+                if o.owner_id != focus}
     if truncated:
         exactness = "truncated"
     elif any(v > 0 for v in unfilled.values()):
@@ -297,7 +384,8 @@ def continue_shared_board(
     return BoardResult(state=cur, allocations=tuple(allocations),
                        settings=settings, exactness=exactness,
                        unfilled=unfilled, pool_considered=len(order),
-                       pool_exhausted=pool_exhausted)
+                       pool_exhausted=pool_exhausted,
+                       held_for_focus=frozenset(held))
 
 
 def cast_from_board(board: BoardResult, cast: ComparisonCast,

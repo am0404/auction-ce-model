@@ -407,6 +407,83 @@ def test_cast_from_board_keeps_our_slot_and_stays_disjoint(sold):
     assert len(set(rivals)) == len(rivals)
 
 
+def test_the_focus_team_bids_in_the_continuation(sold):
+    """Rivals must outbid us. With us silent they draft the board for nothing."""
+    b = continue_shared_board(sold.state, costs=sold.costs, market=sold.market,
+                              key_by_id=sold.key_by_id)
+    assert b.settings.focus_bids is True
+    assert b.held_for_focus, "the focus team must win some of the board"
+    focus = sold.state.focus_owner_id
+    assert len(b.held_for_focus) <= sold.state.owner(focus).open_slots
+
+
+def test_held_players_are_kept_from_rivals_and_left_on_our_board(sold):
+    b = continue_shared_board(sold.state, costs=sold.costs, market=sold.market,
+                              key_by_id=sold.key_by_id)
+    focus = sold.state.focus_owner_id
+    rival_ids = {pid for o in b.state.owners if o.owner_id != focus
+                 for pid in o.player_ids}
+    for pid in b.held_for_focus:
+        assert pid not in rival_ids, "a held player reached a rival roster"
+        assert b.state.is_available(pid), "a held player left our board"
+    # Held is not bought: our state roster and budget are untouched by them.
+    assert b.state.owner(focus).player_ids == sold.state.owner(focus).player_ids
+    assert b.state.owner(focus).budget_remaining == \
+        sold.state.owner(focus).budget_remaining
+    assert not (b.held_for_focus & b.reserved_ids(exclude_owner=focus))
+
+
+def test_the_focus_shadow_ledger_respects_budget_and_slots(sold):
+    """The focus team cannot win the whole board for free."""
+    b = continue_shared_board(sold.state, costs=sold.costs, market=sold.market,
+                              key_by_id=sold.key_by_id)
+    focus = sold.state.focus_owner_id
+    owner = sold.state.owner(focus)
+    mine = [a for a in b.allocations if a.owner_id == focus]
+    assert len(mine) == len(b.held_for_focus)
+    assert len(mine) <= owner.open_slots
+    spend = sum(a.price for a in mine)
+    unspent_slots = owner.open_slots - len(mine)
+    assert spend + unspent_slots <= owner.budget_remaining, \
+        "$1 must survive for every slot the shadow ledger did not fill"
+    assert all(a.price >= owner.min_bid for a in mine)
+
+
+def test_a_silent_focus_team_is_left_behind_the_field(sold):
+    """The regression this fix exists for, asserted as a comparison.
+
+    With ``focus_bids=False`` eleven rivals draft the top of the board against
+    an empty seat and our best completion lands well below the field, which put
+    our championship equity at exactly zero in both branches and made every
+    audited comparison a difference of two zeroes.
+    """
+    from ceauction.auction.completion import CompletionSettings, complete_roster
+    from ceauction.auction.proxy import ProxyEvaluator
+
+    focus = sold.state.focus_owner_id
+    px = ProxyEvaluator(sold.state.pool, sold.state.settings, 16, 7)
+    cs = CompletionSettings(beam_width=32, candidate_pool=30,
+                            proxy_candidates=32, finalists=2,
+                            max_candidates=160, proxy_reps=16)
+
+    def gap(focus_bids: bool) -> float:
+        b = continue_shared_board(
+            sold.state, settings=replace(BoardSettings(), focus_bids=focus_bids),
+            costs=sold.costs, market=sold.market, key_by_id=sold.key_by_id)
+        cast = cast_from_board(b, sold.cast, sold.state)
+        res = complete_roster(b.state, cast, sold.costs, settings=cs,
+                              owner_id=focus, evaluate_ce=False, default_cost=1,
+                              proxy=px,
+                              reserved_ids=b.reserved_ids(exclude_owner=focus))
+        rivals = [t for i, t in enumerate(cast.rosters)
+                  if i != cast.focus_team_index]
+        return res.best.proxy - float(px.strength_many(rivals).mean())
+
+    silent, bidding = gap(False), gap(True)
+    assert silent < -10.0, "the silent-focus regression must be reproducible"
+    assert bidding > silent + 10.0, "bidding must close most of that gap"
+
+
 def test_board_refuses_an_unknown_market_scenario(sold):
     with pytest.raises(ValueError, match="low/base/high"):
         continue_shared_board(sold.state,
@@ -719,6 +796,14 @@ def test_audited_mode_uses_the_equity_engine_with_a_holdout_sample(sold):
         assert v.se is not None and v.se >= 0.0
         assert v.selection_sims == 400 and v.holdout_sims == 400
         assert v.ci95 is not None
+        # The comparison must carry information. A paired difference of exactly
+        # zero with exactly zero spread means both branches produced the same
+        # completed league, or that our equity is pinned at the floor in both;
+        # either way there is nothing to read and the layer must not pretend.
+        assert not (v.delta == 0.0 and v.se == 0.0), \
+            "degenerate audited comparison: see DEGENERATE in the basis"
+        assert "DEGENERATE" not in v.basis
+    assert any(v.se > 0.0 for v in r.verdicts)
     r.check_caps()
 
 

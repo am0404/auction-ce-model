@@ -10,8 +10,8 @@ All numbers are produced by formulas and describe nobody.
 candidate                   player 47 (RB)
 legal maximum               $99
 financial-control threshold $91
-robust tactical maximum     66
-robust bracket              (66, 99)
+robust tactical maximum     1
+robust bracket              (1, 34)
 tested prices               [1, 34, 66, 99]
 mode                        immediate (proxy bracket (no interval; NOT a CE estimate))
 ```
@@ -61,9 +61,9 @@ averaged before the branches exist.
 
 ```
   recipient                           price   delta (proxy)  verdict
-  Owner09 at $21                        $21         6.58134  favorable
-  Owner04 at $22                        $22         6.62456  favorable
-  unavailable (withdrawn from our board, no owner assigned)      -         6.51951  favorable
+  Owner09 at $21                        $21         3.84530  favorable
+  Owner04 at $22                        $22         3.87896  favorable
+  unavailable (withdrawn from our board, no owner assigned)      -         4.14103  favorable
 ```
 
 The deltas differ by recipient: the candidate strengthening one rival is
@@ -74,9 +74,9 @@ structure runs through the real equity engine.
 ## 6. The live maximum differs from the opening maximum
 
 ```
-opening (no sales, no leader)   robust 66  bracket (66, 99)  legal max $99
-live ($12 bid, leader Owner09)  robust 70  bracket (70, 99)  legal max $99
-cache keys                      f91cbe24f4146be06610e0b5 vs d4853c963d3aa2be22ba07e8
+opening (no sales, no leader)   robust 1  bracket (1, 34)  legal max $99
+live ($12 bid, leader Owner09)  robust 13  bracket (13, 42)  legal max $99
+cache keys                      a2abc7bcb3edd510b186e5dd vs 36660139ca1d69068e2a9c04
 ```
 
 Different room, different market state, different question, different
@@ -130,9 +130,9 @@ purchase.
 ## 10. Immediate versus audited
 
 ```
-immediate, cold           1.29s   robust 70   basis: proxy, NO interval
-immediate, cache hit      22.1ms  from_cache=True
-audited, ONE price        3.64s   delta +0.00000 +/- 0.00000 (unresolved)
+immediate, cold           1.46s   robust 13   basis: proxy, NO interval
+immediate, cache hit      21.9ms  from_cache=True
+audited, ONE price        3.99s   delta +0.06250 +/- 0.02375 (favorable)
 ```
 
 The immediate answer is a proxy ordering with no confidence interval and

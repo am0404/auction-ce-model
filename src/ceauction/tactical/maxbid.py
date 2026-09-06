@@ -649,11 +649,18 @@ def evaluate_tactical(
                         recipient_label=label, recipient_owner=b.owner_id,
                         recipient_price=b.price, delta=bp.delta_ce,
                         se=bp.delta_ce_se,
-                        # A paired difference of exactly zero with exactly zero
-                        # spread means the two branches produced the SAME
-                        # completed league, not that buying wins. The engine's
-                        # own rule reads lo >= 0 as favorable; here that would
-                        # be reporting a degenerate comparison as evidence.
+                        # A paired difference of exactly zero with exactly
+                        # zero spread carries no information: either the two
+                        # branches produced the same completed league, or our
+                        # equity is pinned at the floor in both of them and the
+                        # difference cannot move. The engine's own rule reads
+                        # lo >= 0 as favorable, which would report that as
+                        # evidence for buying. It is not.
+                        #
+                        # The floor case is what a silent focus team used to
+                        # cause: see BoardSettings.focus_bids. The guard stays
+                        # regardless, because a guard that only fires on a bug
+                        # you have already fixed is the one you want.
                         verdict=("unresolved"
                                  if (bp.delta_ce == 0.0 and bp.delta_ce_se == 0.0)
                                  else bp.verdict),

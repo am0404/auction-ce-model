@@ -66,6 +66,23 @@ budgets and slots updated after each allocation, deterministic under a fixed
 seed and different under a different one. Reports `exact` / `bounded` /
 `truncated` / `heuristic`.
 
+**The focus team bids in it** (`BoardSettings.focus_bids`, default `True`).
+This is not optional and the first version got it wrong. With our seat silent,
+eleven rivals draft the top of the board against nobody: they never have to
+outbid us, they get better players for less money, and the CE search is handed
+the leftovers. Measured on the fabricated demo that put our proxy strength at
+**86.9 against rivals' 105-109** and our championship equity at **exactly zero
+in both branches**, so every audited buy/pass comparison was a difference of
+two zeroes. With the focus team bidding, our strength lands at **105.7** inside
+the rivals' band and the same comparison returns `+0.045 (se 0.010)`.
+
+What the focus team does *not* do in the continuation is take delivery. Players
+it outbids the room for are **held**: kept out of rival rosters, left on our
+board, unpaid for, and never counted against our budget twice. Which of them we
+actually take is the question the CE completion search exists to answer, and
+letting a willingness proxy settle it would replace the real search with the
+cheap one.
+
 **Robust tactical maximum**. Highest tested price favorable against *every*
 included recipient and *every* selected scenario.
 
@@ -110,10 +127,16 @@ which produced it.
 8. **Sparse ladders** yield a *bracket* plus the untested gaps. Only
    `--refine` walks every integer in the transition gap.
 9. **Nonmonotonicity** is reported and classified, never smoothed away.
-10. **Degenerate audited comparisons.** When the shared board has allocated
-    everything, buy and pass can produce an identical completed league; the
-    paired difference is then exactly zero with zero spread. That is reported
-    as `unresolved` with `DEGENERATE` in the basis, not as favorable.
+10. **Uninformative audited comparisons.** A paired difference of exactly zero
+    with exactly zero spread carries nothing — either both branches produced the
+    same completed league, or our equity is pinned at the floor in both. Reported
+    as `unresolved` with `DEGENERATE` in the basis, never as favorable. The floor
+    case was what a silent focus team caused; the guard stays anyway.
+11. **The focus shadow ledger.** During the continuation our budget and slots
+    are tracked in local variables rather than written into the auction state,
+    with the same $1-per-open-slot reserve and the same feasibility test every
+    other owner gets. It stops us winning the board for free while still forcing
+    rivals to outbid us.
 
 ## What to enter during the real draft
 

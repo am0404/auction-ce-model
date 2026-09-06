@@ -1465,3 +1465,90 @@ rival allocations) so the buy and pass branches genuinely differ, then re-run
 `ce-lab tactical max-bid --mode audited` and confirm the intervals are non-zero.
 Until that is fixed, the CE-backed path is architecture rather than evidence and
 only the proxy ordering is usable.
+
+---
+
+## Phase: the CE counterfactual fix
+
+Branch `tactical-ce-counterfactual-fix`, from `1360649`. One defect, correctly
+diagnosed this time, plus the honest consequence of fixing it.
+
+### The defect
+
+The previous handoff called the audited path "degenerate: buy and pass produced
+an identical completed league". **That diagnosis was wrong.** The rosters were
+different. What was actually happening:
+
+```
+our completion's proxy strength     86.9
+rival proxy strengths          105.3 - 109.4   (all eleven)
+our championship equity          0.0000        in BOTH branches
+audited delta                    0.000000  se 0.000000
+```
+
+The shared-board continuation ran with `include_focus=False`, so eleven rivals
+drafted the entire top of the board **against a focus seat that never bid**.
+They never had to outbid us, so they got better players for less money, and our
+CE-backed search was handed the leftovers. We entered every comparison already
+last by twenty proxy points, our equity sat on the floor in both branches, and
+the paired difference could not move off zero.
+
+### The fix
+
+`BoardSettings.focus_bids` (default `True`, replacing `include_focus`). The
+focus team now competes in the continuation like everyone else, against a shadow
+ledger of its own money and slots that applies the same $1-per-open-slot reserve
+and the same feasibility test.
+
+It does **not** take delivery. Players it outbids the room for are *held*: kept
+out of rival rosters, left on our board, unpaid for, and never charged against
+our budget twice. Which of them we actually take stays with the CE completion
+search, because letting a willingness proxy settle that would replace the real
+search with the cheap one.
+
+```
+our proxy strength   86.9  ->  105.7   (rivals 105.1 - 106.7)
+audited delta        0.000000 se 0.000000  ->  +0.045000 se 0.010378
+                                              CI (0.0247, 0.0653) favorable
+```
+
+### The consequence, stated plainly
+
+**The tactical maxima dropped a long way, and that is the point.**
+
+```
+opening robust max   $66  ->  $1   (bracket (1, 34))
+live robust max      $70  ->  $13  (bracket (13, 42))
+candidate's expected clearing band                ~$19-21
+```
+
+The old numbers were implausibly high — a robust maximum of $70 out of a $99
+legal max, for a mid-tier back the market prices near $20 — precisely because
+the old model let us keep the value of the rest of the board no matter what we
+paid. Now spending $70 on one player visibly costs us the continuation, which is
+what spending $70 actually does. The new numbers sit near the market band, which
+is where a sane answer belongs. They are still proxy-mode brackets on a sparse
+ladder, not recommendations.
+
+### Tests
+
+Four new regression tests (65 total in `tests/test_tactical.py`):
+
+* the focus team bids and holds part of the board;
+* held players reach no rival roster, stay on our board, and cost us nothing;
+* the shadow ledger respects budget, slots and the $1 reserve;
+* **the regression itself**: with `focus_bids=False` our completion lands more
+  than 10 proxy points below the field, and bidding closes most of that gap.
+
+The slow audited test now additionally refuses a zero-delta/zero-SE result and
+asserts at least one verdict carries a real standard error.
+
+### Still provisional
+
+* No real auction has been observed. Every bidder coefficient is still chosen.
+* `ce_pass` is still exactly `0.0` at 400 sims — plausible for a below-median
+  team (0 titles in 400 seasons) but it means the delta is measured against a
+  floor. **Next: re-run the audited comparison at 4,000+ sims and confirm the
+  pass branch lifts off zero.** If it does not, our completion is still too weak
+  relative to the field and the continuation needs another look.
+* Only the fabricated world is wired in; there is no live-room loader.
