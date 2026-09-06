@@ -22,7 +22,7 @@ disclaimer machinery says so wherever the book surfaces.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict, Iterable, Mapping, Optional, Sequence
+from typing import Mapping, Optional
 
 from ..auction.costs import CostBook, CostEntry, CostProvenance
 from .live import MarketState

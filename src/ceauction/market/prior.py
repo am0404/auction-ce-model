@@ -34,9 +34,9 @@ from __future__ import annotations
 
 import hashlib
 import math
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from decimal import Decimal
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from ..league import DEFAULT_LEAGUE, LeagueSettings
 from .anchors import ROSTERABLE_POSITIONS, AnchorBook, SleeperAnchor

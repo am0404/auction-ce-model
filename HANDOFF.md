@@ -130,7 +130,7 @@ src/ceauction/
   experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      758 tests
+tests/                      843 tests
 ```
 
 `stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
@@ -146,8 +146,8 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 758 tests, ~25 min
-.venv/bin/python -m pytest -m "not slow"   # 731 tests, ~4 min
+.venv/bin/python -m pytest              # 843 tests, ~25 min
+.venv/bin/python -m pytest -m "not slow"   # 816 tests, ~4 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments

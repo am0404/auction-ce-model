@@ -8,9 +8,8 @@ reproducible, not to say anything about anybody.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, List, Tuple
+from typing import List
 
 from ..realdata.identity import stable_player_id
 from .anchors import AnchorBook, SleeperAnchor

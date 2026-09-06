@@ -33,10 +33,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass, field, replace
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from dataclasses import dataclass, replace
+from typing import Dict, Iterable, Optional, Tuple
 
-from .prior import MarketPrior, PlayerPrior
+from .prior import MarketPrior
 
 __all__ = [
     "SaleObservation",

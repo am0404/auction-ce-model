@@ -39,10 +39,10 @@ from __future__ import annotations
 
 import csv
 import hashlib
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from ..league import Position
 from ..realdata.identity import canonical_player_key, normalize_name

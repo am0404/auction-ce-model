@@ -25,7 +25,7 @@ observed.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ..auction.state import AuctionState, OwnerAuctionState
 from ..league import Position

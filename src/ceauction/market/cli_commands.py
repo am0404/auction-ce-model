@@ -19,9 +19,9 @@ from typing import List, Optional
 
 from .anchors import AnchorError, load_sleeper_csv, match_anchors_to_contract
 from .costbook import cost_book_from_market_state, cost_book_from_prior
-from .demo import DEMO_SALES, build_demo_prior, demo_state
+from .demo import DEMO_SALES, build_demo_prior
 from .live import MarketState, SaleObservation, ShrinkageConfig
-from .prior import MARKET_SCENARIOS, build_market_prior, format_prior_summary
+from .prior import build_market_prior, format_prior_summary
 
 __all__ = ["add_market_parser", "dispatch"]
 

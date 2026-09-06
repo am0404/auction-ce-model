@@ -34,8 +34,8 @@ and fails with "editable mode currently requires a setuptools-based build".
 .venv/bin/ce-lab run --all --sims 12000    # the full CE laboratory
 .venv/bin/ce-lab curve --sims 16000        # the marginal CE curve for one slot
 .venv/bin/ce-lab bench                     # runtime + Monte Carlo uncertainty
-.venv/bin/python -m pytest                 # 758 tests, ~25 min
-.venv/bin/python -m pytest -m "not slow"   # 731 of them, ~4 min
+.venv/bin/python -m pytest                 # 843 tests, ~25 min
+.venv/bin/python -m pytest -m "not slow"   # 816 of them, ~4 min
 ```
 
 Two of the twelve experiments are **controls** and are meant to read near zero.
