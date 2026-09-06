@@ -1,0 +1,817 @@
+{
+  "simulated": true,
+  "candidate_position": "RB",
+  "leader": "Team11",
+  "standing_price": 30,
+  "alt_recipient": "Team09",
+  "bracket_from_primary": [
+    80,
+    100
+  ],
+  "decompositions": {
+    "low_favorable": {
+      "p": 1,
+      "q": 30,
+      "position": "RB",
+      "focus_price": 1,
+      "rival": "Team11",
+      "rival_price": 30,
+      "k": 11,
+      "lineup_improvement": 2.5039,
+      "role": "marginal starter",
+      "ce_by_branch": {
+        "W": {
+          "k": 11,
+          "mean": 0.018409,
+          "median": 0.01875,
+          "min": 0.015,
+          "max": 0.02275,
+          "between_allocation_sd": 0.002234,
+          "se_of_mean": 0.000674,
+          "ci95": [
+            0.016908,
+            0.01991
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "UF": {
+          "k": 11,
+          "mean": 0.069818,
+          "median": 0.0725,
+          "min": 0.05575,
+          "max": 0.08025,
+          "between_allocation_sd": 0.00771,
+          "se_of_mean": 0.002325,
+          "ci95": [
+            0.064639,
+            0.074998
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "UP": {
+          "k": 11,
+          "mean": 0.07125,
+          "median": 0.0725,
+          "min": 0.05875,
+          "max": 0.08025,
+          "between_allocation_sd": 0.006387,
+          "se_of_mean": 0.001926,
+          "ci95": [
+            0.066959,
+            0.075541
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "RF": {
+          "k": 11,
+          "mean": 0.020295,
+          "median": 0.02175,
+          "min": 0.0085,
+          "max": 0.026,
+          "between_allocation_sd": 0.004828,
+          "se_of_mean": 0.001456,
+          "ci95": [
+            0.017052,
+            0.023539
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "RP": {
+          "k": 11,
+          "mean": 0.021341,
+          "median": 0.02175,
+          "min": 0.01625,
+          "max": 0.026,
+          "between_allocation_sd": 0.002844,
+          "se_of_mean": 0.000858,
+          "ci95": [
+            0.01943,
+            0.023252
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        }
+      },
+      "components": {
+        "our_payment": {
+          "k": 11,
+          "mean": 0.001432,
+          "median": 0.00125,
+          "min": -0.004,
+          "max": 0.0085,
+          "between_allocation_sd": 0.003048,
+          "se_of_mean": 0.000919,
+          "ci95": [
+            -0.000616,
+            0.003479
+          ],
+          "sign_positive": 0.545,
+          "sign_stable": false
+        },
+        "our_possession": {
+          "k": 11,
+          "mean": 0.051409,
+          "median": 0.05275,
+          "min": 0.03875,
+          "max": 0.064,
+          "between_allocation_sd": 0.006925,
+          "se_of_mean": 0.002088,
+          "ci95": [
+            0.046757,
+            0.056061
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "rival_denial": {
+          "k": 11,
+          "mean": -0.001886,
+          "median": -0.00325,
+          "min": -0.0055,
+          "max": 0.0065,
+          "between_allocation_sd": 0.003459,
+          "se_of_mean": 0.001043,
+          "ci95": [
+            -0.00421,
+            0.000438
+          ],
+          "sign_positive": 0.182,
+          "sign_stable": false
+        },
+        "rival_payment": {
+          "k": 11,
+          "mean": -0.001045,
+          "median": 0.0,
+          "min": -0.00925,
+          "max": 0.0,
+          "between_allocation_sd": 0.002804,
+          "se_of_mean": 0.000845,
+          "ci95": [
+            -0.002929,
+            0.000838
+          ],
+          "sign_positive": 0.0,
+          "sign_stable": true
+        }
+      },
+      "total": {
+        "k": 11,
+        "mean": 0.049909,
+        "median": 0.05075,
+        "min": 0.039,
+        "max": 0.0585,
+        "between_allocation_sd": 0.005714,
+        "se_of_mean": 0.001723,
+        "ci95": [
+          0.04607,
+          0.053748
+        ],
+        "sign_positive": 1.0,
+        "sign_stable": true
+      },
+      "max_per_draw_residual": 6.938893903907228e-18,
+      "ensemble_residual": 0.0,
+      "rms_within_allocation_se": {
+        "W": 0.002125,
+        "UF": 0.004028,
+        "UP": 0.004066,
+        "RF": 0.002228,
+        "RP": 0.002285
+      },
+      "classification": "mixed",
+      "classification_reason": "no single component dominates the total at this sample size",
+      "runtime_s": 152.0,
+      "path_note": "declared telescoping path UP->UF->W->RF->RP. It sums exactly because it telescopes, not because completion is additive; a different ordering attributes different amounts to each term.",
+      "analytical_note": "W, UF and RF are analytical instruments, not possible auction outcomes. They carry no recipient probability."
+    },
+    "highest_favorable": {
+      "p": 80,
+      "q": 30,
+      "position": "RB",
+      "focus_price": 80,
+      "rival": "Team11",
+      "rival_price": 30,
+      "k": 11,
+      "lineup_improvement": 2.5039,
+      "role": "marginal starter",
+      "ce_by_branch": {
+        "W": {
+          "k": 11,
+          "mean": 0.018409,
+          "median": 0.01875,
+          "min": 0.015,
+          "max": 0.02275,
+          "between_allocation_sd": 0.002234,
+          "se_of_mean": 0.000674,
+          "ci95": [
+            0.016908,
+            0.01991
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "UF": {
+          "k": 11,
+          "mean": 0.069818,
+          "median": 0.0725,
+          "min": 0.05575,
+          "max": 0.08025,
+          "between_allocation_sd": 0.00771,
+          "se_of_mean": 0.002325,
+          "ci95": [
+            0.064639,
+            0.074998
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "UP": {
+          "k": 11,
+          "mean": 0.017682,
+          "median": 0.01875,
+          "min": 0.00925,
+          "max": 0.02325,
+          "between_allocation_sd": 0.003717,
+          "se_of_mean": 0.001121,
+          "ci95": [
+            0.015185,
+            0.020179
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "RF": {
+          "k": 11,
+          "mean": 0.020295,
+          "median": 0.02175,
+          "min": 0.0085,
+          "max": 0.026,
+          "between_allocation_sd": 0.004828,
+          "se_of_mean": 0.001456,
+          "ci95": [
+            0.017052,
+            0.023539
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "RP": {
+          "k": 11,
+          "mean": 0.021341,
+          "median": 0.02175,
+          "min": 0.01625,
+          "max": 0.026,
+          "between_allocation_sd": 0.002844,
+          "se_of_mean": 0.000858,
+          "ci95": [
+            0.01943,
+            0.023252
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        }
+      },
+      "components": {
+        "our_payment": {
+          "k": 11,
+          "mean": -0.052136,
+          "median": -0.0525,
+          "min": -0.063,
+          "max": -0.038,
+          "between_allocation_sd": 0.007618,
+          "se_of_mean": 0.002297,
+          "ci95": [
+            -0.057254,
+            -0.047019
+          ],
+          "sign_positive": 0.0,
+          "sign_stable": true
+        },
+        "our_possession": {
+          "k": 11,
+          "mean": 0.051409,
+          "median": 0.05275,
+          "min": 0.03875,
+          "max": 0.064,
+          "between_allocation_sd": 0.006925,
+          "se_of_mean": 0.002088,
+          "ci95": [
+            0.046757,
+            0.056061
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "rival_denial": {
+          "k": 11,
+          "mean": -0.001886,
+          "median": -0.00325,
+          "min": -0.0055,
+          "max": 0.0065,
+          "between_allocation_sd": 0.003459,
+          "se_of_mean": 0.001043,
+          "ci95": [
+            -0.00421,
+            0.000438
+          ],
+          "sign_positive": 0.182,
+          "sign_stable": false
+        },
+        "rival_payment": {
+          "k": 11,
+          "mean": -0.001045,
+          "median": 0.0,
+          "min": -0.00925,
+          "max": 0.0,
+          "between_allocation_sd": 0.002804,
+          "se_of_mean": 0.000845,
+          "ci95": [
+            -0.002929,
+            0.000838
+          ],
+          "sign_positive": 0.0,
+          "sign_stable": true
+        }
+      },
+      "total": {
+        "k": 11,
+        "mean": -0.003659,
+        "median": -0.00275,
+        "min": -0.00875,
+        "max": 0.00275,
+        "between_allocation_sd": 0.003509,
+        "se_of_mean": 0.001058,
+        "ci95": [
+          -0.006017,
+          -0.001302
+        ],
+        "sign_positive": 0.091,
+        "sign_stable": false
+      },
+      "max_per_draw_residual": 5.204170427930421e-18,
+      "ensemble_residual": -0.0,
+      "rms_within_allocation_se": {
+        "W": 0.002125,
+        "UF": 0.004028,
+        "UP": 0.002083,
+        "RF": 0.002228,
+        "RP": 0.002285
+      },
+      "classification": "helps us but costs too much",
+      "classification_reason": "own possession +0.05141 is positive and own payment -0.05214 more than offsets it",
+      "runtime_s": 155.3,
+      "path_note": "declared telescoping path UP->UF->W->RF->RP. It sums exactly because it telescopes, not because completion is additive; a different ordering attributes different amounts to each term.",
+      "analytical_note": "W, UF and RF are analytical instruments, not possible auction outcomes. They carry no recipient probability."
+    },
+    "first_unfavorable": {
+      "p": 100,
+      "q": 30,
+      "position": "RB",
+      "focus_price": 100,
+      "rival": "Team11",
+      "rival_price": 30,
+      "k": 11,
+      "lineup_improvement": 2.5039,
+      "role": "marginal starter",
+      "ce_by_branch": {
+        "W": {
+          "k": 11,
+          "mean": 0.018409,
+          "median": 0.01875,
+          "min": 0.015,
+          "max": 0.02275,
+          "between_allocation_sd": 0.002234,
+          "se_of_mean": 0.000674,
+          "ci95": [
+            0.016908,
+            0.01991
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "UF": {
+          "k": 11,
+          "mean": 0.069818,
+          "median": 0.0725,
+          "min": 0.05575,
+          "max": 0.08025,
+          "between_allocation_sd": 0.00771,
+          "se_of_mean": 0.002325,
+          "ci95": [
+            0.064639,
+            0.074998
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "UP": {
+          "k": 11,
+          "mean": 0.008977,
+          "median": 0.0095,
+          "min": 0.0045,
+          "max": 0.01225,
+          "between_allocation_sd": 0.002668,
+          "se_of_mean": 0.000804,
+          "ci95": [
+            0.007185,
+            0.01077
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "RF": {
+          "k": 11,
+          "mean": 0.020295,
+          "median": 0.02175,
+          "min": 0.0085,
+          "max": 0.026,
+          "between_allocation_sd": 0.004828,
+          "se_of_mean": 0.001456,
+          "ci95": [
+            0.017052,
+            0.023539
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "RP": {
+          "k": 11,
+          "mean": 0.021341,
+          "median": 0.02175,
+          "min": 0.01625,
+          "max": 0.026,
+          "between_allocation_sd": 0.002844,
+          "se_of_mean": 0.000858,
+          "ci95": [
+            0.01943,
+            0.023252
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        }
+      },
+      "components": {
+        "our_payment": {
+          "k": 11,
+          "mean": -0.060841,
+          "median": -0.06325,
+          "min": -0.071,
+          "max": -0.04675,
+          "between_allocation_sd": 0.008054,
+          "se_of_mean": 0.002428,
+          "ci95": [
+            -0.066251,
+            -0.055431
+          ],
+          "sign_positive": 0.0,
+          "sign_stable": true
+        },
+        "our_possession": {
+          "k": 11,
+          "mean": 0.051409,
+          "median": 0.05275,
+          "min": 0.03875,
+          "max": 0.064,
+          "between_allocation_sd": 0.006925,
+          "se_of_mean": 0.002088,
+          "ci95": [
+            0.046757,
+            0.056061
+          ],
+          "sign_positive": 1.0,
+          "sign_stable": true
+        },
+        "rival_denial": {
+          "k": 11,
+          "mean": -0.001886,
+          "median": -0.00325,
+          "min": -0.0055,
+          "max": 0.0065,
+          "between_allocation_sd": 0.003459,
+          "se_of_mean": 0.001043,
+          "ci95": [
+            -0.00421,
+            0.000438
+          ],
+          "sign_positive": 0.182,
+          "sign_stable": false
+        },
+        "rival_payment": {
+          "k": 11,
+          "mean": -0.001045,
+          "median": 0.0,
+          "min": -0.00925,
+          "max": 0.0,
+          "between_allocation_sd": 0.002804,
+          "se_of_mean": 0.000845,
+          "ci95": [
+            -0.002929,
+            0.000838
+          ],
+          "sign_positive": 0.0,
+          "sign_stable": true
+        }
+      },
+      "total": {
+        "k": 11,
+        "mean": -0.012364,
+        "median": -0.01175,
+        "min": -0.01725,
+        "max": -0.00775,
+        "between_allocation_sd": 0.003022,
+        "se_of_mean": 0.000911,
+        "ci95": [
+          -0.014393,
+          -0.010334
+        ],
+        "sign_positive": 0.0,
+        "sign_stable": true
+      },
+      "max_per_draw_residual": 8.673617379884035e-18,
+      "ensemble_residual": 0.0,
+      "rms_within_allocation_se": {
+        "W": 0.002125,
+        "UF": 0.004028,
+        "UP": 0.001491,
+        "RF": 0.002228,
+        "RP": 0.002285
+      },
+      "classification": "helps us but costs too much",
+      "classification_reason": "own possession +0.05141 is positive and own payment -0.06084 more than offsets it",
+      "runtime_s": 152.5,
+      "path_note": "declared telescoping path UP->UF->W->RF->RP. It sums exactly because it telescopes, not because completion is additive; a different ordering attributes different amounts to each term.",
+      "analytical_note": "W, UF and RF are analytical instruments, not possible auction outcomes. They carry no recipient probability."
+    }
+  },
+  "sensitivity_rival_outbids": {
+    "simulated_state": true,
+    "candidate_position": "RB",
+    "legal_max": 128,
+    "recipient": "Team11",
+    "pass_price": {
+      "mode": "rival_outbids",
+      "increment": 1,
+      "standing_price": null,
+      "fixed_q": null,
+      "note": "a reservation price is conditional on this rule; a result under one rule is not a universal max bid"
+    },
+    "k": 11,
+    "holdout_sims": 4000,
+    "selection_sims": 800,
+    "cache_hits": 0,
+    "state_fingerprint": "44209a94d76fce67",
+    "refined": false,
+    "n_tested": 5,
+    "n_audited": 2,
+    "highest_favorable": 40,
+    "next_unfavorable": null,
+    "bracket": null,
+    "untested_gap": null,
+    "classification": "FRONTIER_NOT_REACHED",
+    "nonmonotonic": [],
+    "runtime_s": 113.9,
+    "note": "a reservation price is conditional on the pass-price rule above; a sparse bracket is NOT an exact max bid",
+    "points": [
+      {
+        "p": 1,
+        "q": 2,
+        "audited": true,
+        "feasible_count": 15,
+        "focus_fingerprint": "d2cb3757d61b4c8a",
+        "alloc_fingerprint": "4a48864b458187ec",
+        "roster_changed": false,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": 0.054023,
+        "between_sd": 0.006047,
+        "within_se": 0.004361,
+        "ci95": [
+          0.04996,
+          0.058085
+        ],
+        "sign_positive": 1.0,
+        "verdict": "favorable",
+        "runtime_s": 55.52,
+        "note": ""
+      },
+      {
+        "p": 40,
+        "q": 41,
+        "audited": true,
+        "feasible_count": 14,
+        "focus_fingerprint": "e1a4a4818f7b5cb4",
+        "alloc_fingerprint": "5c4b35b24d6d1516",
+        "roster_changed": true,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": 0.050432,
+        "between_sd": 0.004681,
+        "within_se": 0.004331,
+        "ci95": [
+          0.047287,
+          0.053576
+        ],
+        "sign_positive": 1.0,
+        "verdict": "favorable",
+        "runtime_s": 56.0,
+        "note": ""
+      },
+      {
+        "p": 80,
+        "q": null,
+        "audited": false,
+        "feasible_count": 10,
+        "focus_fingerprint": "27cdaf149534a235",
+        "alloc_fingerprint": "",
+        "roster_changed": true,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": null,
+        "between_sd": null,
+        "within_se": null,
+        "ci95": null,
+        "sign_positive": null,
+        "verdict": "not audited",
+        "runtime_s": 0.0,
+        "note": "the named rival cannot legally pay q under this rule (his legal max is $74)"
+      },
+      {
+        "p": 100,
+        "q": null,
+        "audited": false,
+        "feasible_count": 7,
+        "focus_fingerprint": "a42bf13f8b9ff614",
+        "alloc_fingerprint": "",
+        "roster_changed": true,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": null,
+        "between_sd": null,
+        "within_se": null,
+        "ci95": null,
+        "sign_positive": null,
+        "verdict": "not audited",
+        "runtime_s": 0.0,
+        "note": "the named rival cannot legally pay q under this rule (his legal max is $74)"
+      },
+      {
+        "p": 128,
+        "q": null,
+        "audited": false,
+        "feasible_count": 3,
+        "focus_fingerprint": "5810cff0c91efdff",
+        "alloc_fingerprint": "",
+        "roster_changed": true,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": null,
+        "between_sd": null,
+        "within_se": null,
+        "ci95": null,
+        "sign_positive": null,
+        "verdict": "not audited",
+        "runtime_s": 0.0,
+        "note": "the named rival cannot legally pay q under this rule (his legal max is $74)"
+      }
+    ]
+  },
+  "alt_recipient_frontier": {
+    "simulated_state": true,
+    "candidate_position": "RB",
+    "legal_max": 128,
+    "recipient": "Team09",
+    "pass_price": {
+      "mode": "stop_now",
+      "increment": 1,
+      "standing_price": 30,
+      "fixed_q": null,
+      "note": "a reservation price is conditional on this rule; a result under one rule is not a universal max bid"
+    },
+    "k": 11,
+    "holdout_sims": 4000,
+    "selection_sims": 800,
+    "cache_hits": 0,
+    "state_fingerprint": "44209a94d76fce67",
+    "refined": false,
+    "n_tested": 4,
+    "n_audited": 4,
+    "highest_favorable": 1,
+    "next_unfavorable": 80,
+    "bracket": [
+      1,
+      80
+    ],
+    "untested_gap": [
+      2,
+      79
+    ],
+    "classification": "RESERVATION_BRACKET",
+    "nonmonotonic": [],
+    "runtime_s": 226.2,
+    "note": "a reservation price is conditional on the pass-price rule above; a sparse bracket is NOT an exact max bid",
+    "points": [
+      {
+        "p": 1,
+        "q": 30,
+        "audited": true,
+        "feasible_count": 12,
+        "focus_fingerprint": "d2cb3757d61b4c8a",
+        "alloc_fingerprint": "4a48864b458187ec",
+        "roster_changed": false,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": 0.0505,
+        "between_sd": 0.005196,
+        "within_se": 0.004419,
+        "ci95": [
+          0.047009,
+          0.053991
+        ],
+        "sign_positive": 1.0,
+        "verdict": "favorable",
+        "runtime_s": 55.81,
+        "note": ""
+      },
+      {
+        "p": 80,
+        "q": 30,
+        "audited": true,
+        "feasible_count": 9,
+        "focus_fingerprint": "05c78c796dc7e754",
+        "alloc_fingerprint": "eea217bcce94dbc3",
+        "roster_changed": true,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": -0.005545,
+        "between_sd": 0.003152,
+        "within_se": 0.003118,
+        "ci95": [
+          -0.007663,
+          -0.003428
+        ],
+        "sign_positive": 0.0,
+        "verdict": "unfavorable",
+        "runtime_s": 56.2,
+        "note": ""
+      },
+      {
+        "p": 100,
+        "q": 30,
+        "audited": true,
+        "feasible_count": 7,
+        "focus_fingerprint": "a42bf13f8b9ff614",
+        "alloc_fingerprint": "d25a01faa7a40103",
+        "roster_changed": true,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": -0.014591,
+        "between_sd": 0.003958,
+        "within_se": 0.002782,
+        "ci95": [
+          -0.01725,
+          -0.011932
+        ],
+        "sign_positive": 0.0,
+        "verdict": "unfavorable",
+        "runtime_s": 56.22,
+        "note": ""
+      },
+      {
+        "p": 128,
+        "q": 30,
+        "audited": true,
+        "feasible_count": 3,
+        "focus_fingerprint": "5810cff0c91efdff",
+        "alloc_fingerprint": "b83d40a38ee032e0",
+        "roster_changed": true,
+        "reused_ce": false,
+        "ce_buy": null,
+        "ce_pass": null,
+        "delta": -0.023568,
+        "between_sd": 0.00248,
+        "within_se": 0.00242,
+        "ci95": [
+          -0.025234,
+          -0.021902
+        ],
+        "sign_positive": 0.0,
+        "verdict": "unfavorable",
+        "runtime_s": 56.09,
+        "note": ""
+      }
+    ]
+  },
+  "runtime_s": 893.3
+}

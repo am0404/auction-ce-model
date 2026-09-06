@@ -2609,3 +2609,136 @@ slots are open. Seed the room with recorded sales so budgets bind, then walk a
 price ladder for the RB and QB at K=11 and look for the price where own payment
 finally crosses own possession. That crossing is the reservation price this
 whole line of work has been trying to reach.
+
+---
+
+## Phase: SIMULATED mid-auction frontiers — PARTIAL GO
+
+Branch `real-midauction-frontier`, from
+`577fd636b34b5ba7f76a1306383a474222b844fe`. Detail in
+`docs/MIDAUCTION_FRONTIER.md`.
+
+### There are still no recorded league sales
+
+Every auction history in this phase is **invented** from the market prior for
+frontier testing. `SIMULATED_WATERMARK` explicitly denies "observed",
+"recorded", "historical" and "calibrated" and prints in every serialization and
+CLI banner. When the real auction happens the same machinery consumes actual
+sales instead.
+
+### Why this phase existed
+
+At the empty room every owner holds $200 and fifteen slots, so price never
+changed what was affordable: the opening ladders returned
+`FRONTIER_NOT_REACHED` and our payment effect sat near -0.09 at every price.
+Money must be scarce for a reservation price to exist.
+
+### Simulated states (all validate)
+
+```
+state              sales  room spend  focus $  slots  our max  top rival  able
+balanced             66      $1488      $139     12     $128      $140      11
+qb_inflation         66      $1613      $115     12     $104      $130      11
+skill_inflation      66      $1734      $139     12     $128      $130      11
+```
+
+Dollars reconcile to $2,400, no duplicate ownership, $1/slot preserved, both
+frontier candidates left unsold, deterministic per seed.
+
+### FIRST FRONTIERS REACHED
+
+Pass rule **STOP_NOW** (rival leads at `q`; we sweep `p`). Both `p` and `q`
+printed on every row.
+
+```
+QB (leader Team07 @ $30... standing $35, band 24/26/28, improvement +1.46)
+  p=$1   q=$35  +0.05755 [favorable]     p=$65  q=$35  -0.02807 [unfavorable]
+  p=$5   q=$35  +0.05755 [favorable]     p=$80  q=$35  -0.07107 [unfavorable]
+  p=$40  q=$35  +0.01666 [favorable]     p=$100 q=$35  -0.07395 [unfavorable]
+                                         p=$128 q=$35  -0.07425 [unfavorable]
+  => RESERVATION_BRACKET (40, 65), legal max $128, 11 cache hits
+
+RB (leader Team11 @ $30, band 24/25/27, improvement +2.50)
+  p=$1   q=$30  +0.05298 [favorable]     p=$100 q=$30  -0.01211 [unfavorable]
+  p=$40  q=$30  +0.05055 [favorable]     p=$128 q=$30  -0.02102 [unfavorable]
+  p=$65  q=$30  +0.01980 [favorable]
+  p=$80  q=$30  +0.01298 [favorable]
+  => RESERVATION_BRACKET (80, 100), legal max $128, 15 cache hits
+```
+
+Monotone, sign-stable across K=11. **Brackets, not exact max bids** — the
+integer gaps were not walked.
+
+### The crossing is our payment cost, and nothing else
+
+```
+point               p     q   our payment  possession   denial  rival pay    total  resid
+low_favorable      $1   $30     +0.00143    +0.05141  -0.00189   -0.00104  +0.04991  0.0e+00
+highest_favorable  $80  $30     -0.05214    +0.05141  -0.00189   -0.00104  -0.00366 -0.0e+00
+first_unfavorable  $100 $30     -0.06084    +0.05141  -0.00189   -0.00104  -0.01236  0.0e+00
+```
+
+Possession, denial and rival payment are price-independent by construction.
+Only our payment moves. Telescoping residual exactly 0.0 throughout.
+
+### Three findings that undercut a clean story
+
+**1. The pass rule changes the answer completely.** Under RIVAL_OUTBIDS
+(`q = p+1`) the same RB returns `FRONTIER_NOT_REACHED` — favorable through $40
+with no unfavorable price below the legal max, versus a (80, 100) bracket under
+STOP_NOW. If the rival always outbids by a dollar, stopping never saves us. **A
+reservation price without its pass rule is meaningless.**
+
+**2. Recipient identity moves the bracket enormously.** Same candidate, state
+and rule; leader Team11 → bracket (80, 100); alternate Team09 → bracket
+(1, 80). At the empty room this effect was ~0.001.
+
+**3. A completion-set discrepancy at the bracket's lower edge.** At `p=$80` the
+ladder reports `+0.01298` (favorable) and the decomposition reports `-0.00366`
+(negative). Cause: the ladder's buy arm searches the nested pre-pass feasible
+set; `decompose` runs its own beam. **The RB bracket's lower edge is not
+trustworthy to the dollar**; the upper edge ($100) is agreed by both paths.
+
+### Empty room vs mid-auction
+
+```
+                     empty room        SIMULATED mid-auction
+budget                  $200                  $139
+open slots                15                    12
+legal max               $186                  $128
+payment effect     ~-0.09 flat          scales with p
+denial (RB)           +0.026               -0.0019
+recipient effect      ~0.001          bracket $80 -> $1
+frontier          NOT_REACHED        RESERVATION_BRACKET
+```
+
+### Runtime
+
+Frontier ladders 1,100s for both candidates (26 joint-world cache hits);
+decomposition + sensitivity + alternate recipient 893s. ~56s per audited price
+at K=11 × 4,000 seasons, ~26s when the pass arm is cached.
+
+### VERDICT: PARTIAL GO
+
+Frontiers exist and are honestly bracketed; conservation, nesting and K=11
+exchangeability hold; pass-price semantics are explicit and demonstrably
+decisive; recipients stay separate; runtime is practical.
+
+**Not a full GO:** the RB bracket's lower edge disagrees between two code paths
+that should agree, and the pass rule swings the answer between "bracket at
+$80-100" and "no frontier at all". Neither is a reason to distrust the
+machinery; both are reasons not to quote a dollar figure yet.
+
+### Exact next step
+
+**Reconcile the ladder and decomposition buy arms.** Make `decompose` accept
+the same nested completion set the ladder uses, re-run at `p = $65, 80, 100`,
+and confirm the sign agrees. Until those two paths agree at the same price, the
+lower edge of any bracket is a coin flip — and that edge is the number a real
+max bid would be quoted from.
+
+### Confirmations
+
+No simulated history is labelled observed. No real player-level data committed
+(`git ls-files local_data` empty; sanitized artifacts verified free of player
+names and ids). Nothing merged; `main` untouched.

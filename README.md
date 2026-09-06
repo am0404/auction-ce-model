@@ -69,6 +69,7 @@ ever makes the first kind.
 | `docs/MARGINAL_DIAGNOSTICS.md` | Quota-free with/without completion diagnostics; the 1/4/6/3 template and what it distorted |
 | `docs/SEARCH_CONVERGENCE.md` | Search-effort convergence, union-of-searches monotonicity, and the corrected K=11 rerun |
 | `docs/CE_DECOMPOSITION.md` | Tactical CE split into possession, payment and denial; why positive lineup gain can still be a bad buy |
+| `docs/MIDAUCTION_FRONTIER.md` | SIMULATED mid-auction states and the first reservation brackets; why the pass rule decides the answer |
 | `docs/example_slot_swap_54cell.txt` | The 54-cell scenario band on one roster's two marginal slots |
 | `docs/examples/` | Sanitized `ce-lab auction` runs on a fabricated auction, including a sparse-versus-refined price ladder |
 | `docs/example_sensitivity_output.txt` | Paired real-data CE sensitivity, 16,000 seasons per scenario |
