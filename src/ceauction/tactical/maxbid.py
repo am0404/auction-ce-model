@@ -48,6 +48,9 @@ from .bidders import DEFAULT_BIDDER_SCENARIO
 from .board import (BoardResult, BoardSettings, cast_from_board,
                     continue_shared_board)
 from .endgame import EndgameReport, assess_endgame
+from .joint import (ConservationError, JointComparison, build_joint_worlds,
+                    evaluate_joint_arm)
+from .nested import NestedLadder, build_nested_ladder
 from .recipients import RecipientBranch, RecipientSet, enumerate_recipients
 
 __all__ = [
@@ -121,6 +124,8 @@ class TacticalSettings:
     """Walk every integer in the unresolved transition gap. Without it a sparse
     ladder is reported as a BRACKET and never as an exact frontier."""
     max_recipients: int = 3
+    max_worlds: int = 3
+    """Reconciled joint worlds compared per audited arm. A real bound."""
     include_unavailable: bool = True
     default_cost: int = 1
     proxy_seed: int = 20260906
@@ -136,7 +141,8 @@ class TacticalSettings:
     def cache_key(self) -> Tuple:
         return (self.mode, self.board.cache_key(),
                 self.completion.cache_key(), self.max_prices, self.refine,
-                self.max_recipients, self.include_unavailable,
+                self.max_recipients, self.max_worlds,
+                self.include_unavailable,
                 self.default_cost, self.proxy_seed, self.proxy_reps)
 
     def to_dict(self) -> Dict[str, object]:
@@ -144,6 +150,7 @@ class TacticalSettings:
                 "completion": self.completion.to_dict(),
                 "max_prices": self.max_prices, "refine": self.refine,
                 "max_recipients": self.max_recipients,
+                "max_worlds": self.max_worlds,
                 "include_unavailable": self.include_unavailable,
                 "default_cost": self.default_cost,
                 "proxy_seed": self.proxy_seed, "proxy_reps": self.proxy_reps}
@@ -220,6 +227,9 @@ class TacticalResult:
     runtime_s: float = 0.0
     from_cache: bool = False
     notes: str = ""
+    nested_ladder: Optional["NestedLadder"] = None
+    """The cross-price opportunity set. ``None`` in proxy mode, which does not
+    build one and therefore cannot claim nesting."""
 
     # --- the named prices -------------------------------------------------
 
@@ -312,13 +322,31 @@ class TacticalResult:
                         out.append((q, p))
         return tuple(out)
 
+    PROXY_BANNER = "PROXY ONLY -- NOT A CE RESERVATION PRICE"
+
+    @property
+    def is_audited(self) -> bool:
+        return self.mode == "audited"
+
     @property
     def result_kind(self) -> str:
-        if self.mode == "immediate":
-            return "proxy bracket (no interval; NOT a CE estimate)"
+        """What kind of answer this is. Proxy results never borrow CE words.
+
+        ``CE-audited``, ``resolved`` and ``reservation`` are reserved for the
+        audited path. A proxy threshold that borrowed any of them would read as
+        a CE claim in a transcript, and the withdrawn $1/$13 numbers from the
+        previous branch are exactly what that looks like when it goes wrong.
+        """
+        if not self.is_audited:
+            return f"{self.PROXY_BANNER} (proxy bracket, no interval)"
         if self.ladder_is_dense:
-            return "CE-backed, dense ladder"
-        return "CE-backed, sparse ladder -- report the bracket, not a frontier"
+            return "CE-audited over reconciled joint worlds, dense ladder"
+        return ("CE-audited over reconciled joint worlds, sparse ladder -- "
+                "report the bracket, not a frontier")
+
+    @property
+    def nesting_ok(self) -> Optional[bool]:
+        return None if self.nested_ladder is None else self.nested_ladder.is_nested
 
     def check_caps(self) -> None:
         """No tactical price may exceed the legal maximum. Enforced, not hoped."""
@@ -334,7 +362,11 @@ class TacticalResult:
             "candidate_id": self.candidate_id,
             "focus_owner_id": self.focus_owner_id,
             "mode": self.mode,
+            "is_audited": self.is_audited,
             "result_kind": self.result_kind,
+            "proxy_banner": None if self.is_audited else self.PROXY_BANNER,
+            "nested_ladder": (None if self.nested_ladder is None
+                              else self.nested_ladder.to_dict()),
             "current_price": self.current_price,
             "increment": self.increment,
             "current_leader": self.current_leader,
@@ -343,6 +375,8 @@ class TacticalResult:
             "market_fingerprint": self.market_fingerprint,
             "from_cache": self.from_cache,
             "runtime_s": round(self.runtime_s, 3),
+            "threshold_basis": ("CE-audited" if self.is_audited
+                                else "proxy-only, NOT a CE reservation price"),
             "prices": {
                 "legal_max": self.legal_max,
                 "financial_control_threshold": self.financial_control_threshold,
@@ -384,7 +418,10 @@ def tactical_cache_key(state: AuctionState, candidate_id: int, *,
                scenarios: Sequence[TacticalScenario],
                settings: TacticalSettings,
                cast: ComparisonCast,
-               costs: CostBook) -> str:
+               costs: CostBook,
+               regime: Optional[str] = None,
+               nested_fingerprint: Optional[str] = None,
+               ladder_prices: Optional[Sequence[int]] = None) -> str:
     h = hashlib.sha256()
     parts = [
         f"auction={state.fingerprint()}",
@@ -400,9 +437,28 @@ def tactical_cache_key(state: AuctionState, candidate_id: int, *,
         "recipients=" + "|".join(sorted(recipients)),
         "scenarios=" + "|".join(str(s.cache_key()) for s in scenarios),
         f"settings={settings.cache_key()}",
+        # The mode is part of the identity, not a rendering choice. Without it
+        # a cheap proxy result could satisfy a request for an audited one, and
+        # the caller would read expected starting points as championship
+        # equity. The prefix makes that structurally impossible.
+        f"MODE={settings.mode}",
+        f"selection={settings.completion.selection_sims}:"
+        f"{settings.completion.selection_seed}",
+        f"holdout={settings.completion.evaluation_sims}:"
+        f"{settings.completion.evaluation_seed}",
+        f"regime={regime or 'default'}",
+        # The nested opportunity set is a deterministic function of the auction
+        # state, the cast, the cost book, the completion/board settings and the
+        # tested price list -- every one of which is already hashed above, the
+        # price list explicitly. So a different nested set implies a different
+        # key, and `test_cache_key_moves_with_the_nested_price_ladder` proves
+        # it. The fingerprint is carried here too when the caller already has
+        # one, so a stored entry names the set it was built from.
+        "prices=" + ",".join(str(x) for x in (ladder_prices or ())),
+        f"nested={nested_fingerprint or 'derived'}",
     ]
     h.update("\n".join(parts).encode("utf-8"))
-    return h.hexdigest()[:24]
+    return f"{settings.mode[:3]}-" + h.hexdigest()[:24]
 
 
 class TacticalCache:
@@ -506,6 +562,7 @@ def evaluate_tactical(
     eligible: Optional[Sequence[str]] = None,
     prices: Optional[Sequence[int]] = None,
     cache: Optional[TacticalCache] = None,
+    regime: Optional[str] = None,
 ) -> TacticalResult:
     """Walk a price ladder against every named recipient and every scenario.
 
@@ -532,20 +589,27 @@ def evaluate_tactical(
         include_unavailable=settings.include_unavailable)
 
     branches = [b for b in rset.branches if b.legal]
+    legal_max = endgame.our_legal_max
+    floor = max(1, (current_price + increment) if current_price is not None
+                else state.owner(focus).min_bid)
+    if prices is not None:
+        planned = tuple(sorted({int(p) for p in prices
+                                if floor <= int(p) <= legal_max}))
+    elif legal_max >= floor:
+        planned = price_ladder(floor, legal_max, settings.max_prices)
+    else:
+        planned = ()
     key = tactical_cache_key(state, candidate_id, market=market,
                      current_leader=current_leader, current_price=current_price,
                      increment=increment,
                      recipients=[b.label for b in rset.branches],
                      scenarios=scenarios, settings=settings, cast=cast,
-                     costs=costs)
+                     costs=costs, regime=regime, ladder_prices=planned)
     if cache is not None:
         hit = cache.get(key)
         if hit is not None:
             return hit
 
-    legal_max = endgame.our_legal_max
-    floor = max(1, (current_price + increment) if current_price is not None
-                else state.owner(focus).min_bid)
     if legal_max < floor:
         result = TacticalResult(
             candidate_id=candidate_id, focus_owner_id=focus, mode=settings.mode,
@@ -562,16 +626,33 @@ def evaluate_tactical(
             cache.put(key, result)
         return result
 
-    if prices is not None:
-        ladder = tuple(sorted({int(p) for p in prices
-                               if floor <= int(p) <= legal_max}))
-    else:
-        ladder = price_ladder(floor, legal_max, settings.max_prices)
-    dense = len(ladder) > 1 and all(b - a == 1 for a, b in zip(ladder, ladder[1:]))
+    ladder_prices = planned
+    ladder_prices = tuple(ladder_prices)
+    dense = (len(ladder_prices) > 1
+             and all(b - a == 1 for a, b in zip(ladder_prices, ladder_prices[1:])))
 
     proxy = ProxyEvaluator(state.pool, state.settings, settings.proxy_reps,
                            settings.proxy_seed)
     verdicts: List[PriceVerdict] = []
+
+    # Audited mode builds ONE nested opportunity set across the whole ladder.
+    # Re-running the beam per price offers different prices different choices,
+    # which is what made a $1 purchase look worse than the identical $5 one.
+    ladder: Optional[NestedLadder] = None
+    audited_cache: Dict[Tuple, object] = {}
+    if settings.mode == "audited":
+        ladder = build_nested_ladder(
+            state, cast, costs, candidate_id, ladder_prices,
+            board_settings=settings.board, completion=settings.completion,
+            market=market, key_by_id=key_by_id, proxy=proxy,
+            default_cost=settings.default_cost)
+        if not ladder.is_nested:
+            raise ConservationError(
+                "the opportunity set is not nested across prices: "
+                f"{ladder.nesting_violations()[:3]}. A construction affordable "
+                "at a higher price must be offered at every lower price, and "
+                "evaluating a ladder that violates that would reproduce the "
+                "$1-worse-than-$5 artefact this branch exists to remove.")
 
     for sc in scenarios:
         bset = replace(settings.board, market_scenario=sc.market_scenario,
@@ -581,7 +662,7 @@ def evaluate_tactical(
         # our budget is unchanged when we pass, so the branch genuinely is the
         # same one at every price we might have stopped at.
         pass_cache: Dict[str, object] = {}
-        for price in ladder:
+        for price in ladder_prices:
             if state.purchase_shortfall(candidate_id, focus, price) is not None:
                 continue
             tb = time.perf_counter()
@@ -617,63 +698,134 @@ def evaluate_tactical(
                         completion_kind=buy.completion_kind,
                         runtime_s=time.perf_counter() - bt))
                 else:
-                    board = continue_shared_board(
-                        state, settings=bset, costs=costs, market=market,
-                        key_by_id=key_by_id, protect=(candidate_id,))
-                    audited_cast = cast_from_board(board, cast, state)
-                    dest = (PassDestination.unavailable() if b.kind == "unavailable"
-                            else PassDestination.to_rival(b.owner_id, int(b.price)))
-                    try:
-                        bp: BuyPassResult = compare_buy_vs_pass(
-                            state, audited_cast, costs, candidate_id, price, dest,
-                            settings=settings.completion,
-                            scenario_id=sc.scenario_id,
-                            default_cost=settings.default_cost, proxy=proxy,
-                            notes="audited tactical comparison over a shared board")
-                    except AuctionRuleError as exc:
-                        verdicts.append(PriceVerdict(
-                            price=price, scenario_id=sc.scenario_id,
-                            market_scenario=sc.market_scenario,
-                            performance_scenario=sc.performance_scenario,
-                            recipient_label=label, recipient_owner=b.owner_id,
-                            recipient_price=b.price, delta=0.0, se=None,
-                            verdict="unresolved",
-                            basis=f"refused: {exc}",
-                            board_exactness=board.exactness,
-                            runtime_s=time.perf_counter() - bt))
-                        continue
+                    joint = audited_cache.get(("buy", sc.scenario_id, price))
+                    if joint is None:
+                        try:
+                            feasible = ladder.by_price[price].feasible
+                        except KeyError:
+                            feasible = ()
+                        if not feasible:
+                            verdicts.append(PriceVerdict(
+                                price=price, scenario_id=sc.scenario_id,
+                                market_scenario=sc.market_scenario,
+                                performance_scenario=sc.performance_scenario,
+                                recipient_label=label, recipient_owner=b.owner_id,
+                                recipient_price=b.price, delta=0.0, se=None,
+                                verdict="unresolved",
+                                basis="refused: no legal, affordable focus "
+                                      "construction at this price",
+                                runtime_s=time.perf_counter() - bt))
+                            continue
+                        try:
+                            joint = evaluate_joint_arm(
+                                build_joint_worlds(
+                                    state.apply_purchase(candidate_id, focus,
+                                                         price),
+                                    cast, costs, board_settings=bset,
+                                    completion=settings.completion,
+                                    market=market, key_by_id=key_by_id,
+                                    proxy=proxy,
+                                    default_cost=settings.default_cost,
+                                    branch_acquired=frozenset({candidate_id}),
+                                    completions=feasible,
+                                    max_worlds=settings.max_worlds),
+                                focus_team_index=cast.focus_team_index,
+                                proxy=proxy,
+                                selection_sims=settings.completion.selection_sims,
+                                selection_seed=settings.completion.selection_seed,
+                                holdout_sims=settings.completion.evaluation_sims,
+                                holdout_seed=settings.completion.evaluation_seed,
+                                chunk=settings.completion.ce_chunk)
+                        except (ConservationError, AuctionRuleError) as exc:
+                            verdicts.append(PriceVerdict(
+                                price=price, scenario_id=sc.scenario_id,
+                                market_scenario=sc.market_scenario,
+                                performance_scenario=sc.performance_scenario,
+                                recipient_label=label, recipient_owner=b.owner_id,
+                                recipient_price=b.price, delta=0.0, se=None,
+                                verdict="unresolved",
+                                basis=f"REFUSED (joint-world validation): {exc}",
+                                runtime_s=time.perf_counter() - bt))
+                            continue
+                        audited_cache[("buy", sc.scenario_id, price)] = joint
+
+                    pkey = ("pass", sc.scenario_id, label)
+                    parm = audited_cache.get(pkey)
+                    if parm is None:
+                        if b.kind == "unavailable":
+                            # Withdrawn, not acquired. Counting him as both a
+                            # branch acquisition and a declared withdrawal
+                            # doubles him and breaks the pool identity by one.
+                            ps = state.withdraw(candidate_id)
+                            extra = {"declared_withdrawn":
+                                     frozenset({candidate_id}),
+                                     "branch_acquired": frozenset()}
+                        else:
+                            ps = state.award_to_rival(candidate_id, b.owner_id,
+                                                      int(b.price))
+                            extra = {"branch_acquired":
+                                     frozenset({candidate_id})}
+                        try:
+                            parm = evaluate_joint_arm(
+                                build_joint_worlds(
+                                    ps, cast, costs, board_settings=bset,
+                                    completion=settings.completion,
+                                    market=market, key_by_id=key_by_id,
+                                    proxy=proxy,
+                                    default_cost=settings.default_cost,
+                                    max_worlds=settings.max_worlds, **extra),
+                                focus_team_index=cast.focus_team_index,
+                                proxy=proxy,
+                                selection_sims=settings.completion.selection_sims,
+                                selection_seed=settings.completion.selection_seed,
+                                holdout_sims=settings.completion.evaluation_sims,
+                                holdout_seed=settings.completion.evaluation_seed,
+                                chunk=settings.completion.ce_chunk)
+                        except (ConservationError, AuctionRuleError) as exc:
+                            verdicts.append(PriceVerdict(
+                                price=price, scenario_id=sc.scenario_id,
+                                market_scenario=sc.market_scenario,
+                                performance_scenario=sc.performance_scenario,
+                                recipient_label=label, recipient_owner=b.owner_id,
+                                recipient_price=b.price, delta=0.0, se=None,
+                                verdict="unresolved",
+                                basis=f"REFUSED (joint-world validation): {exc}",
+                                runtime_s=time.perf_counter() - bt))
+                            continue
+                        audited_cache[pkey] = parm
+
+                    cmp_ = JointComparison(
+                        buy=joint, pass_arm=parm, price=price,
+                        recipient=b.owner_id, recipient_price=b.price)
+                    degenerate = (cmp_.delta_ce == 0.0
+                                  and cmp_.allocations_identical)
                     verdicts.append(PriceVerdict(
                         price=price, scenario_id=sc.scenario_id,
                         market_scenario=sc.market_scenario,
                         performance_scenario=sc.performance_scenario,
                         recipient_label=label, recipient_owner=b.owner_id,
-                        recipient_price=b.price, delta=bp.delta_ce,
-                        se=bp.delta_ce_se,
-                        # A paired difference of exactly zero with exactly
-                        # zero spread carries no information: either the two
-                        # branches produced the same completed league, or our
-                        # equity is pinned at the floor in both of them and the
-                        # difference cannot move. The engine's own rule reads
-                        # lo >= 0 as favorable, which would report that as
-                        # evidence for buying. It is not.
-                        #
-                        # The floor case is what a silent focus team used to
-                        # cause: see BoardSettings.focus_bids. The guard stays
-                        # regardless, because a guard that only fires on a bug
-                        # you have already fixed is the one you want.
-                        verdict=("unresolved"
-                                 if (bp.delta_ce == 0.0 and bp.delta_ce_se == 0.0)
-                                 else bp.verdict),
-                        basis=("championship equity (matched seasons, holdout "
-                               "sample)"
+                        recipient_price=b.price, delta=cmp_.delta_ce,
+                        se=cmp_.delta_se,
+                        # A zero difference between two IDENTICAL allocations
+                        # carries no information; the engine's lo >= 0 rule
+                        # would call it favorable. A zero difference between
+                        # two different allocations is a real dead heat and is
+                        # reported as unresolved by the interval rule itself.
+                        verdict="unresolved" if degenerate else cmp_.verdict,
+                        basis=("CE-audited over reconciled joint worlds "
+                               "(independent selection/holdout samples, paired "
+                               "seasons)"
                                + ("; DEGENERATE: buy and pass produced an "
-                                  "identical completed league"
-                                  if (bp.delta_ce == 0.0
-                                      and bp.delta_ce_se == 0.0) else "")),
-                        selection_sims=bp.selection_sims,
-                        holdout_sims=bp.n_sims,
-                        board_exactness=board.exactness,
-                        completion_kind=bp.buy.result_kind,
+                                  "identical joint allocation"
+                                  if degenerate else "")),
+                        selection_sims=settings.completion.selection_sims,
+                        holdout_sims=settings.completion.evaluation_sims,
+                        board_exactness=joint.world.rival_board.exactness,
+                        completion_kind=(
+                            f"joint world {joint.world.fingerprint()} vs "
+                            f"{parm.world.fingerprint()}; "
+                            f"{joint.n_worlds_compared} worlds compared; "
+                            f"conservation ok"),
                         runtime_s=time.perf_counter() - bt))
 
     result = TacticalResult(
@@ -681,7 +833,8 @@ def evaluate_tactical(
         current_price=current_price, increment=increment,
         current_leader=current_leader, endgame=endgame, recipients=rset,
         scenarios=tuple(scenarios), settings=settings,
-        verdicts=tuple(verdicts), tested_prices=tuple(ladder),
+        verdicts=tuple(verdicts), tested_prices=tuple(ladder_prices),
+        nested_ladder=ladder,
         ladder_is_dense=dense, cache_key=key,
         auction_fingerprint=state.fingerprint(),
         market_fingerprint=None if market is None else market.fingerprint(),
@@ -692,14 +845,14 @@ def evaluate_tactical(
         gap = result.robust_bracket
         if gap is not None and gap[1] is not None and gap[1] - gap[0] > 1:
             extra = tuple(range(gap[0], gap[1] + 1))
-            merged = tuple(sorted(set(ladder) | set(extra)))
+            merged = tuple(sorted(set(ladder_prices) | set(extra)))
             refined = evaluate_tactical(
                 state, cast, costs, candidate_id,
                 settings=replace(settings, refine=False), scenarios=scenarios,
                 market=market, candidate_key=candidate_key,
                 key_by_id=key_by_id, current_price=current_price,
                 increment=increment, current_leader=current_leader,
-                eligible=eligible, prices=merged, cache=None)
+                eligible=eligible, prices=merged, cache=None, regime=regime)
             refined = replace(refined, cache_key=key,
                               runtime_s=time.perf_counter() - t0,
                               notes="refined: every integer in the transition "
@@ -736,9 +889,9 @@ def audited_max_bid(*args, **kwargs) -> TacticalResult:
 def format_tactical(r: TacticalResult, width: int = 100,
                     max_rows: int = 24) -> str:
     bar = "=" * width
-    mode_note = ("IMMEDIATE -- proxy/cached. No interval. NOT a CE estimate."
-                 if r.mode == "immediate" else
-                 "AUDITED -- championship equity, matched seasons, holdout sample.")
+    mode_note = (f"IMMEDIATE -- {r.PROXY_BANNER}. No interval."
+                 if not r.is_audited else
+                 "AUDITED -- championship equity over reconciled joint worlds.")
     out = [bar, "TACTICAL MAXIMUM BID", bar,
            f"mode                 {r.mode}   {mode_note}",
            f"candidate            player {r.candidate_id} "
@@ -753,7 +906,16 @@ def format_tactical(r: TacticalResult, width: int = 100,
            f"cache key            {r.cache_key}"
            f"{'   (SERVED FROM CACHE)' if r.from_cache else ''}",
            f"runtime              {r.runtime_s:.2f}s",
-           f"result kind          {r.result_kind}", "",
+           f"result kind          {r.result_kind}",
+           f"threshold basis      "
+           f"{'CE-audited' if r.is_audited else 'PROXY ONLY -- not a CE reservation price'}",
+           f"nested opportunity   "
+           f"{'not built (proxy mode)' if r.nested_ladder is None else ('nested=%s union=%d fp=%s' % (r.nested_ladder.is_nested, r.nested_ladder.union_size, r.nested_ladder.fingerprint()))}",
+           f"joint validation     "
+           f"{'n/a (proxy mode)' if not r.is_audited else 'every evaluated world passed conservation'}",
+           f"selection / holdout  "
+           f"{r.settings.completion.selection_sims:,} / "
+           f"{r.settings.completion.evaluation_sims:,} seasons", "",
            "PRICES (four different questions; none replaces another)",
            f"  legal maximum               ${r.legal_max}",
            f"  financial-control threshold "

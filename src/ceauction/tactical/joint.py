@@ -704,35 +704,50 @@ def build_joint_worlds(
     branch_acquired: FrozenSet[int] = frozenset(),
     declared_withdrawn: FrozenSet[int] = frozenset(),
     max_worlds: int = 3,
+    completions: Optional[Sequence[Completion]] = None,
 ) -> Tuple[JointWorld, ...]:
     """Shadow pass, finalists, then one reconciled world per finalist.
 
     A finalist we cannot actually afford at cost-book prices is dropped with its
     reason rather than evaluated; that is a real bound and the caller sees the
     count fall.
+
+    ``completions`` supplies the choice set instead of running a fresh beam.
+    That is how a price ladder gets a *nested* opportunity set: the beam is
+    path-dependent on a shadow board that itself depends on our remaining money,
+    so re-running it per price silently offers different prices different
+    choices. See :mod:`ceauction.tactical.nested`.
     """
     focus = state.focus_owner_id
     if proxy is None:
         proxy = ProxyEvaluator(state.pool, state.settings,
                                completion.proxy_reps, completion.proxy_seed)
-    shadow = continue_shared_board(state, settings=board_settings, costs=costs,
-                                   market=market, key_by_id=key_by_id,
-                                   protect=protect)
-    shadow_cast = cast_from_board(shadow, cast, state)
-    res = complete_roster(shadow.state, shadow_cast, costs, settings=completion,
-                          owner_id=focus, evaluate_ce=False,
-                          default_cost=default_cost, proxy=proxy,
-                          reserved_ids=shadow.reserved_ids(exclude_owner=focus),
-                          notes="shadow pass, finalists for joint allocation")
-    finalists = list(res.finalists) or ([res.best] if res.best else [])
+    if completions is not None:
+        finalists = list(completions)
+    else:
+        shadow = continue_shared_board(state, settings=board_settings,
+                                       costs=costs, market=market,
+                                       key_by_id=key_by_id, protect=protect)
+        shadow_cast = cast_from_board(shadow, cast, state)
+        res = complete_roster(
+            shadow.state, shadow_cast, costs, settings=completion,
+            owner_id=focus, evaluate_ce=False, default_cost=default_cost,
+            proxy=proxy,
+            reserved_ids=shadow.reserved_ids(exclude_owner=focus),
+            notes="shadow pass, finalists for joint allocation")
+        finalists = list(res.finalists) or ([res.best] if res.best else [])
     worlds: List[JointWorld] = []
+    if completions is None:
+        shadow_held = shadow.held_for_focus
+    else:
+        shadow_held = frozenset()
     for i, c in enumerate(finalists[:max_worlds]):
         try:
             worlds.append(validate_joint_world(build_joint_world(
                 state, cast, costs, c, finalist_index=i,
                 board_settings=board_settings, market=market,
                 key_by_id=key_by_id, default_cost=default_cost,
-                shadow_held=shadow.held_for_focus,
+                shadow_held=shadow_held,
                 branch_acquired=branch_acquired,
                 declared_withdrawn=declared_withdrawn)))
         except ConservationError:

@@ -700,7 +700,12 @@ def test_the_immediate_path_does_no_ce_work(sold):
     assert all(v.se is None for v in r.verdicts)
     assert all("NOT championship equity" in v.basis for v in r.verdicts)
     assert all(v.selection_sims is None for v in r.verdicts)
-    assert "NOT a CE estimate" in r.result_kind
+    assert "PROXY ONLY -- NOT A CE RESERVATION PRICE" in r.result_kind
+    assert not r.is_audited
+    assert r.nested_ladder is None, "proxy mode builds no nested set"
+    for word in ("CE-audited", "reservation price", "resolved"):
+        assert word not in r.result_kind.replace(
+            "NOT A CE RESERVATION PRICE", "")
 
 
 def test_the_cache_key_moves_with_every_meaningful_input(sold):
@@ -792,7 +797,7 @@ def test_audited_mode_uses_the_equity_engine_with_a_holdout_sample(sold):
     assert r.mode == "audited"
     assert r.verdicts
     for v in r.verdicts:
-        assert "championship equity" in v.basis
+        assert "CE-audited over reconciled joint worlds" in v.basis
         assert v.se is not None and v.se >= 0.0
         assert v.selection_sims == 400 and v.holdout_sims == 400
         assert v.ci95 is not None
@@ -803,7 +808,10 @@ def test_audited_mode_uses_the_equity_engine_with_a_holdout_sample(sold):
         assert not (v.delta == 0.0 and v.se == 0.0), \
             "degenerate audited comparison: see DEGENERATE in the basis"
         assert "DEGENERATE" not in v.basis
+        assert "conservation ok" in v.completion_kind
     assert any(v.se > 0.0 for v in r.verdicts)
+    assert r.is_audited and r.nested_ladder is not None
+    assert r.nested_ladder.is_nested
     r.check_caps()
 
 
