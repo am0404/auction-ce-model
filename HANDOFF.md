@@ -2514,3 +2514,98 @@ with the candidate withdrawn rather than sold to a rival, which isolates denial
 from opportunity cost, and compare against the sold-to-rival branch at the same
 eleven allocation draws. If denial explains the sign, the selector needs a
 denial term before it can drive a frontier search.
+
+---
+
+## Phase: tactical CE decomposition — GO
+
+Branch `tactical-ce-decomposition`, from
+`a8b114e73fa4a6230c1bef957eec6ff46ce54e0f`. Detail in
+`docs/CE_DECOMPOSITION.md`.
+
+### Five branches, three analytical
+
+`W` withdrawn, `UF` we hold him for $0, `UP` we pay, `RF` rival holds him for
+$0, `RP` rival pays. `W`/`UF`/`RF` are counterfactual instruments;
+`assert_not_a_recipient` refuses to let one be given a recipient probability.
+
+Declared path `UP→UF→W→RF→RP`. **Residual is exactly 0.0** per draw, at the
+ensemble mean, and in serialized output, for every position and recipient. It
+sums because it telescopes, not because completion is additive.
+
+### Components (K=11, 4,000-season holdouts)
+
+```
+pos  improve   $p   $q   our payment  own possession   denial  rival payment    total   class
+QB    +1.46    26   30     -0.09148       +0.18641   +0.04227      +0.02032  +0.15752  mixed
+WR    +1.76    32   37     -0.08786       +0.19204   +0.01475      -0.03830  +0.08064  mixed
+RB    +2.50    25   30     -0.09089       +0.05139   +0.02648      -0.01752  -0.03054  helps us but costs too much
+TE    +1.32     6    6     -0.07398       +0.00809   -0.00141      +0.00016  -0.06714  helps us but costs too much
+```
+
+### The RB/TE explanation
+
+**"Helps us but costs too much."** Own possession is positive for both; own
+payment more than offsets it. **The proxy selector is not wrong** — it correctly
+identifies players who improve the roster we can build, and CE correctly rejects
+two of them on price.
+
+Three findings worth carrying forward:
+
+1. **Own payment is ~-0.09 for everyone**, barely varying from $6 to $32. At an
+   empty room, spending anything costs about the same because the money's
+   alternative use is a whole roster. Discrimination comes from the possession
+   side.
+2. **Weekly points convert to equity at wildly different rates.** TE: +1.32
+   points → +0.008 CE. WR: +1.76 → +0.192. Twenty times more equity per point.
+   The proxy measures the right thing in the wrong units for ranking.
+3. **Denial and rival payment are small** (peak +0.042 and +0.020) — as they
+   should be in an empty room where every rival is structurally identical. A
+   property of the state, not a verdict on denial.
+
+### Named recipients
+
+```
+RB  Team12 @$30  denial +0.02648  rival pay -0.01752  total -0.03054
+RB  Team02 @$30  denial +0.02534  rival pay -0.01764  total -0.03179
+TE  Team12 @$6   denial -0.00141  rival pay +0.00016  total -0.06714
+TE  Team02 @$7   denial -0.00291  rival pay +0.00332  total -0.06548
+```
+
+Decomposed separately, never averaged first. The TE's denial is *negative* —
+letting that rival have him is mildly good for us.
+
+### Selector recommendation: KEEP THE PROXY
+
+Keep it unchanged; it does its job. **Do not add a denial coefficient** — denial
+is small here and fitting one from four players would be inventing a number. A
+separate tactical-priority signal is justified by the *conversion-rate spread*
+(0.008 vs 0.192 CE per comparable weekly gain), not by denial, and needs more
+than four candidates to build.
+
+### VERDICT: GO for real price-frontier testing
+
+Components telescope (residual exactly 0), joint-world validation passes on
+every branch and draw, league CE sums to 1.0 in all five branches, the RB/TE
+disagreement has a measured explanation, the selector's role is separated from
+total tactical value, recipient differences are preserved, and allocation
+uncertainty is reported separately from season uncertainty.
+
+### Remaining limitations
+
+* Empty-room state only; denial and recipient identity are structurally small
+  here and will not be mid-auction.
+* Four candidates at one price each; own payment's near-constancy across
+  $6-$32 is a finding at this state, not a law.
+* The telescoping path is declared, not unique. An alternate ordering was not
+  computed — the total is invariant, the attribution is not.
+* Contingency, handcuff and QB-insurance value remain unpriced.
+
+### Exact next step
+
+**Run the frontier at a mid-auction state.** Own payment dominating at ~-0.09
+regardless of price is an empty-room artefact: money is not scarce when fifteen
+slots are open. Seed the room with recorded sales so budgets bind, then walk a
+price ladder for the RB and QB at K=11 and look for the price where own payment
+finally crosses own possession. That crossing is the reservation price this
+whole line of work has been trying to reach.
