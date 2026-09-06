@@ -31,7 +31,7 @@ OWNERS = tuple(f"O{i:02d}" for i in range(12))
 FOCUS = "O00"
 
 FAST = CompletionSettings(beam_width=50, candidate_pool=30, finalists=2,
-                          ce_sims=800)
+                          selection_sims=800, evaluation_sims=800)
 
 
 def _pool():
@@ -264,7 +264,7 @@ def test_who_receives_the_player_changes_the_simulated_league(fixture, candidate
         r = compare_buy_vs_pass(st, cast, book, candidate, 20, dest,
                                 settings=CompletionSettings(
                                     beam_width=50, candidate_pool=30,
-                                    finalists=2, ce_sims=2000))
+                                    finalists=2, selection_sims=2000, evaluation_sims=2000))
         key = dest.rival_owner_id or "unavailable"
         results[key] = (r.ce_pass, tuple(sorted(r.pass_.best.roster)))
         # Our own side of the comparison is the same everywhere.
@@ -286,7 +286,7 @@ def test_passing_to_a_rival_is_never_better_for_us_than_the_player_vanishing(
     """
     st, cast, book, _ = fixture
     settings = CompletionSettings(beam_width=50, candidate_pool=30, finalists=2,
-                                  ce_sims=3000)
+                                  selection_sims=3000, evaluation_sims=3000)
     gone = compare_buy_vs_pass(st, cast, book, candidate, 20,
                                PassDestination.unavailable(), settings=settings)
     rival = compare_buy_vs_pass(st, cast, book, candidate, 20,
@@ -351,7 +351,7 @@ def test_a_cheap_price_is_favorable_and_an_expensive_one_is_not(fixture, candida
                              settings=CompletionSettings(beam_width=50,
                                                          candidate_pool=30,
                                                          finalists=2,
-                                                         ce_sims=1500))
+                                                         selection_sims=1500, evaluation_sims=1500))
     r = res.per_scenario["s1"]
     assert r.verdict_at(1) == "favorable"
     assert r.verdict_at(90) in ("unfavorable", "unresolved")
@@ -495,11 +495,11 @@ def test_the_cache_cannot_mix_scenarios_prices_or_settings(fixture, candidate):
     assert ReservationCache.key(a, candidate, 10, d, FAST) != \
         ReservationCache.key(a, candidate, 11, d, FAST)
     other = CompletionSettings(beam_width=51, candidate_pool=30, finalists=2,
-                               ce_sims=800)
+                               selection_sims=800, evaluation_sims=800)
     assert ReservationCache.key(a, candidate, 10, d, FAST) != \
         ReservationCache.key(a, candidate, 10, d, other)
     hotter = CompletionSettings(beam_width=50, candidate_pool=30, finalists=2,
-                               ce_sims=1600)
+                               selection_sims=1600, evaluation_sims=1600)
     assert ReservationCache.key(a, candidate, 10, d, FAST) != \
         ReservationCache.key(a, candidate, 10, d, hotter)
 

@@ -102,9 +102,35 @@ class CompletionSettings:
 
     proxy_reps: int = 96
     proxy_seed: int = 20260904
-    ce_sims: int = 4_000
-    ce_seed: int = 20260904
+
+    selection_sims: int = 4_000
+    """Seasons used to CHOOSE among finalists by championship equity."""
+
+    selection_seed: int = 20260904
+
+    evaluation_sims: int = 4_000
+    """Seasons used to REPORT the winner's equity, on an independent sample.
+
+    Choosing the maximum of several noisy estimates and then quoting that same
+    estimate is upward-biased: the winner won partly because its sample was
+    lucky. A separate seed makes the reported number an unbiased estimate of
+    the chosen roster rather than a re-use of the sample that chose it."""
+
+    evaluation_seed: int = 917_324_011
+    """Deliberately unrelated to ``selection_seed``. The counter-based RNG makes
+    two seeds independent streams, so this is a genuine holdout rather than a
+    different slice of the same one."""
+
     ce_chunk: int = 64
+
+    rival_selection: str = "ce"
+    """``"ce"`` or ``"proxy"`` -- how a rival's continuation is chosen.
+
+    ``"ce"`` optimises that rival's roster for HIS OWN championship equity,
+    which is what an opponent would actually do. ``"proxy"`` stops at expected
+    points and roughly halves the cost of a pass branch. Whichever is used is
+    named in the result: a proxy-selected continuation may not be described as
+    CE-optimised."""
     max_runtime_s: Optional[float] = None
     exact: bool = False
     """Enumerate exhaustively instead of beam-searching. Only viable for tiny
@@ -114,27 +140,44 @@ class CompletionSettings:
     def __post_init__(self) -> None:
         for name in ("beam_width", "candidate_pool", "max_candidates",
                      "proxy_candidates", "spend_buckets", "finalists",
-                     "proxy_reps", "ce_sims"):
+                     "proxy_reps", "selection_sims", "evaluation_sims"):
             if getattr(self, name) < 1:
                 raise ValueError(f"{name} must be positive")
+        if self.rival_selection not in ("ce", "proxy"):
+            raise ValueError(
+                f"unknown rival_selection {self.rival_selection!r}")
+        if self.selection_seed == self.evaluation_seed:
+            raise ValueError(
+                "selection_seed and evaluation_seed must differ; reusing the "
+                "sample that chose a winner to report its advantage is exactly "
+                "the selection bias the holdout exists to remove")
 
     def cache_key(self) -> Tuple:
-        """Everything that can change a result. Used in caches downstream."""
-        return (self.beam_width, self.candidate_pool, self.max_candidates,
-                self.proxy_candidates, self.spend_buckets, self.finalists,
-                self.proxy_reps,
-                self.proxy_seed, self.ce_sims, self.ce_seed, self.ce_chunk,
-                self.exact)
+        """Every field, derived from the dataclass rather than listed by hand.
+
+        The audit found the hand-written tuple silently omitting
+        ``max_runtime_s`` and ``exact_max_combinations``, both of which can
+        change what the search returns. Enumerating ``dataclasses.fields``
+        means a field added later is covered the day it is added, which a
+        hand-maintained list demonstrably was not.
+        """
+        import dataclasses
+        return tuple((f.name, getattr(self, f.name))
+                     for f in dataclasses.fields(self))
+
+    @property
+    def ce_sims(self) -> int:
+        """Backwards-compatible alias for the selection sample size."""
+        return self.selection_sims
+
+    @property
+    def ce_seed(self) -> int:
+        return self.selection_seed
 
     def to_dict(self) -> Dict[str, object]:
-        return {"beam_width": self.beam_width, "candidate_pool": self.candidate_pool,
-                "max_candidates": self.max_candidates,
-                "proxy_candidates": self.proxy_candidates,
-                "spend_buckets": self.spend_buckets,
-                "finalists": self.finalists,
-                "proxy_reps": self.proxy_reps, "proxy_seed": self.proxy_seed,
-                "ce_sims": self.ce_sims, "ce_seed": self.ce_seed,
-                "exact": self.exact, "max_runtime_s": self.max_runtime_s}
+        import dataclasses
+        return {f.name: getattr(self, f.name)
+                for f in dataclasses.fields(self)}
 
 
 @dataclass(frozen=True)
@@ -167,16 +210,36 @@ class ComparisonCast:
         return frozenset(pid for i, t in enumerate(self.rosters)
                          if i != self.focus_team_index for pid in t)
 
-    def reserved_for(self, team_index: int) -> FrozenSet[int]:
+    def reserved_for(self, team_index: int,
+                     include_focus: bool = False) -> FrozenSet[int]:
         """Players some *other* team already holds, from this team's view.
 
-        The focus slot is excluded whichever team is asking: it is a
-        placeholder that the search is about to overwrite, so treating its
-        contents as taken would hide players from everyone.
+        By default the focus slot is excluded whichever team is asking: it is a
+        placeholder the search is about to overwrite, so treating its contents
+        as taken would hide players from everyone.
+
+        ``include_focus`` is for the one case where that is wrong -- choosing a
+        rival's continuation while the focus slot holds a concrete provisional
+        roster rather than a placeholder. Without it the rival's board and the
+        focus roster overlap and the resulting league holds a player twice.
         """
-        return frozenset(
-            pid for i, t in enumerate(self.rosters)
-            if i not in (team_index, self.focus_team_index) for pid in t)
+        skip = {team_index}
+        if not include_focus:
+            skip.add(self.focus_team_index)
+        return frozenset(pid for i, t in enumerate(self.rosters)
+                         if i not in skip for pid in t)
+
+    def fingerprint(self) -> str:
+        """A digest of who is on which team.
+
+        Roster *order* is not part of it: two casts differing only in the order
+        players appear on a team are the same league.
+        """
+        import hashlib
+        parts = [f"focus={self.focus_team_index}"]
+        for name, team in zip(self.team_names, self.rosters):
+            parts.append(f"{name}=" + ",".join(str(p) for p in sorted(team)))
+        return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:16]
 
     def with_team(self, team_index: int,
                   player_ids: Sequence[int]) -> "ComparisonCast":
@@ -201,7 +264,15 @@ class Completion:
     proxy: float
     """Expected weekly starting projection. **Not value.** See
     :mod:`ceauction.auction.proxy`."""
+    selection_ce: Optional[float] = None
+    """Equity on the sample used to CHOOSE among finalists.
+
+    Upward-biased for whichever finalist won, because the maximum of several
+    noisy estimates partly measures which sample was kind. Reported for
+    transparency; :attr:`ce` is the number to quote."""
+    selection_ce_se: Optional[float] = None
     ce: Optional[float] = None
+    """Equity on the independent holdout sample. Unbiased for this roster."""
     ce_se: Optional[float] = None
     counts: Optional[PositionCounts] = None
 
@@ -213,6 +284,10 @@ class Completion:
         return {"added": list(self.added), "added_cost": self.added_cost,
                 "roster_size": len(self.roster),
                 "proxy": round(self.proxy, 4),
+                "selection_ce": None if self.selection_ce is None
+                else round(self.selection_ce, 6),
+                "selection_ce_se": None if self.selection_ce_se is None
+                else round(self.selection_ce_se, 6),
                 "ce": None if self.ce is None else round(self.ce, 6),
                 "ce_se": None if self.ce_se is None else round(self.ce_se, 6),
                 "position_counts": self.counts.to_dict() if self.counts else None}
@@ -231,6 +306,14 @@ class SearchDiagnostics:
     candidates_kept: int = 0
     retained_per_depth: Tuple[int, ...] = ()
     finalists_evaluated: int = 0
+    enumeration_exact: bool = False
+    """Was candidate generation exhaustive over the candidate pool?"""
+    proxy_truncated: bool = False
+    """Were candidates dropped before the proxy or before CE?"""
+    ce_selection_exact: bool = False
+    """Was EVERY feasible completion evaluated by championship equity?"""
+    selection_sims: int = 0
+    evaluation_sims: int = 0
     stop_reason: str = "search completed"
     proxy_seconds: float = 0.0
     ce_seconds: float = 0.0
@@ -249,13 +332,48 @@ class SearchDiagnostics:
 
     @property
     def is_exact(self) -> bool:
-        return self.method == "exact"
+        """Exact CE optimisation over every feasible completion.
+
+        The audit found ``method == "exact"`` being reported as an exact
+        result even when exhaustive enumeration was followed by truncation to
+        ``proxy_candidates`` and CE evaluation of a handful of finalists. That
+        is exact *enumeration* followed by a heuristic *choice*, which is not
+        an exact answer to the question asked. All three stages must hold.
+        """
+        return (self.enumeration_exact and not self.proxy_truncated
+                and self.ce_selection_exact)
+
+    @property
+    def ce_coverage(self) -> float:
+        """Fraction of distinct feasible completions actually simulated."""
+        if not self.candidates_kept:
+            return 0.0
+        return self.finalists_evaluated / float(self.candidates_kept)
+
+    @property
+    def exactness(self) -> Dict[str, object]:
+        """Each stage's status, separately, because they differ."""
+        return {
+            "candidate_enumeration": "exhaustive" if self.enumeration_exact
+            else "bounded beam",
+            "proxy_ranking": "truncated" if self.proxy_truncated
+            else "all candidates ranked",
+            "ce_evaluated": f"{self.finalists_evaluated} of "
+                            f"{self.candidates_kept} distinct completions",
+            "ce_coverage": round(self.ce_coverage, 4),
+            "ce_selection": "exhaustive" if self.ce_selection_exact
+            else "finalists only",
+            "overall": "exact" if self.is_exact else "heuristic",
+        }
 
     def to_dict(self) -> Dict[str, object]:
         return {
             "method": self.method,
             "exact": self.is_exact,
             "result_is": "exact" if self.is_exact else "heuristic",
+            "exactness": self.exactness,
+            "selection_sims": self.selection_sims,
+            "evaluation_sims": self.evaluation_sims,
             "states_expanded": self.states_expanded,
             "states_pruned_by_beam": self.states_pruned_by_beam,
             "states_rejected_infeasible": self.states_rejected_infeasible,
@@ -286,6 +404,8 @@ class CompletionResult:
     settings: CompletionSettings
     cost_level: str
     focus_owner_id: str
+    ce_team_index: Optional[int] = None
+    """Whose equity the finalists were chosen by. ``None`` when CE was skipped."""
     unresolved: Tuple[Completion, ...] = ()
     """Finalists whose CE is not distinguishable from the best one's.
 
@@ -297,7 +417,22 @@ class CompletionResult:
 
     @property
     def ce(self) -> Optional[float]:
+        """Holdout equity of the chosen completion. ``None`` when CE was skipped."""
         return self.best.ce if self.best else None
+
+    @property
+    def selection_basis(self) -> str:
+        """``"championship equity"`` or ``"expected-points proxy"``.
+
+        The audit found a buy/pass comparison selecting completions by the
+        proxy and then simulating only the winner, while its documentation said
+        the comparison was between CE-best rosters. Every result now states
+        which of the two actually chose it.
+        """
+        if self.best is None:
+            return "none"
+        return ("championship equity" if self.best.ce is not None
+                else "expected-points proxy")
 
     @property
     def is_resolved(self) -> bool:
@@ -315,6 +450,8 @@ class CompletionResult:
     def to_dict(self) -> Dict[str, object]:
         return {
             "focus_owner_id": self.focus_owner_id,
+            "ce_team_index": self.ce_team_index,
+            "selection_basis": self.selection_basis,
             "result_kind": self.result_kind,
             "resolved": self.is_resolved,
             "cost_level": self.cost_level,
@@ -623,6 +760,7 @@ def complete_roster(
     default_cost: Optional[int] = None,
     proxy: Optional[ProxyEvaluator] = None,
     reserved_ids: Optional[FrozenSet[int]] = None,
+    ce_team_index: Optional[int] = None,
     notes: str = "",
 ) -> CompletionResult:
     """Fill one owner's roster to fifteen and rank the ways of doing it.
@@ -635,6 +773,10 @@ def complete_roster(
     which is right when completing the focus owner; completing a *rival*
     (as the pass branch does) has to pass the correct set for that team
     instead, or the two teams would be offered the same player.
+
+    ``ce_team_index`` says whose championship equity is being maximised. It
+    defaults to the focus slot; a rival continuation must pass that rival's own
+    slot, or the search would be choosing his roster to help *us*.
     """
     t0 = time.perf_counter()
     deadline = (t0 + settings.max_runtime_s) if settings.max_runtime_s else None
@@ -751,48 +893,82 @@ def complete_roster(
     finalists = _select_finalists(candidates, settings.finalists,
                                   settings.spend_buckets)
     diag.finalist_spend_levels = len({c.added_cost for c in finalists})
+    diag.enumeration_exact = settings.exact
+    diag.proxy_truncated = (len(candidates) > len(finalists)
+                            or diag.candidates_kept < diag.candidates_found)
     if not evaluate_ce:
         diag.total_seconds = time.perf_counter() - t0
         return CompletionResult(finalists[0], tuple(finalists), diag, settings,
-                                costs.level, owner_id,
-                                notes=(notes + " CE not evaluated; ranking is "
-                                       "by proxy only, which is expected points "
-                                       "and not championship equity.").strip())
+                                costs.level, owner_id, ce_team_index=None,
+                                notes=(notes + " PROXY-SELECTED: no championship "
+                                       "equity was evaluated, so the chosen "
+                                       "roster is the best by expected points "
+                                       "and may not be the best by equity."
+                                       ).strip())
 
-    # --- stage 2: championship equity --------------------------------------
+    # --- stage 3: choose by championship equity, on the selection sample ----
     tc = time.perf_counter()
-    evaluated, indicators = [], []
+    ce_index = cast.focus_team_index if ce_team_index is None else ce_team_index
+    sel_ind, selected = [], []
     for cand in finalists:
-        rs = _build_roster_set(state, cast, cand.roster)
-        out = simulate_seasons(rs, settings.ce_sims, settings.ce_seed,
-                               settings.ce_chunk)
-        ind = out.champion_indicator(cast.focus_team_index)
-        indicators.append(ind)
-        evaluated.append(replace(cand, ce=float(ind.mean()),
-                                 ce_se=float(np.std(ind, ddof=1)
-                                             / math.sqrt(len(ind)))))
-    diag.ce_seconds = time.perf_counter() - tc
-    diag.finalists_evaluated = len(evaluated)
+        rs = _build_roster_set(state, cast, cand.roster, ce_team_index=ce_index,
+                               owner_id=owner_id)
+        out = simulate_seasons(rs, settings.selection_sims,
+                               settings.selection_seed, settings.ce_chunk)
+        ind = out.champion_indicator(ce_index)
+        sel_ind.append(ind)
+        selected.append(replace(
+            cand, selection_ce=float(ind.mean()),
+            selection_ce_se=float(np.std(ind, ddof=1) / math.sqrt(len(ind)))))
 
-    best_i = max(range(len(evaluated)),
-                 key=lambda i: (evaluated[i].ce, evaluated[i].proxy))
-    best = evaluated[best_i]
+    best_i = max(range(len(selected)),
+                 key=lambda i: (selected[i].selection_ce, selected[i].proxy))
 
-    # Paired against the winner: same seasons, so a shared player contributes
-    # an exact zero and the interval is as tight as CRN can make it.
-    unresolved = []
-    for i, cand in enumerate(evaluated):
+    # Co-best: paired against the winner on the SAME selection seasons, so a
+    # shared player contributes an exact zero and the interval is as tight as
+    # the design allows.
+    unresolved_idx = []
+    for i in range(len(selected)):
         if i == best_i:
             continue
-        d = indicators[best_i] - indicators[i]
+        d = sel_ind[best_i] - sel_ind[i]
         se = paired_se(d)
         if math.isnan(se) or abs(d.mean()) < 1.96 * se:
-            unresolved.append(cand)
+            unresolved_idx.append(i)
 
-    ordered = sorted(evaluated, key=lambda c: (-(c.ce or 0.0), -c.proxy))
+    # --- stage 4: report the winner on an INDEPENDENT holdout sample --------
+    #
+    # The maximum of several noisy estimates is biased upward: the winner won
+    # partly because its sample was kind to it. Quoting that same sample would
+    # carry the bias into every price and every reservation frontier built on
+    # it. A second, unrelated seed gives an unbiased estimate of the roster
+    # that was chosen.
+    evaluated = list(selected)
+    for i in ({best_i} | set(unresolved_idx)):
+        rs = _build_roster_set(state, cast, selected[i].roster,
+                               ce_team_index=ce_index, owner_id=owner_id)
+        out = simulate_seasons(rs, settings.evaluation_sims,
+                               settings.evaluation_seed, settings.ce_chunk)
+        ind = out.champion_indicator(ce_index)
+        evaluated[i] = replace(
+            selected[i], ce=float(ind.mean()),
+            ce_se=float(np.std(ind, ddof=1) / math.sqrt(len(ind))))
+
+    diag.ce_seconds = time.perf_counter() - tc
+    diag.finalists_evaluated = len(selected)
+    diag.selection_sims = settings.selection_sims
+    diag.evaluation_sims = settings.evaluation_sims
+    diag.ce_selection_exact = (len(selected) == len(unique)
+                               and not diag.proxy_truncated)
+
+    best = evaluated[best_i]
+    unresolved = tuple(evaluated[i] for i in unresolved_idx)
+    ordered = sorted(evaluated,
+                     key=lambda c: (-(c.selection_ce or 0.0), -c.proxy))
     diag.total_seconds = time.perf_counter() - t0
     return CompletionResult(best, tuple(ordered), diag, settings, costs.level,
-                            owner_id, unresolved=tuple(unresolved), notes=notes)
+                            owner_id, unresolved=unresolved, notes=notes,
+                            ce_team_index=ce_index)
 
 
 def _select_finalists(candidates: Sequence[Completion], k: int,
@@ -836,9 +1012,17 @@ def _select_finalists(candidates: Sequence[Completion], k: int,
 
 
 def _build_roster_set(state: AuctionState, cast: ComparisonCast,
-                      focus_roster: Sequence[int]) -> RosterSet:
-    """A real twelve-team league with this completion in the focus slot."""
-    assignment = cast.with_focus(focus_roster)
+                      focus_roster: Sequence[int],
+                      ce_team_index: Optional[int] = None,
+                      owner_id: Optional[str] = None) -> RosterSet:
+    """A real twelve-team league with this completion in one team's slot.
+
+    ``ce_team_index`` selects which slot the completion goes into, so a rival
+    continuation can be optimised for that rival's own equity rather than for
+    the focus team's.
+    """
+    slot = cast.focus_team_index if ce_team_index is None else ce_team_index
+    assignment = cast.with_team(slot, focus_roster).rosters
     spec_by_id = state.spec_by_id
     used = [spec_by_id[pid] for team in assignment for pid in team]
     rosters = tuple(Roster(cast.team_names[i], tuple(team))

@@ -106,6 +106,16 @@ class CostProvenance:
                 "version": self.version, "generated_at": self.generated_at,
                 "notes": self.notes}
 
+    def identity(self) -> Tuple:
+        """Every field, for a fingerprint. ``generated_at`` included.
+
+        A book regenerated from the same source at a different time may hold
+        different numbers, so the timestamp is part of the identity rather than
+        decoration.
+        """
+        return (self.level, self.source, self.scenario_id, self.room_state,
+                self.version, self.generated_at, self.notes)
+
 
 @dataclass(frozen=True)
 class CostEntry:
@@ -156,6 +166,25 @@ class CostBook:
         if len(set(ids)) != len(ids):
             dupes = sorted({i for i in ids if ids.count(i) > 1})
             raise ValueError(f"duplicate cost entries for player(s) {dupes[:5]}")
+
+    # --- identity ----------------------------------------------------------
+
+    def fingerprint(self) -> str:
+        """A digest of every number and label in the book.
+
+        The audit found the old cache key carrying only the provenance and the
+        entry *count*, so two books with identical metadata and completely
+        different prices were interchangeable to the cache. Every price, every
+        range, the minimum bid and every provenance field are hashed here, so a
+        book that would produce a different answer produces a different key.
+        """
+        import hashlib
+        parts = [f"min={self.minimum_cost}",
+                 "prov=" + "|".join("" if x is None else str(x)
+                                    for x in self.provenance.identity())]
+        for e in sorted(self.entries, key=lambda e: e.player_id):
+            parts.append(f"{e.player_id}:{e.cost}:{e.low}:{e.high}")
+        return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:16]
 
     # --- lookup ------------------------------------------------------------
 
@@ -270,6 +299,7 @@ class CostBook:
         costs.sort()
         return {
             "n_entries": len(self.entries),
+            "fingerprint": self.fingerprint(),
             "provenance": self.provenance.to_dict(),
             "level": self.level,
             "may_be_reported_as_a_value": self.provenance.may_be_reported_as_a_value,

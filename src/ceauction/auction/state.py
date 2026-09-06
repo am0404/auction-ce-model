@@ -367,43 +367,76 @@ class AuctionState:
         """The greatest dollar this owner may legally bid right now."""
         return self.owner(owner_id).max_bid
 
-    def owners_who_can_bid(self, amount: int,
+    def _bid_candidate(self, candidate_id: Optional[int]) -> Optional[int]:
+        """The player a bid is about: the one named, else the one on the block."""
+        if candidate_id is not None:
+            return candidate_id
+        return self.nomination.player_id if self.nomination is not None else None
+
+    def owners_who_can_bid(self, amount: int, candidate_id: Optional[int] = None,
                            exclude: Sequence[str] = ()) -> Tuple[OwnerAuctionState, ...]:
         """Everyone *permitted* to bid ``amount``. Not everyone who would.
 
-        Permission is budget, an open roster slot, and a roster that still has
-        a legal completion after the purchase. Nothing here models desire.
+        With a candidate -- named, or whoever is on the block -- permission is
+        the full purchase test, including whether the buyer's roster still has
+        a legal completion afterwards. Without one it is money and roster room
+        only, which is a weaker claim and is labelled as such by
+        :meth:`bid_capacity`.
+
+        The audit found this answering the weaker question while the caller
+        read it as the stronger one: an owner one slot from the end who still
+        needed a receiver was listed as able to bid on a quarterback.
         """
         skip = set(exclude)
+        candidate = self._bid_candidate(candidate_id)
         out = []
         for o in self.owners:
             if o.owner_id in skip or not o.can_bid(amount):
                 continue
+            if candidate is not None and self.purchase_shortfall(
+                    candidate, o.owner_id, amount) is not None:
+                continue
             out.append(o)
         return tuple(out)
 
-    def bid_capacity(self, amount: int) -> Dict[str, object]:
+    def bid_capacity(self, amount: int,
+                     candidate_id: Optional[int] = None) -> Dict[str, object]:
         """Who could take ``amount``, and why each of the others could not.
 
         Room pressure is not "dollars left in the league": an owner with $80
         and a full roster exerts none, and an owner with $12 and one slot can
         still take a player to $12.
+
+        ``basis`` says which question was answered. Without a candidate this is
+        financial and roster capacity, which is **not** the same as being
+        legally able to buy a particular player -- an owner whose last slot must
+        hold a receiver cannot legally bid on a quarterback at any price.
         """
+        candidate = self._bid_candidate(candidate_id)
         able, blocked = [], {}
         for o in self.owners:
-            if o.can_bid(amount):
-                able.append(o.owner_id)
-            elif o.open_slots <= 0:
-                blocked[o.owner_id] = "roster full"
-            elif amount > o.max_bid:
-                blocked[o.owner_id] = (
-                    f"max bid {o.max_bid} (${o.budget_remaining} less "
-                    f"${o.reserve_for_open_slots - o.min_bid} reserved for "
-                    f"{o.open_slots - 1} other open slot(s))")
-            else:
-                blocked[o.owner_id] = f"bid below the {o.min_bid} minimum"
-        return {"amount": amount, "able": able, "blocked": blocked,
-                "n_able": len(able)}
+            if not o.can_bid(amount):
+                if o.open_slots <= 0:
+                    blocked[o.owner_id] = "roster full"
+                elif amount > o.max_bid:
+                    blocked[o.owner_id] = (
+                        f"financial ceiling {o.max_bid} (${o.budget_remaining} "
+                        f"less ${o.reserve_for_open_slots - o.min_bid} reserved "
+                        f"for {o.open_slots - 1} other open slot(s))")
+                else:
+                    blocked[o.owner_id] = f"bid below the {o.min_bid} minimum"
+                continue
+            if candidate is not None:
+                short = self.purchase_shortfall(candidate, o.owner_id, amount)
+                if short is not None:
+                    blocked[o.owner_id] = short
+                    continue
+            able.append(o.owner_id)
+        basis = ("financial and roster capacity only"
+                 if candidate is None else
+                 f"legal ability to bid on player {candidate}")
+        return {"amount": amount, "candidate_id": candidate, "basis": basis,
+                "able": able, "blocked": blocked, "n_able": len(able)}
 
     def purchase_shortfall(self, player_id: int, owner_id: str,
                            price: int) -> Optional[str]:
@@ -549,10 +582,17 @@ class AuctionState:
         if cur is not None and amount <= cur:
             raise AuctionRuleError(
                 f"bid {amount} does not beat the standing bid {cur}")
-        if not o.can_bid(amount):
+        # Validated against the player actually on the block, not against money
+        # and roster room alone. The audit found a bid accepted here that
+        # `purchase_shortfall` would have refused, which meant
+        # `award_nomination` could discover afterwards that the standing bid had
+        # been illegal all along.
+        problem = self.purchase_shortfall(self.nomination.player_id, owner_id,
+                                          amount)
+        if problem is not None:
             raise AuctionRuleError(
-                f"{owner_id} cannot legally bid {amount} "
-                f"(max {o.max_bid}, {o.open_slots} open slot(s))")
+                f"{owner_id} cannot legally bid {amount} on player "
+                f"{self.nomination.player_id}: {problem}")
         return replace(self, nomination=replace(
             self.nomination, current_bid=amount, high_bidder=owner_id))
 
@@ -637,9 +677,13 @@ class AuctionState:
                 hb = self.owner_by_id.get(n.high_bidder)
                 if hb is None:
                     out.append(f"high bidder {n.high_bidder!r} is not in the room")
-                elif not hb.can_bid(int(n.current_bid)):
-                    out.append(f"high bidder {n.high_bidder} cannot legally bid "
-                               f"{n.current_bid} (max {hb.max_bid})")
+                else:
+                    short = self.purchase_shortfall(
+                        n.player_id, n.high_bidder, int(n.current_bid))
+                    if short is not None:
+                        out.append(f"high bidder {n.high_bidder} cannot legally "
+                                   f"bid {n.current_bid} on player "
+                                   f"{n.player_id}: {short}")
 
         if len(self.owners) != self.settings.n_teams:
             out.append(f"{len(self.owners)} owners but the league has "
@@ -663,24 +707,57 @@ class AuctionState:
 
     # --- reporting ---------------------------------------------------------
 
+    def pool_fingerprint(self) -> str:
+        """A digest of the *players*, not merely their ids.
+
+        The audit found the old state fingerprint hashing player ids and
+        prices while ignoring every field of the ``PlayerSpec`` behind them, so
+        two states holding the same identities with completely different
+        projections, injury hazards or byes shared a cache key. A different
+        projection is a different valuation problem.
+
+        Every field of the dataclass is included rather than a chosen subset.
+        Names and notes cannot change a valuation, but including them costs
+        nothing and removes the standing risk that a field added later is
+        forgotten here -- which is the failure mode this audit found.
+        """
+        import dataclasses
+        import hashlib
+        names = [f.name for f in dataclasses.fields(PlayerSpec)]
+        h = hashlib.sha256()
+        for spec in sorted(self.pool, key=lambda s: s.player_id):
+            for name in names:
+                h.update(f"{name}={getattr(spec, name)!r}\x1f".encode("utf-8"))
+            h.update(b"\x1e")
+        return h.hexdigest()[:16]
+
+    def settings_fingerprint(self) -> str:
+        """A digest of the complete league configuration."""
+        import dataclasses
+        import hashlib
+        parts = [f"{f.name}={getattr(self.settings, f.name)!r}"
+                 for f in dataclasses.fields(self.settings)]
+        return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:16]
+
     def fingerprint(self) -> str:
         """A stable digest of everything that can change a valuation.
 
-        Rosters, prices, budgets, withdrawals and the focus owner. Used as a
-        cache key: two states with the same fingerprint are interchangeable for
-        any question this package answers, and two that differ anywhere must
-        never share a cached result.
+        The players themselves, the complete league settings, every owner's
+        roster and prices and budget and capacity, withdrawals, and the focus
+        owner. Two states with the same fingerprint are interchangeable for any
+        question this package answers; two that differ anywhere must never
+        share a cached result.
         """
         import hashlib
         parts = [f"focus={self.focus_owner_id}",
-                 f"teams={self.settings.n_teams}",
-                 f"cap={self.settings.roster_size}"]
+                 f"settings={self.settings_fingerprint()}",
+                 f"pool={self.pool_fingerprint()}"]
         for o in sorted(self.owners, key=lambda x: x.owner_id):
             roster = ",".join(f"{f.player_id}@{f.price}"
                               for f in sorted(o.filled, key=lambda f: f.player_id))
-            parts.append(f"{o.owner_id}|{o.budget_start}|{o.roster_capacity}|{roster}")
+            parts.append(f"{o.owner_id}|{o.budget_start}|{o.roster_capacity}"
+                         f"|{o.min_bid}|{roster}")
         parts.append("withdrawn=" + ",".join(str(p) for p in sorted(self.withdrawn)))
-        parts.append("pool=" + ",".join(str(s.player_id) for s in self.pool))
         return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:16]
 
     def to_dict(self) -> Dict[str, object]:
@@ -725,7 +802,11 @@ class AuctionState:
                 f"{('yes' if o.can_still_field_lineup() else 'NO'):>9}")
         out += ["  " + "-" * (len(head) - 2),
                 "  reserve = $1 held for each open slot; discretionary = budget",
-                "  above that floor; max bid = discretionary + $1.",
+                "  above that floor; max bid is the FINANCIAL CEILING:",
+                "  discretionary + $1. It is what an owner can afford, which is",
+                "  not the same as what he may legally buy -- an owner whose last",
+                "  slot must hold a receiver cannot bid on a quarterback at any",
+                "  price. Candidate-specific legality is below.",
                 "  feasible = a legal 8-slot lineup can still be completed. It is",
                 "  a matching question on the eligibility graph, not a positional",
                 "  quota -- this league has no quarterback maximum.", ""]
@@ -742,14 +823,22 @@ class AuctionState:
 
         if next_bid is not None:
             cap = self.bid_capacity(next_bid)
-            out += [f"WHO MAY LEGALLY BID ${next_bid}",
+            title = (f"WHO MAY LEGALLY BID ${next_bid} ON PLAYER "
+                     f"{cap['candidate_id']}" if cap["candidate_id"] is not None
+                     else f"WHO CAN AFFORD ${next_bid}")
+            out += [title, f"  basis: {cap['basis']}",
                     f"  able ({cap['n_able']}): "
                     + (", ".join(cap["able"]) if cap["able"] else "nobody")]
             for oid, why in cap["blocked"].items():
                 out.append(f"  blocked  {oid:<10} {why}")
-            out += ["",
-                    "  This is who MAY bid, from budget, roster room and",
-                    "  feasibility. Who WOULD bid is not modelled here.", ""]
+            out += [""]
+            if cap["candidate_id"] is None:
+                out += ["  No player is on the block, so this is the FINANCIAL",
+                        "  CEILING only. Whether an owner may legally buy a",
+                        "  particular player also depends on that player's",
+                        "  position and the owner's remaining lineup needs.", ""]
+            out += ["  This is who MAY bid. Who WOULD bid is not modelled here.",
+                    ""]
 
         problems = self.problems()
         if problems:

@@ -32,6 +32,17 @@ a stated assumption into an apparent finding.
 **Order matters and is stated.** In the rival branch the opponent buys first --
 he has just won the player -- and completes his roster before the focus team
 completes its own. That is the sequence the auction actually has.
+
+**Both branches choose their roster by championship equity, and the comparison
+is made on an independent sample.** An earlier version ran both completions
+with ``evaluate_ce=False``, so each branch picked the roster its *expected
+points* proxy liked and only then simulated that single roster. What it
+computed was ``CE(proxy-selected completion)``, not ``CE(best modelled
+completion)``, while its documentation claimed the latter. Selection now runs
+on one sample and the final paired difference on a second, unrelated one --
+because choosing the maximum of several noisy estimates and then quoting that
+same estimate is biased upward, and the bias would propagate into every price
+and every reservation frontier built on it.
 """
 
 from __future__ import annotations
@@ -120,6 +131,9 @@ class BuyPassResult:
     delta_ce_se: float
     discordance: float
     n_sims: int
+    """Seasons in the holdout sample the difference was measured on."""
+    selection_sims: int
+    """Seasons used inside each branch to choose its completion."""
 
     buy: CompletionResult
     pass_: CompletionResult
@@ -190,8 +204,14 @@ class BuyPassResult:
             "discordance": round(self.discordance, 5),
             "verdict": self.verdict,
             "resolved": self.resolved,
+            "evaluation_sims": self.n_sims,
+            "selection_sims": self.selection_sims,
             "n_sims": self.n_sims,
+            "selection_basis": {"buy": self.buy.selection_basis,
+                                "pass": self.pass_.selection_basis},
             "search_is": "heuristic" if self.is_heuristic else "exact",
+            "interval_is": "pointwise 95%, not simultaneous across prices "
+                           "or scenarios",
             "divergence": self.divergence,
             "buy_branch": self.buy.to_dict(),
             "pass_branch": self.pass_.to_dict(),
@@ -237,16 +257,16 @@ def compare_buy_vs_pass(
     # --- buy branch --------------------------------------------------------
     buy_state = state.apply_purchase(candidate_id, focus_id, price)
     buy = complete_roster(buy_state, cast, costs, settings=settings,
-                          owner_id=focus_id, evaluate_ce=False,
+                          owner_id=focus_id, evaluate_ce=True,
                           default_cost=default_cost, proxy=proxy,
                           reserved_ids=cast.reserved_for(cast.focus_team_index),
                           notes="buy branch")
 
     # --- pass branch -------------------------------------------------------
     pass_cast = cast
+    rival_note = ""
     if pass_destination.kind == "unavailable":
         pass_state = state.withdraw(candidate_id)
-        rival_note = ""
     else:
         rival = pass_destination.rival_owner_id
         if rival == focus_id:
@@ -263,11 +283,38 @@ def compare_buy_vs_pass(
         # The opponent has just won the player, so he completes first: the
         # money he spent is money he cannot spend on anyone else, and the
         # players he takes are players we cannot.
+        #
+        # His continuation is chosen for HIS equity, not ours. Optimising his
+        # roster for our benefit would be a strange counterfactual; the
+        # `rival_selection` setting can fall back to the proxy for speed, and
+        # the result says which was used rather than claiming the stronger one.
         rival_index = _team_index_of(cast, state, rival)
+        rival_ce = settings.rival_selection == "ce"
+        rival_cast = cast
+        rival_reserved = cast.reserved_for(rival_index)
+        if rival_ce:
+            # Measuring the rival's own equity needs a complete league, and our
+            # slot is still a placeholder at this point -- we do not complete
+            # until after he has bought. So he is compared against our
+            # PROXY-best roster from this same state: a concrete, legal,
+            # disjoint opponent rather than a placeholder that would let the
+            # same player appear on two teams.
+            provisional = complete_roster(
+                pass_state, cast, costs, settings=settings, owner_id=focus_id,
+                evaluate_ce=False, default_cost=default_cost, proxy=proxy,
+                reserved_ids=cast.reserved_for(cast.focus_team_index),
+                notes="provisional focus roster, proxy-selected")
+            if provisional.best is not None:
+                rival_cast = cast.with_team(cast.focus_team_index,
+                                            provisional.best.roster)
+                rival_reserved = rival_cast.reserved_for(rival_index,
+                                                         include_focus=True)
+            else:
+                rival_ce = False
         rival_fill = complete_roster(
-            pass_state, cast, costs, settings=settings, owner_id=rival,
-            evaluate_ce=False, default_cost=default_cost, proxy=proxy,
-            reserved_ids=cast.reserved_for(rival_index),
+            pass_state, rival_cast, costs, settings=settings, owner_id=rival,
+            evaluate_ce=rival_ce, default_cost=default_cost, proxy=proxy,
+            reserved_ids=rival_reserved, ce_team_index=rival_index,
             notes="rival continuation")
         if rival_fill.best is None:
             raise AuctionRuleError(
@@ -276,10 +323,13 @@ def compare_buy_vs_pass(
                 f"legal auction and is refused rather than approximated")
         pass_cast = cast.with_team(rival_index, rival_fill.best.roster)
         rival_note = (f"{rival} re-completed after paying "
-                      f"${pass_destination.rival_price}")
+                      f"${pass_destination.rival_price}; his continuation was "
+                      f"chosen by {rival_fill.selection_basis}"
+                      + (" for HIS OWN equity, against our proxy-best roster"
+                         if rival_ce else " (expected points only)"))
 
     pass_ = complete_roster(pass_state, pass_cast, costs, settings=settings,
-                            owner_id=focus_id, evaluate_ce=False,
+                            owner_id=focus_id, evaluate_ce=True,
                             default_cost=default_cost, proxy=proxy,
                             reserved_ids=pass_cast.reserved_for(
                                 pass_cast.focus_team_index),
@@ -297,22 +347,26 @@ def compare_buy_vs_pass(
             f"answer a different question. Raising candidate_pool, or supplying "
             f"cheaper costs, is the usual fix.")
 
-    # --- matched simulation ------------------------------------------------
+    # --- the paired comparison, on the holdout sample ----------------------
+    #
+    # Each branch chose its roster on `selection_sims` at `selection_seed`.
+    # The difference between them is measured on `evaluation_sims` at
+    # `evaluation_seed`, which neither branch saw while choosing. Both arms
+    # share that seed, so a player on both rosters draws identical numbers and
+    # contributes an exact zero to the paired difference.
     rs_buy = _build_roster_set(buy_state, cast, buy.best.roster)
     rs_pass = _build_roster_set(pass_state, pass_cast, pass_.best.roster)
-    out_buy = simulate_seasons(rs_buy, settings.ce_sims, settings.ce_seed,
-                               settings.ce_chunk)
-    out_pass = simulate_seasons(rs_pass, settings.ce_sims, settings.ce_seed,
-                                settings.ce_chunk)
+    out_buy = simulate_seasons(rs_buy, settings.evaluation_sims,
+                               settings.evaluation_seed, settings.ce_chunk)
+    out_pass = simulate_seasons(rs_pass, settings.evaluation_sims,
+                                settings.evaluation_seed, settings.ce_chunk)
     t = cast.focus_team_index
     ind_buy = out_buy.champion_indicator(t)
     ind_pass = out_pass.champion_indicator(t)
     d = ind_buy - ind_pass
 
-    buy_best = replace(buy.best, ce=float(ind_buy.mean()))
-    pass_best = replace(pass_.best, ce=float(ind_pass.mean()))
-    buy = replace(buy, best=buy_best)
-    pass_ = replace(pass_, best=pass_best)
+    buy = replace(buy, best=replace(buy.best, ce=float(ind_buy.mean())))
+    pass_ = replace(pass_, best=replace(pass_.best, ce=float(ind_pass.mean())))
 
     return BuyPassResult(
         candidate_id=candidate_id, price=price, focus_owner_id=focus_id,
@@ -320,7 +374,9 @@ def compare_buy_vs_pass(
         cost_level=costs.level, auction_fingerprint=state.fingerprint(),
         ce_buy=float(ind_buy.mean()), ce_pass=float(ind_pass.mean()),
         delta_ce=float(d.mean()), delta_ce_se=paired_se(d),
-        discordance=float(np.mean(d != 0.0)), n_sims=settings.ce_sims,
+        discordance=float(np.mean(d != 0.0)),
+        n_sims=settings.evaluation_sims,
+        selection_sims=settings.selection_sims,
         buy=buy, pass_=pass_, runtime_s=time.perf_counter() - t0,
         notes=" ".join(x for x in (notes, rival_note) if x))
 

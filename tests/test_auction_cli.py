@@ -69,7 +69,10 @@ def test_room_prints_every_owner_and_who_may_bid():
     p = run("room", "--next-bid", "25")
     for i in range(1, 13):
         assert f"Owner{i:02d}" in p.stdout
-    assert "WHO MAY LEGALLY BID $25" in p.stdout
+    # With nobody on the block this is the financial ceiling, and the summary
+    # says so rather than implying legal eligibility for a particular player.
+    assert "WHO CAN AFFORD $25" in p.stdout
+    assert "FINANCIAL" in p.stdout
     assert "Who WOULD bid is not modelled" in p.stdout
     assert "no quarterback maximum" in p.stdout
 

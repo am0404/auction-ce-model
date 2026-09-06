@@ -328,7 +328,7 @@ def test_a_completion_fills_the_roster_legally(midauction):
     st, cast, book = midauction
     res = complete_roster(st, cast, book,
                           settings=CompletionSettings(beam_width=80, candidate_pool=40,
-                                                      finalists=3, ce_sims=400))
+                                                      finalists=3, selection_sims=400, evaluation_sims=400))
     assert res.best is not None
     for c in res.finalists:
         assert len(c.roster) == DEFAULT_LEAGUE.roster_size
@@ -342,7 +342,7 @@ def test_a_completion_never_exceeds_the_budget(midauction):
     st, cast, book = midauction
     res = complete_roster(st, cast, book,
                           settings=CompletionSettings(beam_width=80, candidate_pool=40,
-                                                      finalists=3, ce_sims=400))
+                                                      finalists=3, selection_sims=400, evaluation_sims=400))
     for c in res.finalists:
         assert c.added_cost <= st.focus.budget_remaining
 
@@ -351,7 +351,7 @@ def test_a_completion_never_takes_an_unavailable_player(midauction):
     st, cast, book = midauction
     res = complete_roster(st, cast, book,
                           settings=CompletionSettings(beam_width=80, candidate_pool=40,
-                                                      finalists=3, ce_sims=400))
+                                                      finalists=3, selection_sims=400, evaluation_sims=400))
     rivals = cast.rival_ids
     for c in res.finalists:
         assert not (set(c.added) & rivals), "a rival's player is not available"
@@ -362,7 +362,7 @@ def test_a_completion_never_takes_an_unavailable_player(midauction):
 def test_the_search_is_deterministic(midauction):
     st, cast, book = midauction
     settings = CompletionSettings(beam_width=80, candidate_pool=40, finalists=3,
-                                  ce_sims=400)
+                                  selection_sims=400, evaluation_sims=400)
     a = complete_roster(st, cast, book, settings=settings)
     b = complete_roster(st, cast, book, settings=settings)
     assert [c.roster for c in a.finalists] == [c.roster for c in b.finalists]
@@ -375,7 +375,7 @@ def test_the_search_retains_several_distinct_constructions(midauction):
     res = complete_roster(st, cast, book,
                           settings=CompletionSettings(beam_width=150,
                                                       candidate_pool=50,
-                                                      finalists=6, ce_sims=300))
+                                                      finalists=6, selection_sims=300, evaluation_sims=300))
     keys = {c.key for c in res.finalists}
     assert len(keys) == len(res.finalists) >= 3
     assert res.diagnostics.candidates_kept > len(res.finalists)
@@ -428,7 +428,7 @@ def test_a_bounded_search_labels_itself_heuristic(midauction):
     st, cast, book = midauction
     res = complete_roster(st, cast, book,
                           settings=CompletionSettings(beam_width=40, candidate_pool=30,
-                                                      finalists=2, ce_sims=200))
+                                                      finalists=2, selection_sims=200, evaluation_sims=200))
     assert not res.diagnostics.is_exact
     assert "heuristic" in res.result_kind
     assert res.to_dict()["diagnostics"]["result_is"] == "heuristic"
@@ -444,7 +444,7 @@ def test_unresolved_finalists_are_returned_as_co_best(midauction):
     res = complete_roster(st, cast, book,
                           settings=CompletionSettings(beam_width=120,
                                                       candidate_pool=45,
-                                                      finalists=5, ce_sims=300))
+                                                      finalists=5, selection_sims=300, evaluation_sims=300))
     assert res.unresolved, "five near-identical rosters at 300 seasons must tie"
     assert not res.is_resolved
     assert "unresolved" in res.result_kind
@@ -455,15 +455,19 @@ def test_finalists_are_compared_on_matched_seasons(midauction):
     """Paired CRN: a shared player draws identically in both finalists."""
     st, cast, book = midauction
     settings = CompletionSettings(beam_width=100, candidate_pool=40, finalists=4,
-                                  ce_sims=500)
+                                  selection_sims=500, evaluation_sims=500)
     res = complete_roster(st, cast, book, settings=settings)
     # Same seed, same cast: re-running gives byte-identical CE for each roster.
     again = complete_roster(st, cast, book, settings=settings)
     assert [c.ce for c in res.finalists] == [c.ce for c in again.finalists]
-    # And the paired SE is smaller than the unpaired one would be, because the
-    # rosters overlap heavily.
-    ces = [c.ce for c in res.finalists if c.ce is not None]
-    assert len(ces) == 4
+    # Every finalist carries the selection-sample estimate that ranked it.
+    assert all(c.selection_ce is not None for c in res.finalists)
+    # The winner and any co-best finalist additionally carry a HOLDOUT
+    # estimate on an independent seed. The rest do not, because the holdout
+    # exists to de-bias the reported winner rather than to re-rank the field.
+    with_holdout = [c for c in res.finalists if c.ce is not None]
+    assert res.best.ce is not None
+    assert len(with_holdout) == 1 + len(res.unresolved)
 
 
 def test_the_proxy_is_never_called_championship_equity(midauction):
@@ -473,7 +477,9 @@ def test_the_proxy_is_never_called_championship_equity(midauction):
                                                       candidate_pool=30,
                                                       finalists=2))
     assert all(c.ce is None for c in res.finalists)
-    assert "not championship equity" in res.notes
+    assert res.selection_basis == "expected-points proxy"
+    assert "PROXY-SELECTED" in res.notes
+    assert "may not be the best by equity" in res.notes
     text = format_completion(res)
     assert "EXPECTED POINTS, not championship" in text
 
@@ -492,7 +498,7 @@ def test_an_impossible_completion_is_reported_not_faked(big_pool):
     res = complete_roster(st, cast, book,
                           settings=CompletionSettings(beam_width=40,
                                                       candidate_pool=30,
-                                                      finalists=2, ce_sims=100))
+                                                      finalists=2, selection_sims=100, evaluation_sims=100))
     assert res.best is None
     assert res.result_kind == "no legal completion"
     assert res.diagnostics.stop_reason
@@ -504,7 +510,7 @@ def test_diagnostics_report_what_the_search_actually_did(midauction):
     res = complete_roster(st, cast, book,
                           settings=CompletionSettings(beam_width=100,
                                                       candidate_pool=45,
-                                                      finalists=3, ce_sims=300))
+                                                      finalists=3, selection_sims=300, evaluation_sims=300))
     d = res.diagnostics.to_dict()
     for key in ("states_expanded", "states_pruned_by_beam",
                 "states_rejected_infeasible", "states_rejected_unaffordable",
@@ -539,7 +545,7 @@ def test_the_pool_always_contains_an_affordable_completion(midauction):
     """The cheap tail is what makes the search complete, not an optimisation."""
     st, cast, book = midauction
     tight = CompletionSettings(beam_width=40, candidate_pool=12, finalists=2,
-                               ce_sims=200)
+                               selection_sims=200, evaluation_sims=200)
     res = complete_roster(st, cast, book, evaluate_ce=False, settings=tight)
     assert res.best is not None, (
         "a projection-ranked cut alone leaves only expensive players and no "
@@ -554,7 +560,7 @@ def test_a_missing_cost_stops_the_search_rather_than_defaulting(midauction):
         complete_roster(st, cast, short,
                         settings=CompletionSettings(beam_width=20,
                                                     candidate_pool=30,
-                                                    finalists=2, ce_sims=100))
+                                                    finalists=2, selection_sims=100, evaluation_sims=100))
 
 
 def test_the_cost_level_travels_into_the_result(midauction):

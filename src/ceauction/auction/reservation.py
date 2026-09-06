@@ -77,9 +77,17 @@ class ScenarioSetup:
     costs: CostBook
 
     def cache_key(self) -> Tuple:
+        """Identity by content, never by the caller's label.
+
+        The audit found this keyed on the scenario id, the state fingerprint
+        and the cost book's *metadata and length* -- so two books with the same
+        provenance and different prices were interchangeable, and a state whose
+        players had different projections was too. The label is kept because it
+        is useful in output, but it is no longer load-bearing: every component
+        below is a digest of actual content.
+        """
         return (self.scenario_id, self.state.fingerprint(),
-                self.costs.provenance.source, self.costs.provenance.version,
-                self.costs.level, len(self.costs))
+                self.cast.fingerprint(), self.costs.fingerprint())
 
 
 @dataclass(frozen=True)

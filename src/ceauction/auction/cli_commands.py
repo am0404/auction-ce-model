@@ -38,7 +38,8 @@ _FABRICATED_BANNER = (
 def _settings(args) -> CompletionSettings:
     return CompletionSettings(
         beam_width=args.beam_width, candidate_pool=args.candidate_pool,
-        finalists=args.finalists, ce_sims=args.sims, ce_seed=args.seed,
+        finalists=args.finalists, selection_sims=args.sims,
+        evaluation_sims=args.sims, selection_seed=args.seed,
         proxy_seed=args.seed, max_runtime_s=args.max_seconds)
 
 

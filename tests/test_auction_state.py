@@ -404,7 +404,8 @@ def test_bid_capacity_uses_each_owners_own_budget_and_room(empty, pool):
     # O02 fills his roster cheaply: rich in cash, no room at all.
     st = legal_fill(st, "O02", 15, price=1, pool=pool)
     cap = st.bid_capacity(30)
-    assert "O01" not in cap["able"] and "max bid" in cap["blocked"]["O01"]
+    assert "O01" not in cap["able"]
+    assert "financial ceiling" in cap["blocked"]["O01"]
     assert "O02" not in cap["able"] and cap["blocked"]["O02"] == "roster full"
     assert "O03" in cap["able"]
     # The league still holds plenty of money; that is not the question.
@@ -549,9 +550,15 @@ def test_the_room_summary_is_sanitized_and_names_who_may_bid(empty, pool):
     st = empty.apply_purchase(pool[0].player_id, FOCUS, 30)
     text = st.room_summary(next_bid=25)
     assert "Fabricated" not in text, "no player names in a sanitized summary"
-    assert "WHO MAY LEGALLY BID $25" in text
+    # With nobody on the block this is the financial ceiling, and the summary
+    # says so rather than implying legal eligibility for a particular player.
+    assert "WHO CAN AFFORD $25" in text
+    assert "FINANCIAL" in text
     assert "Who WOULD bid is not modelled" in text
     assert "no quarterback maximum" in text
+    nominated = st.nominate(st.available_ids[0], "O02")
+    text2 = nominated.room_summary(next_bid=25)
+    assert "WHO MAY LEGALLY BID $25 ON PLAYER" in text2
     for o in OWNERS:
         assert o in text
 

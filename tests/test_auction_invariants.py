@@ -132,7 +132,7 @@ def test_no_cache_key_collides_across_any_dimension():
     cand = d.default_candidate().player_id
     other = next(p for p in d.state.available_ids if p != cand)
     S = CompletionSettings(beam_width=50, candidate_pool=30, finalists=2,
-                           ce_sims=1200)
+                           selection_sims=1200, evaluation_sims=1200)
     base = ScenarioSetup("s1", d.state, d.cast, d.costs)
     dest = PassDestination.unavailable()
     k0 = ReservationCache.key(base, cand, 10, dest, S)
@@ -150,11 +150,11 @@ def test_no_cache_key_collides_across_any_dimension():
         "settings": ReservationCache.key(
             base, cand, 10, dest,
             CompletionSettings(beam_width=51, candidate_pool=30, finalists=2,
-                               ce_sims=1200)),
+                               selection_sims=1200, evaluation_sims=1200)),
         "sims": ReservationCache.key(
             base, cand, 10, dest,
             CompletionSettings(beam_width=50, candidate_pool=30, finalists=2,
-                               ce_sims=2400)),
+                               selection_sims=2400, evaluation_sims=2400)),
         "costs": ReservationCache.key(
             ScenarioSetup("s1", d.state, d.cast,
                           CostBook(d.costs.entries,
