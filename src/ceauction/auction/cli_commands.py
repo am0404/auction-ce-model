@@ -17,10 +17,9 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import List, Optional, Sequence
 
 from .completion import CompletionSettings, complete_roster, format_completion
-from .costs import CostBook, MissingCost
+from .costs import MissingCost
 from .counterfactual import (PassDestination, compare_buy_vs_pass,
                              format_buy_pass)
 from .demo import build_demo_auction

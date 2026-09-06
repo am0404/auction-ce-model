@@ -33,11 +33,11 @@ avoid. Its only job is to pick a finalist set small enough to simulate.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Sequence
 
 import numpy as np
 
-from ..league import DEFAULT_LEAGUE, LeagueSettings, Position
+from ..league import DEFAULT_LEAGUE, LeagueSettings
 from ..lineup_vec import select_lineups_mask
 from ..players import PlayerSpec
 from ..worlds import PoolArrays, build_pool_arrays, _contingency_bonus, _draw_availability

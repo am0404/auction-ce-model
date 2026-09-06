@@ -31,13 +31,12 @@ Reducing the room to "dollars left in the league" would erase all four.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import (Dict, FrozenSet, Iterable, List, Mapping, Optional,
-                    Sequence, Tuple)
+from typing import Dict, FrozenSet, List, Mapping, Optional, Sequence, Tuple
 
 from ..league import DEFAULT_LEAGUE, LeagueSettings, Position
 from ..players import PlayerSpec
 from .feasibility import (PositionCounts, can_complete, can_fill_lineup,
-                          completion_shortfall, min_additions_for_lineup)
+                          completion_shortfall)
 
 __all__ = [
     "AuctionError",

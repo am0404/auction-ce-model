@@ -56,7 +56,6 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from ..curve import FLEX_ELIGIBLE, weakest_flex_slot
 from ..league import DEFAULT_LEAGUE, LeagueSettings, Position
 from ..players import PlayerSpec
-from ..roster import RosterSet
 from ..simulate import simulate_seasons
 from .mapping import map_contract_to_playerspecs
 from .scenarios import (

@@ -37,10 +37,8 @@ from __future__ import annotations
 import itertools
 import math
 import time
-from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
-
-import numpy as np
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..league import DEFAULT_LEAGUE, LeagueSettings
 from ..players import PlayerSpec

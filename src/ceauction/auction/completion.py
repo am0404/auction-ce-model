@@ -39,16 +39,16 @@ import itertools
 import math
 import time
 from dataclasses import dataclass, field, replace
-from typing import (Callable, Dict, FrozenSet, Iterable, List, Mapping,
-                    Optional, Sequence, Set, Tuple)
+from typing import (Dict, FrozenSet, List, Mapping, Optional, Sequence, Set,
+                    Tuple)
 
 import numpy as np
 
 from ..ce import paired_se
-from ..league import DEFAULT_LEAGUE, LeagueSettings, Position
+from ..league import Position
 from ..players import PlayerSpec
 from ..roster import Roster, RosterSet
-from ..simulate import SeasonOutcomes, simulate_seasons
+from ..simulate import simulate_seasons
 from .costs import CostBook
 from .feasibility import PositionCounts, can_complete, min_additions_for_lineup
 from .proxy import ProxyEvaluator

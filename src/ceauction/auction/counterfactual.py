@@ -38,15 +38,15 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, field, replace
-from typing import Dict, FrozenSet, List, Optional, Sequence, Tuple
+from dataclasses import dataclass, replace
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
 from ..ce import paired_se
-from ..simulate import SeasonOutcomes, simulate_seasons
-from .completion import (ComparisonCast, Completion, CompletionResult,
-                         CompletionSettings, _build_roster_set, complete_roster)
+from ..simulate import simulate_seasons
+from .completion import (ComparisonCast, CompletionResult, CompletionSettings,
+                         _build_roster_set, complete_roster)
 from .costs import CostBook
 from .proxy import ProxyEvaluator
 from .state import AuctionRuleError, AuctionState

@@ -30,9 +30,9 @@ objective.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Dict, Iterable, Mapping, Optional, Tuple
 
-from ..league import DEFAULT_LEAGUE, LeagueSettings, Position
+from ..league import Position
 
 __all__ = [
     "PositionCounts",
