@@ -1276,6 +1276,15 @@ current simplification carries.
 Only after that does opponent *bidding behaviour* become worth modelling, and
 only after that can a CE reservation price start to become a tactical bid.
 
+**One thing the foundation audit changed about this plan: budget it for the new
+runtime.** A buy/pass comparison is now 11 seconds rather than 2.5, because
+both branches genuinely select by equity and report on a holdout. Multi-owner
+completion multiplies that by the number of owners still drafting and by the
+number of rounds to a fixed point. Before writing it, measure one iteration on
+the fabricated auction and decide how many rounds are affordable -- a design
+that needs ten rounds over twelve owners at eleven seconds a comparison is a
+different piece of work from one that needs two.
+
 **Explicitly still not next:** dollar values for real players, opening or live
 max bids, auction inflation, or anything presented as a market price. All of
 them are blocked on the acquisition-cost data this repository does not have.
