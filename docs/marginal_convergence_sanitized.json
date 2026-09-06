@@ -1,0 +1,2351 @@
+{
+  "label": "SANITIZED AGGREGATE. Counts, rates and positional aggregates only. No player name, no proprietary projection row, no player-level dollar figure.",
+  "coverage": {
+    "contract_players": 549,
+    "mapped_playerspecs": 260,
+    "pool_limit": 260,
+    "position_counts": {
+      "QB": 35,
+      "RB": 70,
+      "WR": 112,
+      "TE": 43
+    },
+    "with_market_anchor": 149,
+    "without_market_anchor": 111,
+    "with_individual_injury": 222,
+    "injury_fallback_positional": 38,
+    "unresolved_placeholder_fields": 260,
+    "mapping_warnings": 3,
+    "mapping_skipped": 0,
+    "anchor_rows": 1024,
+    "market_scenario": "base",
+    "performance_scenario": "median_target/full_health/week_sd/exclude"
+  },
+  "selection": {
+    "candidates": 12,
+    "substitutions": [],
+    "positions": [
+      "QB",
+      "RB",
+      "WR",
+      "TE"
+    ],
+    "ladder": [
+      {
+        "beam_width": 64,
+        "candidate_pool": 60,
+        "label": "64/60"
+      },
+      {
+        "beam_width": 160,
+        "candidate_pool": 90,
+        "label": "160/90"
+      },
+      {
+        "beam_width": 240,
+        "candidate_pool": 120,
+        "label": "240/120"
+      },
+      {
+        "beam_width": 320,
+        "candidate_pool": 140,
+        "label": "320/140"
+      }
+    ],
+    "tolerances": [
+      0.25,
+      0.5
+    ]
+  },
+  "diagnostics": [
+    {
+      "position": "QB",
+      "tier": "expensive",
+      "price": 26,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 101.6962,
+        "added_cost": 200,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "QB": 3,
+          "RB": 7,
+          "WR": 4,
+          "TE": 1
+        },
+        "best_eight": 103.1539,
+        "added_cost": 173,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "lineup_improvement": 1.4577,
+      "improvement_at_min": 6.3736,
+      "price_cost_of_slot": 4.916,
+      "start_share": 0.8125,
+      "displaced_start_share": 0.875,
+      "bench_delta": 0,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +1.46/wk at $26; candidate starts 81% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 100.8292,
+            "best_without": 99.8735,
+            "improvement_at_price": 0.9557,
+            "improvement_at_min": 6.2631,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "QB": 3,
+              "RB": 7,
+              "WR": 3,
+              "TE": 2
+            },
+            "roster_fingerprint": "c47a73e72ae9331d",
+            "added_cost": 173,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 0.68
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 102.1214,
+            "best_without": 101.4192,
+            "improvement_at_price": 0.7022,
+            "improvement_at_min": 6.1185,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "QB": 3,
+              "RB": 8,
+              "WR": 3,
+              "TE": 1
+            },
+            "roster_fingerprint": "303eed59631ef125",
+            "added_cost": 174,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 2.11
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 103.1377,
+            "best_without": 101.6962,
+            "improvement_at_price": 1.4415,
+            "improvement_at_min": 6.3736,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "QB": 3,
+              "RB": 7,
+              "WR": 4,
+              "TE": 1
+            },
+            "roster_fingerprint": "026e8a26364335a4",
+            "added_cost": 173,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 3.78
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 24,
+            "union_without": 24,
+            "best_with": 103.1539,
+            "best_without": 101.6962,
+            "improvement_at_price": 1.4577,
+            "improvement_at_min": 6.3736,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "QB": 3,
+              "RB": 7,
+              "WR": 4,
+              "TE": 1
+            },
+            "roster_fingerprint": "f9a4d3be4533ef3e",
+            "added_cost": 173,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 5.53
+          }
+        ],
+        "objective_deltas": [
+          1.2923,
+          1.0163,
+          0.0162
+        ],
+        "improvement_deltas": [
+          -0.2535,
+          0.7393,
+          0.0162
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": false,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "QB",
+      "tier": "mid",
+      "price": 21,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.7574,
+        "added_cost": 200,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "QB": 3,
+          "RB": 7,
+          "WR": 5
+        },
+        "best_eight": 102.7121,
+        "added_cost": 179,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 8
+      },
+      "lineup_improvement": -0.0453,
+      "improvement_at_min": 4.5165,
+      "price_cost_of_slot": 4.5619,
+      "start_share": 0.8705,
+      "displaced_start_share": 0.8438,
+      "bench_delta": 1,
+      "role": "replaceable starter",
+      "policy": "proxy only",
+      "reason": "best-legal-eight improves -0.05/wk at $21; candidate starts 87% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 102.0529,
+            "best_without": 100.1439,
+            "improvement_at_price": 1.909,
+            "improvement_at_min": 5.328,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "QB": 3,
+              "RB": 7,
+              "WR": 2,
+              "TE": 3
+            },
+            "roster_fingerprint": "ce97e755c845755b",
+            "added_cost": 178,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 0.68
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 102.2565,
+            "best_without": 101.8855,
+            "improvement_at_price": 0.371,
+            "improvement_at_min": 4.8413,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "QB": 3,
+              "RB": 8,
+              "WR": 3,
+              "TE": 1
+            },
+            "roster_fingerprint": "600d8fd23e0e994f",
+            "added_cost": 178,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 2.13
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 102.7121,
+            "best_without": 102.567,
+            "improvement_at_price": 0.1451,
+            "improvement_at_min": 4.3037,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "QB": 3,
+              "RB": 7,
+              "WR": 5
+            },
+            "roster_fingerprint": "34f7d3e6f57d1a89",
+            "added_cost": 179,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 3.83
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 4,
+            "new_without": 6,
+            "union_with": 22,
+            "union_without": 24,
+            "best_with": 102.7121,
+            "best_without": 102.7574,
+            "improvement_at_price": -0.0453,
+            "improvement_at_min": 4.5165,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "QB": 3,
+              "RB": 7,
+              "WR": 5
+            },
+            "roster_fingerprint": "34f7d3e6f57d1a89",
+            "added_cost": 179,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.61
+          }
+        ],
+        "objective_deltas": [
+          0.2036,
+          0.4556,
+          0.0
+        ],
+        "improvement_deltas": [
+          -1.538,
+          -0.2259,
+          -0.1904
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "QB",
+      "tier": "cheap",
+      "price": 19,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.7574,
+        "added_cost": 200,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "QB": 4,
+          "RB": 7,
+          "WR": 4
+        },
+        "best_eight": 101.6617,
+        "added_cost": 181,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 8
+      },
+      "lineup_improvement": -1.0957,
+      "improvement_at_min": 3.3376,
+      "price_cost_of_slot": 4.4333,
+      "start_share": 0.2545,
+      "displaced_start_share": 0.8839,
+      "bench_delta": 1,
+      "role": "aggregate depth",
+      "policy": "proxy only",
+      "reason": "best-legal-eight improves -1.10/wk at $19; candidate starts 25% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 99.8396,
+            "best_without": 100.1439,
+            "improvement_at_price": -0.3043,
+            "improvement_at_min": 3.415,
+            "role": "aggregate depth",
+            "policy": "proxy only",
+            "composition": {
+              "QB": 4,
+              "RB": 5,
+              "WR": 2,
+              "TE": 4
+            },
+            "roster_fingerprint": "df20a73460fc3fcf",
+            "added_cost": 180,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 0.69
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 100.0353,
+            "best_without": 101.8855,
+            "improvement_at_price": -1.8502,
+            "improvement_at_min": 2.8087,
+            "role": "aggregate depth",
+            "policy": "proxy only",
+            "composition": {
+              "QB": 4,
+              "RB": 6,
+              "WR": 3,
+              "TE": 2
+            },
+            "roster_fingerprint": "adf3e7280f7f8585",
+            "added_cost": 179,
+            "budget_left": 2,
+            "exactness": "heuristic",
+            "runtime_s": 2.1
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 101.6617,
+            "best_without": 102.567,
+            "improvement_at_price": -0.9054,
+            "improvement_at_min": 3.331,
+            "role": "aggregate depth",
+            "policy": "proxy only",
+            "composition": {
+              "QB": 4,
+              "RB": 7,
+              "WR": 4
+            },
+            "roster_fingerprint": "49a77684d304b1ae",
+            "added_cost": 181,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 3.8
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 5,
+            "new_without": 6,
+            "union_with": 23,
+            "union_without": 24,
+            "best_with": 101.6617,
+            "best_without": 102.7574,
+            "improvement_at_price": -1.0957,
+            "improvement_at_min": 3.3376,
+            "role": "aggregate depth",
+            "policy": "proxy only",
+            "composition": {
+              "QB": 4,
+              "RB": 7,
+              "WR": 4
+            },
+            "roster_fingerprint": "49a77684d304b1ae",
+            "added_cost": 181,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.61
+          }
+        ],
+        "objective_deltas": [
+          0.1956,
+          1.6264,
+          0.0
+        ],
+        "improvement_deltas": [
+          -1.546,
+          0.9449,
+          -0.1904
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "RB",
+      "tier": "expensive",
+      "price": 44,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 7,
+          "WR": 4,
+          "TE": 1
+        },
+        "best_eight": 102.2918,
+        "added_cost": 200,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 8
+      },
+      "with_candidate": {
+        "composition": {
+          "RB": 8,
+          "QB": 3,
+          "WR": 4
+        },
+        "best_eight": 102.7721,
+        "added_cost": 156,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "lineup_improvement": 0.4803,
+      "improvement_at_min": 8.3036,
+      "price_cost_of_slot": 7.8233,
+      "start_share": 0.8304,
+      "displaced_start_share": 0.875,
+      "bench_delta": -1,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +0.48/wk at $44; candidate starts 83% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 100.1351,
+            "best_without": 100.509,
+            "improvement_at_price": -0.3739,
+            "improvement_at_min": 8.7691,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "RB": 7,
+              "QB": 3,
+              "WR": 3,
+              "TE": 2
+            },
+            "roster_fingerprint": "42c4f67191d3e47a",
+            "added_cost": 155,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 0.69
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 101.8939,
+            "best_without": 102.2918,
+            "improvement_at_price": -0.3978,
+            "improvement_at_min": 8.296,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "RB": 7,
+              "QB": 3,
+              "WR": 4,
+              "TE": 1
+            },
+            "roster_fingerprint": "051408575d6ff680",
+            "added_cost": 156,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 2.11
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 102.5748,
+            "best_without": 102.2918,
+            "improvement_at_price": 0.283,
+            "improvement_at_min": 8.2996,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "RB": 8,
+              "QB": 3,
+              "WR": 4
+            },
+            "roster_fingerprint": "f4b43d1adb46e2e6",
+            "added_cost": 155,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 3.77
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 5,
+            "union_with": 24,
+            "union_without": 23,
+            "best_with": 102.7721,
+            "best_without": 102.2918,
+            "improvement_at_price": 0.4803,
+            "improvement_at_min": 8.3036,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "RB": 8,
+              "QB": 3,
+              "WR": 4
+            },
+            "roster_fingerprint": "34a5893ebf867272",
+            "added_cost": 156,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.55
+          }
+        ],
+        "objective_deltas": [
+          1.7588,
+          0.6808,
+          0.1973
+        ],
+        "improvement_deltas": [
+          -0.024,
+          0.6808,
+          0.1973
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": false,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "RB",
+      "tier": "mid",
+      "price": 25,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.567,
+        "added_cost": 199,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "RB": 8,
+          "QB": 3,
+          "WR": 3,
+          "TE": 1
+        },
+        "best_eight": 105.0709,
+        "added_cost": 175,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "lineup_improvement": 2.5039,
+      "improvement_at_min": 5.3394,
+      "price_cost_of_slot": 2.8355,
+      "start_share": 0.9152,
+      "displaced_start_share": 0.8795,
+      "bench_delta": 0,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +2.50/wk at $25; candidate starts 92% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 104.3464,
+            "best_without": 100.1368,
+            "improvement_at_price": 4.2096,
+            "improvement_at_min": 6.8356,
+            "role": "clear starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "RB": 7,
+              "QB": 3,
+              "WR": 3,
+              "TE": 2
+            },
+            "roster_fingerprint": "caabc1284816fe37",
+            "added_cost": 174,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 0.69
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 104.3606,
+            "best_without": 101.8855,
+            "improvement_at_price": 2.4751,
+            "improvement_at_min": 5.7386,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "RB": 7,
+              "QB": 3,
+              "WR": 3,
+              "TE": 2
+            },
+            "roster_fingerprint": "e5ff26e001384c0c",
+            "added_cost": 174,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 2.11
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 105.0709,
+            "best_without": 102.567,
+            "improvement_at_price": 2.5039,
+            "improvement_at_min": 5.0571,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "RB": 8,
+              "QB": 3,
+              "WR": 3,
+              "TE": 1
+            },
+            "roster_fingerprint": "a0311b7b46f4cb26",
+            "added_cost": 175,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 3.81
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 4,
+            "new_without": 6,
+            "union_with": 22,
+            "union_without": 24,
+            "best_with": 105.0709,
+            "best_without": 102.567,
+            "improvement_at_price": 2.5039,
+            "improvement_at_min": 5.3394,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "RB": 8,
+              "QB": 3,
+              "WR": 3,
+              "TE": 1
+            },
+            "roster_fingerprint": "a0311b7b46f4cb26",
+            "added_cost": 175,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.55
+          }
+        ],
+        "objective_deltas": [
+          0.0143,
+          0.7103,
+          0.0
+        ],
+        "improvement_deltas": [
+          -1.7345,
+          0.0287,
+          0.0
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "RB",
+      "tier": "cheap",
+      "price": 15,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.567,
+        "added_cost": 199,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "RB": 8,
+          "QB": 3,
+          "WR": 2,
+          "TE": 2
+        },
+        "best_eight": 101.4706,
+        "added_cost": 185,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "lineup_improvement": -1.0964,
+      "improvement_at_min": 1.2133,
+      "price_cost_of_slot": 2.3097,
+      "start_share": 0.8795,
+      "displaced_start_share": 0.8795,
+      "bench_delta": 0,
+      "role": "replaceable starter",
+      "policy": "proxy only",
+      "reason": "best-legal-eight improves -1.10/wk at $15; candidate starts 88% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 98.9141,
+            "best_without": 101.06,
+            "improvement_at_price": -2.1459,
+            "improvement_at_min": 1.7667,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "RB": 8,
+              "QB": 3,
+              "WR": 2,
+              "TE": 2
+            },
+            "roster_fingerprint": "cb71a0a651af7f1a",
+            "added_cost": 180,
+            "budget_left": 5,
+            "exactness": "heuristic",
+            "runtime_s": 0.68
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 101.4591,
+            "best_without": 101.8855,
+            "improvement_at_price": -0.4264,
+            "improvement_at_min": 1.6269,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "RB": 8,
+              "QB": 3,
+              "WR": 2,
+              "TE": 2
+            },
+            "roster_fingerprint": "d70a385a1b26475f",
+            "added_cost": 185,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 2.12
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 101.4706,
+            "best_without": 102.567,
+            "improvement_at_price": -1.0964,
+            "improvement_at_min": 0.9957,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "RB": 8,
+              "QB": 3,
+              "WR": 2,
+              "TE": 2
+            },
+            "roster_fingerprint": "790015d2099df04a",
+            "added_cost": 185,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 3.79
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 4,
+            "new_without": 6,
+            "union_with": 22,
+            "union_without": 24,
+            "best_with": 101.4706,
+            "best_without": 102.567,
+            "improvement_at_price": -1.0964,
+            "improvement_at_min": 1.2133,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "RB": 8,
+              "QB": 3,
+              "WR": 2,
+              "TE": 2
+            },
+            "roster_fingerprint": "790015d2099df04a",
+            "added_cost": 185,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.66
+          }
+        ],
+        "objective_deltas": [
+          2.545,
+          0.0115,
+          0.0
+        ],
+        "improvement_deltas": [
+          1.7195,
+          -0.67,
+          0.0
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "WR",
+      "tier": "expensive",
+      "price": 32,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.567,
+        "added_cost": 199,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "WR": 3,
+          "QB": 3,
+          "RB": 7,
+          "TE": 2
+        },
+        "best_eight": 104.3306,
+        "added_cost": 167,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 8
+      },
+      "lineup_improvement": 1.7636,
+      "improvement_at_min": 6.5988,
+      "price_cost_of_slot": 4.8352,
+      "start_share": 0.8839,
+      "displaced_start_share": 0.8795,
+      "bench_delta": 1,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +1.76/wk at $32; candidate starts 88% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 104.3306,
+            "best_without": 101.1065,
+            "improvement_at_price": 3.2242,
+            "improvement_at_min": 6.841,
+            "role": "clear starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 7,
+              "TE": 2
+            },
+            "roster_fingerprint": "899278a13ff9e246",
+            "added_cost": 167,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 0.7
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 104.3306,
+            "best_without": 101.8855,
+            "improvement_at_price": 2.4451,
+            "improvement_at_min": 6.7786,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 7,
+              "TE": 2
+            },
+            "roster_fingerprint": "899278a13ff9e246",
+            "added_cost": 167,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 2.15
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 104.3306,
+            "best_without": 102.567,
+            "improvement_at_price": 1.7636,
+            "improvement_at_min": 6.5988,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 7,
+              "TE": 2
+            },
+            "roster_fingerprint": "899278a13ff9e246",
+            "added_cost": 167,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 3.91
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 5,
+            "new_without": 6,
+            "union_with": 23,
+            "union_without": 24,
+            "best_with": 104.3306,
+            "best_without": 102.567,
+            "improvement_at_price": 1.7636,
+            "improvement_at_min": 6.5988,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 7,
+              "TE": 2
+            },
+            "roster_fingerprint": "899278a13ff9e246",
+            "added_cost": 167,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 5.65
+          }
+        ],
+        "objective_deltas": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "improvement_deltas": [
+          -0.779,
+          -0.6815,
+          0.0
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "WR",
+      "tier": "mid",
+      "price": 17,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.567,
+        "added_cost": 199,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "WR": 3,
+          "QB": 3,
+          "RB": 8,
+          "TE": 1
+        },
+        "best_eight": 101.3816,
+        "added_cost": 183,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "lineup_improvement": -1.1854,
+      "improvement_at_min": 2.3619,
+      "price_cost_of_slot": 3.5473,
+      "start_share": 0.808,
+      "displaced_start_share": 0.8795,
+      "bench_delta": 0,
+      "role": "replaceable starter",
+      "policy": "proxy only",
+      "reason": "best-legal-eight improves -1.19/wk at $17; candidate starts 81% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 99.9288,
+            "best_without": 101.06,
+            "improvement_at_price": -1.1312,
+            "improvement_at_min": 2.9369,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 7,
+              "TE": 2
+            },
+            "roster_fingerprint": "53896595b8207a3b",
+            "added_cost": 180,
+            "budget_left": 3,
+            "exactness": "heuristic",
+            "runtime_s": 0.71
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 100.7328,
+            "best_without": 101.8855,
+            "improvement_at_price": -1.1527,
+            "improvement_at_min": 2.6736,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 7,
+              "TE": 2
+            },
+            "roster_fingerprint": "a88c5a843eb6fae3",
+            "added_cost": 182,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 2.26
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 101.3816,
+            "best_without": 102.567,
+            "improvement_at_price": -1.1854,
+            "improvement_at_min": 2.3619,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 8,
+              "TE": 1
+            },
+            "roster_fingerprint": "6bba2fc9d9b97087",
+            "added_cost": 183,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 3.96
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 5,
+            "new_without": 6,
+            "union_with": 23,
+            "union_without": 24,
+            "best_with": 101.3816,
+            "best_without": 102.567,
+            "improvement_at_price": -1.1854,
+            "improvement_at_min": 2.3619,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 8,
+              "TE": 1
+            },
+            "roster_fingerprint": "6bba2fc9d9b97087",
+            "added_cost": 183,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.61
+          }
+        ],
+        "objective_deltas": [
+          0.8039,
+          0.6488,
+          0.0
+        ],
+        "improvement_deltas": [
+          -0.0215,
+          -0.0327,
+          0.0
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "WR",
+      "tier": "cheap",
+      "price": 8,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.567,
+        "added_cost": 199,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "WR": 5,
+          "QB": 3,
+          "RB": 7
+        },
+        "best_eight": 104.1929,
+        "added_cost": 192,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 8
+      },
+      "lineup_improvement": 1.6258,
+      "improvement_at_min": 2.4655,
+      "price_cost_of_slot": 0.8397,
+      "start_share": 0.4509,
+      "displaced_start_share": 0.8125,
+      "bench_delta": 1,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +1.63/wk at $8; candidate starts 45% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 100.4892,
+            "best_without": 101.06,
+            "improvement_at_price": -0.5709,
+            "improvement_at_min": 0.8341,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 7,
+              "TE": 2
+            },
+            "roster_fingerprint": "9d54407f6dad7984",
+            "added_cost": 188,
+            "budget_left": 4,
+            "exactness": "heuristic",
+            "runtime_s": 0.68
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 102.0685,
+            "best_without": 101.06,
+            "improvement_at_price": 1.0084,
+            "improvement_at_min": 1.0084,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "WR": 3,
+              "QB": 3,
+              "RB": 8,
+              "TE": 1
+            },
+            "roster_fingerprint": "c9a75741fa058538",
+            "added_cost": 192,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 2.1
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 104.1929,
+            "best_without": 102.567,
+            "improvement_at_price": 1.6258,
+            "improvement_at_min": 2.356,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "WR": 5,
+              "QB": 3,
+              "RB": 7
+            },
+            "roster_fingerprint": "986e99600fc72b87",
+            "added_cost": 192,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 3.78
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 4,
+            "new_without": 6,
+            "union_with": 22,
+            "union_without": 24,
+            "best_with": 104.1929,
+            "best_without": 102.567,
+            "improvement_at_price": 1.6258,
+            "improvement_at_min": 2.4655,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "WR": 5,
+              "QB": 3,
+              "RB": 7
+            },
+            "roster_fingerprint": "986e99600fc72b87",
+            "added_cost": 192,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.5
+          }
+        ],
+        "objective_deltas": [
+          1.5793,
+          2.1244,
+          0.0
+        ],
+        "improvement_deltas": [
+          1.5793,
+          0.6174,
+          0.0
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "TE",
+      "tier": "expensive",
+      "price": 13,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.567,
+        "added_cost": 199,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "TE": 2,
+          "QB": 3,
+          "RB": 8,
+          "WR": 2
+        },
+        "best_eight": 103.333,
+        "added_cost": 186,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "lineup_improvement": 0.766,
+      "improvement_at_min": 3.3729,
+      "price_cost_of_slot": 2.6069,
+      "start_share": 0.8795,
+      "displaced_start_share": 0.8795,
+      "bench_delta": 0,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +0.77/wk at $13; candidate starts 88% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 99.3303,
+            "best_without": 100.1439,
+            "improvement_at_price": -0.8136,
+            "improvement_at_min": 4.7868,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "TE": 3,
+              "QB": 3,
+              "RB": 7,
+              "WR": 2
+            },
+            "roster_fingerprint": "5a8d5023e717d867",
+            "added_cost": 176,
+            "budget_left": 11,
+            "exactness": "heuristic",
+            "runtime_s": 0.68
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 103.0533,
+            "best_without": 101.8855,
+            "improvement_at_price": 1.1678,
+            "improvement_at_min": 3.6887,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "TE": 2,
+              "QB": 3,
+              "RB": 7,
+              "WR": 3
+            },
+            "roster_fingerprint": "06b6bf33000692dc",
+            "added_cost": 187,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 2.11
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 103.333,
+            "best_without": 102.567,
+            "improvement_at_price": 0.766,
+            "improvement_at_min": 3.3729,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "TE": 2,
+              "QB": 3,
+              "RB": 8,
+              "WR": 2
+            },
+            "roster_fingerprint": "ae7cfda5afd605ee",
+            "added_cost": 186,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 3.76
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 5,
+            "new_without": 6,
+            "union_with": 23,
+            "union_without": 24,
+            "best_with": 103.333,
+            "best_without": 102.567,
+            "improvement_at_price": 0.766,
+            "improvement_at_min": 3.3729,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "TE": 2,
+              "QB": 3,
+              "RB": 8,
+              "WR": 2
+            },
+            "roster_fingerprint": "ae7cfda5afd605ee",
+            "added_cost": 186,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 5.49
+          }
+        ],
+        "objective_deltas": [
+          3.723,
+          0.2797,
+          0.0
+        ],
+        "improvement_deltas": [
+          1.9814,
+          -0.4018,
+          0.0
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "160/90"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "TE",
+      "tier": "mid",
+      "price": 10,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.567,
+        "added_cost": 199,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "TE": 1,
+          "QB": 3,
+          "RB": 7,
+          "WR": 4
+        },
+        "best_eight": 102.3368,
+        "added_cost": 190,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 8
+      },
+      "lineup_improvement": -0.2303,
+      "improvement_at_min": 2.5775,
+      "price_cost_of_slot": 2.8078,
+      "start_share": 0.8438,
+      "displaced_start_share": 0.8125,
+      "bench_delta": 1,
+      "role": "replaceable starter",
+      "policy": "proxy only",
+      "reason": "best-legal-eight improves -0.23/wk at $10; candidate starts 84% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 100.6384,
+            "best_without": 101.06,
+            "improvement_at_price": -0.4217,
+            "improvement_at_min": 0.8852,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "TE": 3,
+              "QB": 3,
+              "RB": 7,
+              "WR": 2
+            },
+            "roster_fingerprint": "b5925d3047b2d702",
+            "added_cost": 188,
+            "budget_left": 2,
+            "exactness": "heuristic",
+            "runtime_s": 0.68
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 101.8455,
+            "best_without": 101.06,
+            "improvement_at_price": 0.7855,
+            "improvement_at_min": 0.9181,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "TE": 2,
+              "QB": 3,
+              "RB": 7,
+              "WR": 3
+            },
+            "roster_fingerprint": "36f713f0be0b8f7e",
+            "added_cost": 190,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 2.1
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 102.3368,
+            "best_without": 102.567,
+            "improvement_at_price": -0.2303,
+            "improvement_at_min": 2.3124,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "TE": 1,
+              "QB": 3,
+              "RB": 7,
+              "WR": 4
+            },
+            "roster_fingerprint": "3b7e6121dca632f6",
+            "added_cost": 190,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 3.75
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 5,
+            "new_without": 6,
+            "union_with": 23,
+            "union_without": 24,
+            "best_with": 102.3368,
+            "best_without": 102.567,
+            "improvement_at_price": -0.2303,
+            "improvement_at_min": 2.5775,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "TE": 1,
+              "QB": 3,
+              "RB": 7,
+              "WR": 4
+            },
+            "roster_fingerprint": "3b7e6121dca632f6",
+            "added_cost": 190,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.48
+          }
+        ],
+        "objective_deltas": [
+          1.2071,
+          0.4913,
+          0.0
+        ],
+        "improvement_deltas": [
+          1.2071,
+          -1.0157,
+          0.0
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": true,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    },
+    {
+      "position": "TE",
+      "tier": "cheap",
+      "price": 6,
+      "without": {
+        "composition": {
+          "QB": 3,
+          "RB": 8,
+          "WR": 4
+        },
+        "best_eight": 102.567,
+        "added_cost": 199,
+        "budget_left": 1,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 9
+      },
+      "with_candidate": {
+        "composition": {
+          "TE": 1,
+          "QB": 3,
+          "RB": 7,
+          "WR": 4
+        },
+        "best_eight": 103.8861,
+        "added_cost": 194,
+        "budget_left": 0,
+        "exactness": "union of 4 effort levels",
+        "n_starters": 8
+      },
+      "lineup_improvement": 1.3191,
+      "improvement_at_min": 1.5402,
+      "price_cost_of_slot": 0.2211,
+      "start_share": 0.4196,
+      "displaced_start_share": 0.8125,
+      "bench_delta": 1,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "best-legal-eight improves +1.32/wk at $6; candidate starts 42% of weeks",
+      "contingency_note": "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+      "price_monotonicity_violation": 0.0,
+      "search_is_converged": true,
+      "convergence": {
+        "levels": [
+          {
+            "level": {
+              "beam_width": 64,
+              "candidate_pool": 60,
+              "label": "64/60"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 6,
+            "union_without": 6,
+            "best_with": 100.6655,
+            "best_without": 101.06,
+            "improvement_at_price": -0.3945,
+            "improvement_at_min": 0.6115,
+            "role": "replaceable starter",
+            "policy": "proxy only",
+            "composition": {
+              "TE": 3,
+              "QB": 3,
+              "RB": 7,
+              "WR": 2
+            },
+            "roster_fingerprint": "292610f77193bd46",
+            "added_cost": 194,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 0.68
+          },
+          {
+            "level": {
+              "beam_width": 160,
+              "candidate_pool": 90,
+              "label": "160/90"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 12,
+            "union_without": 12,
+            "best_with": 102.1133,
+            "best_without": 101.06,
+            "improvement_at_price": 1.0533,
+            "improvement_at_min": 1.0533,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "TE": 3,
+              "QB": 3,
+              "RB": 7,
+              "WR": 2
+            },
+            "roster_fingerprint": "5d66a5a65f509f89",
+            "added_cost": 193,
+            "budget_left": 1,
+            "exactness": "heuristic",
+            "runtime_s": 2.09
+          },
+          {
+            "level": {
+              "beam_width": 240,
+              "candidate_pool": 120,
+              "label": "240/120"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 6,
+            "union_with": 18,
+            "union_without": 18,
+            "best_with": 103.8751,
+            "best_without": 102.567,
+            "improvement_at_price": 1.3081,
+            "improvement_at_min": 1.4403,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "TE": 1,
+              "QB": 3,
+              "RB": 7,
+              "WR": 4
+            },
+            "roster_fingerprint": "daaa14829a6a812a",
+            "added_cost": 194,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 3.76
+          },
+          {
+            "level": {
+              "beam_width": 320,
+              "candidate_pool": 140,
+              "label": "320/140"
+            },
+            "generated_with": 6,
+            "generated_without": 6,
+            "new_with": 6,
+            "new_without": 5,
+            "union_with": 24,
+            "union_without": 23,
+            "best_with": 103.8861,
+            "best_without": 102.567,
+            "improvement_at_price": 1.3191,
+            "improvement_at_min": 1.5402,
+            "role": "marginal starter",
+            "policy": "4000-season audit",
+            "composition": {
+              "TE": 1,
+              "QB": 3,
+              "RB": 7,
+              "WR": 4
+            },
+            "roster_fingerprint": "604a5765847d8364",
+            "added_cost": 194,
+            "budget_left": 0,
+            "exactness": "heuristic",
+            "runtime_s": 5.5
+          }
+        ],
+        "objective_deltas": [
+          1.4478,
+          1.7618,
+          0.011
+        ],
+        "improvement_deltas": [
+          1.4478,
+          0.2548,
+          0.011
+        ],
+        "role_stable": true,
+        "policy_stable": true,
+        "roster_stable": false,
+        "price_violations": [],
+        "search_violations": [],
+        "status": {
+          "0.25": "CONVERGED",
+          "0.5": "CONVERGED"
+        },
+        "effort_required": {
+          "0.25": "240/120",
+          "0.5": "240/120"
+        },
+        "tolerance_note": "tolerances are NUMERICAL STABILITY thresholds in weekly starting points, not claims about what size of difference is economically material"
+      }
+    }
+  ],
+  "results": {
+    "audited": 7,
+    "proxy_only": 5,
+    "unresolved": 0,
+    "search_violations": 0,
+    "price_violations": 0,
+    "converged": {
+      "0.25": 12,
+      "0.5": 12
+    }
+  },
+  "runtime": {},
+  "warnings": [],
+  "assumptions": [
+    "no conditional-backfield or QB-insurance mapping exists in this repository, so contingency value is NOT quantified here; a bench player's raw points are deliberately not converted into lineup value",
+    "no positional quota enters diagnostics or sampling",
+    "tolerances are numerical stability thresholds, not claims of economic materiality",
+    "market scenario: base",
+    "performance scenario: median_target/full_health/week_sd/exclude"
+  ]
+}

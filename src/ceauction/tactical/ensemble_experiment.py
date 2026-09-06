@@ -17,7 +17,8 @@ from ..auction.proxy import ProxyEvaluator
 from .board import BoardSettings
 from .ensemble import (FRONTIER_NOT_REACHED, balanced_schedule,
                        run_ensemble, symmetry_check)
-from .realpilot import PilotInputs, diagnose, load_real_board, select_candidates
+from .convergence import CONVERGED, DEFAULT_LADDER, converged_diagnose
+from .realpilot import PilotInputs, load_real_board, select_candidates
 from .recipients import enumerate_recipients
 
 CONVERGENCE_KS = (1, 3, 6, 12, 15, 24)
@@ -54,7 +55,15 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
     cs = _completion(selection_sims, holdout_sims)
     bs = _board(shock, shock_scenario)
     cands, _ = select_candidates(board)
-    diags = {(c.position, c.tier): diagnose(board, c, proxy=px) for c in cands}
+    # Selection comes from the CONVERGED ladder diagnostic, not a single beam.
+    # The previous branch chose ensemble candidates with an unconverged
+    # beam-32 diagnostic, so its CE numbers described players the corrected
+    # diagnostic does not nominate.
+    diags, convergence = {}, {}
+    for c in cands:
+        d, rep = converged_diagnose(board, c, proxy=px, ladder=DEFAULT_LADDER)
+        diags[(c.position, c.tier)] = d
+        convergence[(c.position, c.tier)] = rep
     schedule = balanced_schedule(len(st.owners), k)
 
     def recipient_for(cid: int) -> Optional[Tuple[str, int]]:
@@ -72,7 +81,7 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
     # The candidate a quota-free diagnostic says is worth auditing, not the
     # most expensive one. Price does not decide who earns CE seasons.
     audited_here = [c for c in cands if c.position == primary_pos
-                    and diags[(c.position, c.tier)].policy != "proxy only"]
+                    and diags[(c.position, c.tier)].policy == "4000-season audit"]
     if not audited_here:
         raise RuntimeError(
             f"no {primary_pos} qualifies for a CE audit under the quota-free "
@@ -103,6 +112,10 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
                       "role": diags[(prim.position, prim.tier)].role,
                       "lineup_improvement":
                           diags[(prim.position, prim.tier)].lineup_improvement,
+                      "sampling_basis":
+                          diags[(prim.position, prim.tier)].reason,
+                      "convergence": convergence[
+                          (prim.position, prim.tier)].to_dict()["status"],
                       **ens.to_dict(include_draws=False),
                       "convergence": ens.running(CONVERGENCE_KS)}
     local["primary"] = ens.to_dict(include_draws=True)
@@ -132,7 +145,7 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
     small = balanced_schedule(len(st.owners), secondary_k)
     for pos in positions[1:]:
         eligible = [x for x in cands if x.position == pos
-                    and diags[(x.position, x.tier)].policy != "proxy only"]
+                    and diags[(x.position, x.tier)].policy == "4000-season audit"]
         if eligible:
             c = max(eligible,
                     key=lambda x: diags[(x.position, x.tier)].lineup_improvement)
@@ -166,9 +179,12 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
             proxy=px, holdout_sims=holdout_sims, holdout_seed=HOLDOUT_SEED,
             performance_scenario=inputs.performance_scenario,
             runtime_budget_s=runtime_budget_s - (time.perf_counter() - t0))
-        out["positions"][pos] = {"tier": c.tier, "role": d.role,
-                                 "lineup_improvement": d.lineup_improvement,
-                                 **e.to_dict(include_draws=False)}
+        out["positions"][pos] = {
+            "tier": c.tier, "role": d.role,
+            "lineup_improvement": d.lineup_improvement,
+            "sampling_basis": d.reason,
+            "convergence": convergence[(c.position, c.tier)].to_dict()["status"],
+            **e.to_dict(include_draws=False)}
         local["positions"][pos] = e.to_dict(include_draws=True)
         if verbose:
             lo, hi = e.ci95

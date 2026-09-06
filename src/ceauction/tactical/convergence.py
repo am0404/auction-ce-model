@@ -157,6 +157,16 @@ class CompletionUnion:
     def keys(self) -> FrozenSet[FrozenSet[int]]:
         return frozenset(self._members)
 
+    def members(self) -> List[Completion]:
+        """Every accumulated completion, for folding into a cheaper price.
+
+        A completion's ``added_cost`` counts only the players bought *besides*
+        the candidate, and the candidate is already owned in both the $p and $1
+        states, so the same cost applies to both. That is what makes a
+        cross-price transfer sound rather than convenient.
+        """
+        return [c for c, _ in self._members.values()]
+
 
 @dataclass(frozen=True)
 class LevelResult:
@@ -377,6 +387,14 @@ def converged_diagnose(board, cand, *, proxy: ProxyEvaluator,
             gather(min_state, board.cast, costs, proxy=proxy, base=cs,
                    level=lv, reserved=frozenset(), union=u_min,
                    note=f"union WITH candidate at $1, {lv.label}")
+            # CROSS-PRICE NESTING, enforced across the unions and not merely
+            # within each price's own search. Every construction affordable
+            # when the candidate costs $p is affordable when he costs $1: the
+            # budget is strictly larger and the other fourteen cost the same.
+            # Without this fold the two prices are two independent heuristics
+            # again, and the $1 branch can miss what the $p branch found --
+            # which is exactly the 5.94-point violation this produced.
+            u_min.add_many(u_with.members())
 
         bw, bwo = u_with.best_objective(), u_without.best_objective()
         if bw < prev_with - 1e-9:

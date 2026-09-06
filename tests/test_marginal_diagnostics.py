@@ -279,7 +279,7 @@ def _cli(*argv):
 
 @pytest.mark.parametrize("argv,needle", [
     (("marginal-diagnostics", "--out-dir", "/tmp/leak"), "local_data"),
-    (("marginal-diagnostics", "--beam-width", "2"), "at least 4"),
+    (("marginal-diagnostics", "--tolerance", "0"), "must be positive"),
     (("marginal-diagnostics", "--per-position", "0"), "at least 1"),
     (("marginal-diagnostics", "--position", "K"), "invalid choice"),
     (("marginal-diagnostics", "--contract", "/nope.json"), "missing"),
