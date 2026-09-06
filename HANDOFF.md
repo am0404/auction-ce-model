@@ -130,7 +130,7 @@ src/ceauction/
   experiments.py            the CE laboratory (12 experiments, 2 of them controls)
   benchmark.py              timing + per-stage profile
   cli.py                    `ce-lab`
-tests/                      703 tests
+tests/                      758 tests
 ```
 
 `stats.py` was **deleted**. It held `floored_mean` and `match_floored_mean`, which
@@ -146,7 +146,7 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip     # required: pip < 21.3 cannot do editable installs
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest              # 703 tests, ~4 min
+.venv/bin/python -m pytest              # 758 tests, ~25 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
@@ -162,7 +162,7 @@ Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev depend
 
 ## 4. Test results
 
-**703 passed, 0 failed, 0 skipped, 0 warnings** in 233s (`filterwarnings = ["error"]`).
+**758 tests, 0 failed, 0 warnings**. The suite now takes about 25 minutes: the corrected buy/pass is 4.4x slower, and the auction tests exercise it heavily (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
 `flaky` markers. 146 at the start of Phase 1, 46 added there, 39 in Phase 2, and 24 in the Phase 2 audit-correction pass.
 
@@ -178,6 +178,7 @@ Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw,
 | `test_auction_cli.py` | 23 | **NEW.** every `ce-lab auction` command runs; six anticipated user errors exit 2 without a traceback; committed examples are sanitized; no output claims a bid |
 | `test_qb_and_handcuffs.py` | 14 | **NEW.** a skill player fills the superflex; at most two QBs ever start; QB3 value moves with absence risk and flips with roster context; committee backs are valued as their share; insurance measured as variance reduction; a grep-level ban on positional premiums |
 | `test_auction_invariants.py` | 10 | **NEW.** Hall constraints checked against a brute-force bipartite matcher on every count vector; fifty randomised auctions with every money invariant asserted after every purchase; cache isolation; repository hygiene |
+| `test_auction_audit_fixes.py` | 52 | **NEW.** the eight foundation-audit findings: ids and cost books and settings and states all fingerprint by content; a bid is validated against the player on the block; a controlled fixture where the proxy-best roster is not the equity-best; selection versus holdout samples; sparse ladders bracket rather than name a frontier; refinement walks every integer; an upward price step is classified as a defect, never as economics; exactness reported per stage; intervals labelled pointwise; and a scenario pipeline whose specs genuinely differ |
 | `test_calibration_audit_fixes.py` | 57 | **NEW.** the six defects the calibration audit found: ids survive reordering, pool limits, re-ranking and every scenario axis, and a collision raises; the twelve rosters are one fixed cast and a missing player refuses; both availability readings differ in the right direction and each reproduces its own target; **median and mean separate once absences are in the model**; the three horizons stay distinct and neither injury target is rescaled; signal quality is explicit and "no learning" is exactly zero posterior, not a small one; paired delta / SE / interval / discordance arithmetic, including that identical arms give exactly zero and that pairing is real on simulated worlds; and the committed docs carry no superseded claim |
 | `test_curve.py` | 62 | **NEW (Phase 2).** exact-zero identical arms; order independence; CRN preserved across every level; agreement with a direct paired comparison; genuinely paired adjacent slopes; monotone shape within uncertainty; chunk determinism; the resolution report's `1/sqrt(n)` arithmetic; CSV schema; the isotonic column changing nothing; CLI |
 | `test_experiments.py` | 35 | every experiment builds a legal league and runs paired; the rival-placement **control** reads zero and `rival-fit` does not; the aggregate-spot arms and their byte-identical control; the floor helpers cannot return; every documented `ce-lab` command exits 0 |

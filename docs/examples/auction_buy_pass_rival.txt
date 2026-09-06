@@ -13,7 +13,11 @@ scenario          fh-f000-s000-w1
 cost source       FABRICATED
                   Acquisition costs are FABRICATED (ceauction.auction.demo straight-line curve) and exist only to exercise the machinery. Nothing derived from them describes any real player.
 auction state     b80b86af17827eeb
-seasons           4,000 (matched, common random numbers)
+selection         4,000 seasons, used inside each branch to CHOOSE its completion by equity
+                  buy branch selected by championship equity; pass branch by championship equity
+evaluation        4,000 seasons on an INDEPENDENT holdout, matched across
+                  both arms by common random numbers. The difference below is
+                  measured here, not on the sample that chose the rosters.
 
   CE if we buy        0.07150
   CE if we pass       0.02200

@@ -152,6 +152,13 @@ answer here would turn a stated assumption into an apparent finding.
 `PassDestination.unavailable()` takes the candidate off the board. Nobody has
 him; we keep our money.
 
+A candidate the comparison cast has already assigned to a rival as part of that
+rival's assumed continuation is **refused**: he is available in the room and
+simultaneously spoken for in the cast, so buying him would put one player on two
+teams. "I buy him and he is still on their roster" is not a possible auction.
+That defect surfaced while shrinking a test fixture rather than from the audit
+list, and is now guarded and regression-tested.
+
 `PassDestination.to_rival(owner, price)` awards him to one named opponent, who
 pays, loses a roster slot, and re-completes his roster from what is left — so
 the money he spent is money he no longer has for anyone else. He completes
@@ -359,15 +366,15 @@ Committed outputs live in `docs/examples/` and `docs/example_slot_swap_54cell.tx
 
 ## 13. Measured runtimes
 
-Fabricated demo auction, 12 owners, 310-player pool, 3,000 seasons per arm.
+Fabricated demo auction, 12 owners, 310-player pool, 3,000 seasons for the
+selection sample and 3,000 for the independent holdout.
 
 | Operation | Median |
 |---|---:|
 | state validation | 0.001s |
 | legal maxima for all 12 owners | <0.001s |
-| fingerprint | <0.001s |
+| state fingerprint (now hashes every PlayerSpec field) | 0.003s |
 | completion search, proxy only | 0.43s |
-| state fingerprint (hashes every PlayerSpec field) | 0.003s |
 | completion search + CE selection + holdout (4 finalists) | 4.75s |
 | buy/pass, unavailable | 11.2s |
 | buy/pass, named rival (rival re-completes) | 18.3s |

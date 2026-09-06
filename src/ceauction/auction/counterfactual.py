@@ -249,6 +249,21 @@ def compare_buy_vs_pass(
     problem = state.purchase_shortfall(candidate_id, focus_id, price)
     if problem is not None:
         raise AuctionRuleError(f"cannot evaluate buying at ${price}: {problem}")
+    # The comparison cast assigns each rival a full fifteen, some of whom the
+    # auction state has not actually sold yet -- they are that rival's assumed
+    # continuation. Such a player is "available" in the room and simultaneously
+    # spoken for in the cast, and buying him would put the same person on two
+    # teams in the simulated league. Refusing is right: the counterfactual
+    # "I buy him AND he is still on their roster" is not a possible auction.
+    if candidate_id in cast.rival_ids:
+        holder = next(name for name, team in zip(cast.team_names, cast.rosters)
+                      if candidate_id in team)
+        raise AuctionRuleError(
+            f"player {candidate_id} is available in the room but the comparison "
+            f"cast already assigns him to {holder} as part of that owner's "
+            f"assumed continuation. Buying him would put one player on two "
+            f"teams. Either choose a candidate the cast leaves free, or supply "
+            f"a cast that does not claim him.")
 
     if proxy is None:
         proxy = ProxyEvaluator(state.pool, state.settings, settings.proxy_reps,
@@ -412,7 +427,17 @@ def format_buy_pass(result: BuyPassResult, width: int = 88,
     if cost_disclaimer:
         out.append(f"                  {cost_disclaimer}")
     out += [f"auction state     {result.auction_fingerprint}",
-            f"seasons           {result.n_sims:,} (matched, common random numbers)",
+            f"selection         {result.selection_sims:,} seasons, used inside "
+            f"each branch to CHOOSE its completion by equity",
+            f"                  buy branch selected by "
+            f"{result.buy.selection_basis}; pass branch by "
+            f"{result.pass_.selection_basis}",
+            f"evaluation        {result.n_sims:,} seasons on an INDEPENDENT "
+            f"holdout, matched across",
+            f"                  both arms by common random numbers. The "
+            f"difference below is",
+            f"                  measured here, not on the sample that chose "
+            f"the rosters.",
             "",
             f"  CE if we buy        {result.ce_buy:.5f}",
             f"  CE if we pass       {result.ce_pass:.5f}",

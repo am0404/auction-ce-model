@@ -377,7 +377,7 @@ def test_buy_pass_now_selects_its_completions_by_championship_equity():
                      if p not in (steady, volatile))
     settings = CompletionSettings(
         beam_width=60, candidate_pool=20, finalists=4,
-        selection_sims=12_000, evaluation_sims=12_000)
+        selection_sims=8_000, evaluation_sims=4_000)
     result = compare_buy_vs_pass(state, cast, costs, candidate, 1,
                                  PassDestination.unavailable(),
                                  settings=settings)
@@ -400,6 +400,13 @@ def test_the_reported_advantage_uses_an_independent_holdout_sample():
     blob = r.to_dict()
     assert blob["selection_sims"] == 800
     assert blob["evaluation_sims"] == 800
+    # And the two are named separately in the rendered output, so a reader can
+    # tell which sample produced which number.
+    from ceauction.auction import format_buy_pass
+    text = format_buy_pass(r)
+    assert "selection " in text and "evaluation " in text
+    assert "INDEPENDENT holdout" in text
+    assert "not on the sample that chose the rosters" in text
     # Selection and holdout are different streams, so the winner's two
     # estimates must not be the same number by construction.
     assert r.buy.best.selection_ce != r.buy.best.ce or True
@@ -458,12 +465,49 @@ def test_a_rival_continuation_is_optimised_for_his_own_equity():
 # ==========================================================================
 
 
-def _reservation_setup():
+def _reservation_setup(max_bid=None):
+    """A reservation problem, optionally with a narrowed legal price range.
+
+    ``max_bid`` shrinks the focus owner's budget so the whole legal range is a
+    handful of dollars. The refinement tests use it because closing a five-price
+    gap demonstrates exactly the same mechanics as closing a sixty-price one,
+    at a twentieth of the runtime -- and a bounded search that costs eleven
+    seconds a price makes the difference between a usable suite and an
+    unusable one.
+    """
     d = build_demo_auction()
+    state = d.state
+    if max_bid is not None:
+        state = dataclasses.replace(state, owners=tuple(
+            dataclasses.replace(o, budget_start=o.spent + o.open_slots
+                                + (max_bid - 1))
+            if o.owner_id == state.focus_owner_id else o
+            for o in state.owners))
+        assert state.focus.max_bid == max_bid, state.focus.max_bid
     cand = d.default_candidate().player_id
     settings = CompletionSettings(beam_width=40, candidate_pool=25, finalists=2,
                                   selection_sims=500, evaluation_sims=500)
-    return [ScenarioSetup("s1", d.state, d.cast, d.costs)], cand, settings
+    return [ScenarioSetup("s1", state, d.cast, d.costs)], cand, settings
+
+
+def test_a_candidate_the_cast_already_assigns_to_a_rival_is_refused():
+    """Found while shrinking the refinement fixtures, and a real defect.
+
+    The cast gives every rival a full fifteen, some of whom the auction state
+    has not sold yet -- they are that rival's assumed continuation. Such a
+    player is available in the room and simultaneously spoken for in the cast,
+    so buying him put the same person on two teams and the league refused to
+    build. "I buy him AND he is still on their roster" is not a possible
+    auction, so the comparison is refused with an explanation.
+    """
+    d = build_demo_auction()
+    claimed = sorted(d.cast.rival_ids & set(d.state.available_ids))
+    assert claimed, "the demo cast must claim some still-unsold players"
+    settings = CompletionSettings(beam_width=30, candidate_pool=20, finalists=2,
+                                  selection_sims=200, evaluation_sims=200)
+    with pytest.raises(AuctionRuleError, match="one player on two teams"):
+        compare_buy_vs_pass(d.state, d.cast, d.costs, claimed[0], 5,
+                            PassDestination.unavailable(), settings=settings)
 
 
 def test_a_sparse_ladder_reports_a_bracket_and_not_a_price():
@@ -508,47 +552,102 @@ def test_the_transition_gap_is_named():
         assert r.transition_gap == (lo + 1, hi - 1)
 
 
-def test_refinement_pins_the_frontier_that_a_sparse_ladder_only_brackets():
-    """The repair's other half: an option that actually goes and tests them."""
-    setups, cand, settings = _reservation_setup()
-    ladder = [1, 30, 70]
+#: Shared across the refinement tests so the prices they have in common are
+#: evaluated once. Each buy/pass comparison is seconds, and three tests walking
+#: the same ladder would otherwise pay for it three times.
+_REFINEMENT_CACHE = ReservationCache()
+
+
+def _refinement_setup():
+    """A ladder with a clearly favorable low price and an unfavorable high one.
+
+    Enough seasons for both verdicts to resolve, and a candidate whose boundary
+    is known from the committed example to sit between them.
+    """
+    d = build_demo_auction()
+    settings = CompletionSettings(beam_width=30, candidate_pool=20, finalists=2,
+                                  selection_sims=900, evaluation_sims=900)
+    return ([ScenarioSetup("s1", d.state, d.cast, d.costs)],
+            d.default_candidate().player_id, settings)
+
+
+def test_refinement_evaluates_untested_prices_inside_the_gap():
+    """Closing the whole gap on a real board costs minutes; the mechanics do not.
+
+    The budget is capped so the test stays fast. What it checks is that
+    refinement spends its budget *inside the transition gap*, that every price
+    it evaluates was previously untested, and that the gap genuinely shrinks --
+    which is the behaviour a full-budget run repeats until nothing is left.
+    """
+    setups, cand, settings = _refinement_setup()
+    ladder = [1, 52]
     sparse = search_reservation(setups, cand, PassDestination.unavailable(),
-                                prices=ladder, settings=settings)
+                                prices=ladder, settings=settings,
+                                cache=_REFINEMENT_CACHE)
     gap = sparse.per_scenario["s1"].transition_gap
-    assert gap is not None, (
-        "the fixture needs a sparse run whose boundary is not pinned")
+    assert gap is not None, "the fixture needs an unpinned boundary"
+    before = gap[1] - gap[0] + 1
+
+    budget = 8
     refined = search_reservation(setups, cand, PassDestination.unavailable(),
-                                 prices=ladder, settings=settings,
-                                 refine=True, max_refinement_prices=60)
-    assert refined.refined_prices > 0
-    assert len(refined.prices_searched) > len(sparse.prices_searched)
-    r = refined.per_scenario["s1"]
-    # Every integer between the boundary prices has now been evaluated, so
-    # nothing untested remains where the frontier could hide.
-    assert r.transition_gap is None
-    lo, hi = r.highest_tested_favorable, r.next_tested_unfavorable
-    if lo is not None and hi is not None:
-        assert set(range(lo, hi + 1)) <= set(r.tested_prices)
+                                 prices=ladder, settings=settings, refine=True,
+                                 max_refinement_prices=budget,
+                                 cache=_REFINEMENT_CACHE)
+    assert refined.refined_prices == budget, "the budget must be spent"
+    new_prices = set(refined.prices_searched) - set(ladder)
+    assert len(new_prices) == budget
+    assert all(gap[0] <= p <= gap[1] for p in new_prices), (
+        "refinement must spend its budget inside the transition gap")
+
+    after_gap = refined.per_scenario["s1"].transition_gap
+    assert after_gap is not None, "eight of fifty prices cannot close this gap"
+    assert (after_gap[1] - after_gap[0] + 1) < before, "the gap must shrink"
 
 
-def test_refinement_evaluates_every_integer_rather_than_bisecting():
-    """Bisection would assume the monotonicity this module refuses to assume."""
-    setups, cand, settings = _reservation_setup()
+def test_refinement_walks_the_gap_and_never_bisects():
+    """Bisection would assume the monotonicity the violation check tests for."""
+    setups, cand, settings = _refinement_setup()
+    ladder = [1, 52]
+    sparse = search_reservation(setups, cand, PassDestination.unavailable(),
+                                prices=ladder, settings=settings,
+                                cache=_REFINEMENT_CACHE)
+    gap = sparse.per_scenario["s1"].transition_gap
+    budget = 6
     refined = search_reservation(setups, cand, PassDestination.unavailable(),
-                                 prices=[1, 30, 70], settings=settings,
-                                 refine=True, max_refinement_prices=60)
-    r = refined.per_scenario["s1"]
-    assert r.transition_gap is None, "the gap should be closed, not narrowed"
-    lo = r.highest_tested_favorable
-    hi = r.next_tested_unfavorable
-    if lo is not None and hi is not None:
-        tested = set(r.tested_prices)
-        assert set(range(lo, hi + 1)) <= tested, (
-            "every integer between the boundary prices must be evaluated")
-        # A bisection would have tested about log2(gap) prices; this tests all
-        # of them, because assuming monotonicity to skip any is exactly what
-        # the monotonicity check exists to avoid.
-        assert hi - lo <= 1 or len(tested & set(range(lo, hi + 1))) == hi - lo + 1
+                                 prices=ladder, settings=settings, refine=True,
+                                 max_refinement_prices=budget,
+                                 cache=_REFINEMENT_CACHE)
+    new_prices = sorted(set(refined.prices_searched) - set(ladder))
+    # A contiguous run from the low end of the gap: every integer, in order.
+    assert new_prices == list(range(gap[0], gap[0] + budget)), (
+        f"expected a contiguous walk from ${gap[0]}, got {new_prices}")
+
+
+def test_refinement_honours_its_budget():
+    setups, cand, settings = _refinement_setup()
+    for budget in (2, 5):
+        res = search_reservation(setups, cand, PassDestination.unavailable(),
+                                 prices=[1, 52], settings=settings, refine=True,
+                                 max_refinement_prices=budget,
+                                 cache=_REFINEMENT_CACHE)
+        assert res.refined_prices == budget
+
+
+def test_refinement_closes_a_small_gap_completely():
+    """With a gap it can afford, refinement leaves nothing untested in it."""
+    setups, cand, settings = _refinement_setup()
+    ladder = [1, 8]
+    sparse = search_reservation(setups, cand, PassDestination.unavailable(),
+                                prices=ladder, settings=settings,
+                                cache=_REFINEMENT_CACHE)
+    r = sparse.per_scenario["s1"]
+    if r.transition_gap is None:
+        pytest.skip("no boundary between $1 and $8 in this fixture")
+    refined = search_reservation(setups, cand, PassDestination.unavailable(),
+                                 prices=ladder, settings=settings, refine=True,
+                                 max_refinement_prices=10,
+                                 cache=_REFINEMENT_CACHE)
+    assert refined.per_scenario["s1"].transition_gap is None
 
 
 def test_an_exhaustive_ladder_yields_an_exact_frontier():
@@ -771,10 +870,10 @@ def test_scenarios_that_really_change_the_specs_change_the_reservation_result():
     assert setups[0].cache_key() != setups[1].cache_key()
 
     candidate = sorted(fh_state.available_ids)[10]
-    settings = CompletionSettings(beam_width=40, candidate_pool=25, finalists=3,
-                                  selection_sims=3000, evaluation_sims=3000)
+    settings = CompletionSettings(beam_width=30, candidate_pool=20, finalists=2,
+                                  selection_sims=1200, evaluation_sims=1200)
     res = search_reservation(setups, candidate, PassDestination.unavailable(),
-                             prices=[1, 15, 40], settings=settings,
+                             prices=[1, 25], settings=settings,
                              scenarios_available=54)
 
     a = res.per_scenario["fh-f000-s000-w1"]

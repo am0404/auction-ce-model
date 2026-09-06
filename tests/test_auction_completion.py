@@ -481,7 +481,9 @@ def test_the_proxy_is_never_called_championship_equity(midauction):
     assert "PROXY-SELECTED" in res.notes
     assert "may not be the best by equity" in res.notes
     text = format_completion(res)
-    assert "EXPECTED POINTS, not championship" in text
+    assert "EXPECTED POINTS, not equity" in text
+    assert "selected by   expected-points proxy" in text
+    assert "PROXY-SELECTED" in text
 
 
 def test_an_impossible_completion_is_reported_not_faked(big_pool):
