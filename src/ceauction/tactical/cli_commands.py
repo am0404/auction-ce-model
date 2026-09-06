@@ -676,12 +676,15 @@ def cmd_allocation_ensemble(args) -> int:
 
 
 def cmd_marginal_diagnostics(args) -> int:
-    """Quota-free with/without completion diagnostics for real candidates."""
+    """Quota-free with/without diagnostics over a search-effort ladder."""
     from pathlib import Path as _P
     from ..auction.completion import CompletionSettings
     from ..auction.proxy import ProxyEvaluator
+    from .convergence import (CONVERGED, DEFAULT_LADDER,
+                              DIAGNOSTIC_NOT_CONVERGED, EffortLevel,
+                              converged_diagnose)
     from .realpilot import (NO_CONTINGENCY_MODEL, PilotInputs,
-                            SanitizationError, SanitizedReport, diagnose,
+                            SanitizationError, SanitizedReport,
                             load_real_board, select_candidates)
 
     inputs = PilotInputs(
@@ -700,64 +703,106 @@ def cmd_marginal_diagnostics(args) -> int:
             f"--out-dir must sit under local_data/ (got {args.out_dir!r})")
     if args.per_position < 1:
         raise UsageError("--per-position must be at least 1")
-    if args.beam_width < 4:
-        raise UsageError("--beam-width must be at least 4")
+    if args.tolerance <= 0:
+        raise UsageError("--tolerance must be positive")
+    ladder = DEFAULT_LADDER
+    if args.effort:
+        try:
+            ladder = tuple(EffortLevel(*(int(x) for x in spec.split("/")))
+                           for spec in args.effort)
+        except (ValueError, TypeError):
+            raise UsageError(
+                "--effort takes BEAM/POOL pairs, e.g. --effort 64/60 "
+                "--effort 160/90")
+        if len(ladder) < 2:
+            raise UsageError(
+                "the effort ladder needs at least two levels; convergence is "
+                "a statement about what happens when effort increases")
+        widths = [l.beam_width for l in ladder]
+        if widths != sorted(widths):
+            raise UsageError("--effort levels must increase in beam width")
+    if args.max_effort is not None:
+        ladder = tuple(l for l in ladder if l.beam_width <= args.max_effort)
+        if len(ladder) < 2:
+            raise UsageError(
+                f"--max-effort {args.max_effort} leaves fewer than two ladder "
+                f"levels")
 
-    print("QUOTA-FREE MARGINAL DIAGNOSTICS")
+    print("QUOTA-FREE MARGINAL DIAGNOSTICS OVER A SEARCH-EFFORT LADDER")
     print("Roster composition is an OUTPUT of legal completion, never an input.")
-    print("No position is required, capped, or reserved a number of places.")
+    print("Every level's completions are accumulated into one union and")
+    print("re-scored on a common ruler, so a wider beam cannot lose a better")
+    print("construction a narrower one found. Search-effort monotonicity then")
+    print("holds by construction; the open question is whether it SETTLES.")
     print()
     board = load_real_board(inputs)
     px = ProxyEvaluator(board.state.pool, board.state.settings, 16, 7)
-    cs = CompletionSettings(beam_width=args.beam_width,
-                            candidate_pool=args.candidate_pool,
-                            proxy_candidates=48, finalists=3,
-                            max_candidates=400, proxy_reps=16)
+    base = CompletionSettings(beam_width=64, candidate_pool=60,
+                              proxy_candidates=48, finalists=6,
+                              max_candidates=400, proxy_reps=16)
     positions = tuple(args.position or ("QB", "RB", "WR", "TE"))
     cands, notes = select_candidates(board, per_position=args.per_position,
                                      positions=positions)
+    tols = (args.tolerance, args.tolerance * 2.0)
+
+    print(f"  ladder: {[l.label for l in ladder]}   tolerances: {tols}")
+    print()
     print(f"  {'pos':<4}{'tier':<11}{'$':>5}{'@price':>9}{'@$1':>8}{'start%':>8}"
-          f"  {'role':<21}{'policy':<19}composition")
+          f"  {'role':<21}{'policy':<30}{'status':<26}effort")
     rows, local_rows = [], []
     for c in cands:
-        d = diagnose(board, c, proxy=px, settings=cs)
-        comp = d.with_candidate.composition
-        rows.append(d.to_dict())
+        d, rep = converged_diagnose(board, c, proxy=px, ladder=ladder,
+                                    base=base, tolerances=tols)
+        blob = rep.to_dict()
+        status = blob["status"][str(tols[0])]
+        rows.append({**d.to_dict(), "convergence": blob})
         local_rows.append({"name": board.name_by_id.get(c.player_id),
-                           **d.to_dict(include_identity=True)})
+                           **d.to_dict(include_identity=True),
+                           "convergence": blob})
         print(f"  {c.position:<4}{c.tier:<11}{d.price:>5}"
               f"{d.lineup_improvement:>9.2f}{d.improvement_at_min:>8.2f}"
-              f"{d.start_share:>8.0%}  {d.role:<21}{d.policy:<19}"
-              f"QB{comp.get('QB', 0)}/RB{comp.get('RB', 0)}/"
-              f"WR{comp.get('WR', 0)}/TE{comp.get('TE', 0)}")
-    audited = sum(1 for r in rows if r["policy"] == "4000-season audit")
+              f"{d.start_share:>8.0%}  {d.role:<21}{d.policy:<30}"
+              f"{status:<26}{blob['effort_required'][str(tols[0])] or '-'}")
+
+    aud = sum(1 for r in rows if r["policy"] == "4000-season audit")
+    unres = sum(1 for r in rows if r["policy"].startswith("unresolved"))
+    prox = len(rows) - aud - unres
+    search_bad = sum(len(r["convergence"]["search_violations"]) for r in rows)
+    price_bad = sum(len(r["convergence"]["price_violations"]) for r in rows)
     print()
-    print(f"  audited {audited}/{len(rows)}, proxy-only {len(rows) - audited}")
-    print(f"  completion exactness: "
-          f"{sorted({r['with_candidate']['exactness'] for r in rows})}")
-    bad = [r for r in rows if not r["search_is_converged"]]
-    worst = max((r["price_monotonicity_violation"] for r in rows), default=0.0)
-    print(f"  price-monotonicity violations: {len(bad)}/{len(rows)} "
-          f"(worst {worst:+.2f}/wk) -- a positive value is SEARCH ERROR, not a "
-          f"finding")
+    print(f"  audited {aud}, proxy-only {prox}, UNRESOLVED {unres}")
+    for t in tols:
+        n = sum(1 for r in rows
+                if r["convergence"]["status"][str(t)] == CONVERGED)
+        print(f"  converged at tolerance {t}: {n}/{len(rows)}")
+    print(f"  search-effort nesting violations: {search_bad} "
+          f"(zero expected: the union makes it structural)")
+    print(f"  price nesting violations:         {price_bad}")
     print(f"  contingency: {NO_CONTINGENCY_MODEL}")
 
     out = _P(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "marginal_diagnostics.json").write_text(
+    (out / "marginal_convergence.json").write_text(
         json.dumps(local_rows, indent=2, default=str), encoding="utf-8")
     report = SanitizedReport(
         coverage=board.coverage,
         selection={"candidates": len(cands), "substitutions": notes,
-                   "positions": list(positions)},
+                   "positions": list(positions),
+                   "ladder": [l.to_dict() for l in ladder],
+                   "tolerances": list(tols)},
         diagnostics=rows,
-        results={"audited": audited, "proxy_only": len(rows) - audited,
-                 "compositions": [r["with_candidate"]["composition"]
-                                  for r in rows]},
+        results={"audited": aud, "proxy_only": prox, "unresolved": unres,
+                 "search_violations": search_bad,
+                 "price_violations": price_bad,
+                 "converged": {str(t): sum(
+                     1 for r in rows
+                     if r["convergence"]["status"][str(t)] == CONVERGED)
+                     for t in tols}},
         runtime={}, warnings=notes,
         assumptions=[NO_CONTINGENCY_MODEL,
-                     "no positional quota of any kind enters diagnostics or "
-                     "sampling; composition is an output of legal completion",
+                     "no positional quota enters diagnostics or sampling",
+                     "tolerances are numerical stability thresholds, not "
+                     "claims of economic materiality",
                      "market scenario: " + args.market_scenario,
                      "performance scenario: " + args.performance_scenario])
     names = [r.get("name") for r in local_rows if r.get("name")]
@@ -767,7 +812,7 @@ def cmd_marginal_diagnostics(args) -> int:
         raise UsageError(f"refusing to emit the sanitized report: {exc}")
     if args.report_out:
         _write_json(args.report_out, report.to_dict())
-    print(f"  player-level output -> {out / 'marginal_diagnostics.json'} "
+    print(f"  player-level output -> {out / 'marginal_convergence.json'} "
           f"(IGNORED)")
     return 0
 
@@ -981,11 +1026,13 @@ def add_tactical_parser(sub) -> None:
     s.add_argument("--per-position", type=int, default=3)
     s.add_argument("--position", action="append",
                    choices=["QB", "RB", "WR", "TE"])
-    s.add_argument("--beam-width", type=int, default=160,
-                   help="narrower than ~160 does not converge: the with/without "
-                        "difference is a few points and a narrow beam produced "
-                        "price-monotonicity violations larger than that")
-    s.add_argument("--candidate-pool", type=int, default=90)
+    s.add_argument("--effort", action="append",
+                   help="ladder level as BEAM/POOL; repeatable, must increase")
+    s.add_argument("--max-effort", type=int, default=None,
+                   help="drop ladder levels above this beam width")
+    s.add_argument("--tolerance", type=float, default=0.25,
+                   help="numerical stability threshold in weekly points; a "
+                        "second report at 2x is always printed")
     s.add_argument("--market-scenario", default="base",
                    choices=["low", "base", "high"])
     s.add_argument("--performance-scenario",
