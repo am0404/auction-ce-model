@@ -52,6 +52,7 @@ from .smoke import build_test_rosters, roster_assignment, rosters_from_assignmen
 __all__ = [
     "TeamDelta",
     "Contrast",
+    "paired_team_deltas",
     "ScenarioResult",
     "SensitivityGrid",
     "MIN_COMMITTED_SIMS",
@@ -320,8 +321,9 @@ class SensitivityGrid:
 # ---------------------------------------------------------------------------
 
 
-def _paired_deltas(base: SeasonOutcomes, scen: SeasonOutcomes,
-                   team_names: Sequence[str]) -> Tuple[Tuple[TeamDelta, ...], float]:
+def paired_team_deltas(base: SeasonOutcomes, scen: SeasonOutcomes,
+                       team_names: Sequence[str]
+                       ) -> Tuple[Tuple[TeamDelta, ...], float]:
     """Per-team paired deltas plus the league-level champion discordance.
 
     ``d_i = 1{team wins in the scenario} - 1{team wins in the baseline}`` for
@@ -347,6 +349,13 @@ def _paired_deltas(base: SeasonOutcomes, scen: SeasonOutcomes,
     return tuple(deltas), champion_discordance
 
 
+#: Kept so existing call sites and tests that reached for the private name still
+#: work. The function is public now because the scenario-band and auction layers
+#: both need it, and two implementations of a paired difference would be two
+#: chances to get it wrong.
+_paired_deltas = paired_team_deltas
+
+
 def _run_one(payload: Dict, cfg: PlayerSpecMappingConfig, axis: str,
              positional_miss: Dict[str, float], positional_cv: Dict[str, float],
              assignment: Sequence[Sequence[int]], only_keys: Iterable[str],
@@ -366,7 +375,7 @@ def _run_one(payload: Dict, cfg: PlayerSpecMappingConfig, axis: str,
     deltas: Tuple[TeamDelta, ...] = ()
     discord = 0.0
     if baseline_out is not None:
-        deltas, discord = _paired_deltas(baseline_out, out, team_names)
+        deltas, discord = paired_team_deltas(baseline_out, out, team_names)
 
     result = ScenarioResult(
         label=cfg.label(), axis=axis, target=cfg.target,
@@ -539,8 +548,8 @@ def run_sensitivity(payload_by_fumble: Dict[str, Dict],
                 season_sd_fraction=ssd, signal_quality=sq, **common).label()
             if other not in outcomes:
                 continue
-            deltas, disc = _paired_deltas(outcomes[ref], outcomes[other],
-                                          team_names)
+            deltas, disc = paired_team_deltas(outcomes[ref], outcomes[other],
+                                              team_names)
             contrasts.append(Contrast(
                 name=f"ssd={ssd:.2f}: sig={sq} vs sig={baseline_cfg.signal_quality}",
                 label_a=ref, label_b=other,
