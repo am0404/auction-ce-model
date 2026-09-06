@@ -1957,3 +1957,104 @@ the board — and check whether any regime resolves at 4,000 seasons. If the
 effect resolves there, the null above is about this candidate; if it does not,
 it is about the estimator's power, and that must be fixed before any real-board
 work.
+
+---
+
+## Phase: estimator power by candidate tier
+
+Branch `tactical-signal-power`, from
+`b85c07bf8eeb1dc6781626afa3ce265c1e4da765`. Detail in `docs/TACTICAL_POWER.md`.
+
+### The previous NO-GO was too broad, and is corrected
+
+The context experiment's null was a weak candidate's true-near-zero effect, not
+an estimator failure. Weak-player irrelevance and estimator failure look
+identical in one cell and are opposite findings. Corrected verdict: **GO** for
+targeted real-board precomputation.
+
+### Candidate-tier calibration (one factor: `base_mean`)
+
+Position, bye, week variance, injury hazard and availability untouched. Labels
+earned from measured weekly starting-lineup improvement over a $1 replacement,
+against a competitive fourteen-slot lineup.
+
+```
+tier               scale  base_mean  weekly improvement  starts
+bench               0.55       6.07                0.00   False
+marginal_starter    1.15      12.70                1.50    True
+strong_starter      1.85      20.42                8.47    True
+elite               2.90      32.02               18.92    True
+```
+
+### Experiment A — power at a fixed $13, 4 tiers x 4 contexts
+
+```
+tier               resolved   delta range        |d|/SE range
+bench                 0/4     +0.000 .. -0.009    0.05 - 1.62
+marginal_starter      4/4     +0.003 .. +0.029    2.53 - 5.40
+strong_starter        4/4     +0.051 .. +0.280   14.22 - 32.62
+elite                 4/4     +0.352 .. +0.572   46.58 - 68.91
+```
+
+`bench` failing to resolve is correct: its measured lineup improvement is
+**0.00**, so there is nothing to detect.
+
+### Required seasons by target half-width
+
+Reporting choices, not materiality claims. Example (`elite`/`playoff_bubble`):
+0.010 → 9,590; 0.005 → 38,359; 0.0025 → 153,434. Those numbers look large only
+because the target is absurd for a 0.54 effect — the achieved half-width at
+4,000 seasons is ~0.016, resolving it thirty times over.
+
+### Pilot / confirmatory
+
+Pilot 1,000 seasons (seed 20260904) estimates variance only; confirmatory 4,000
+(seed 917324011) reuses no pilot observation; cap 40,000 →
+`UNDERPOWERED_AT_CAP`. Different seeds are enforced by a raise.
+
+### Allocation seeds (3 seeds: 20260906 / 424242 / 987654321)
+
+```
+tier               deltas                      between-SD  within-SE  SD/effect  sign stable
+marginal_starter   0.02675 0.02925 0.03500       0.00423    0.00493      0.157      True
+strong_starter     0.23850 0.24975 0.24250       0.00570    0.00729      0.023      True
+elite              0.54000 0.55775 0.54700       0.00894    0.00802      0.016      True
+```
+
+`elite` trips `dominated_by_allocation` (allocation noise exceeds season noise,
+so more seasons are wasted there) but **not** `dominates_effect` (0.0089 against
+a 0.547 effect is 1.6%). Those are different questions; conflating them would
+reject an effect sixty times larger than its own instability.
+
+### Runtime
+
+~7s per tier x context cell at 4,000 seasons; ~27.5s per tier across four
+contexts; full experiment 222s. Nothing runs on the 10-second clock — the live
+path is still the 22ms cached lookup.
+
+### VERDICT: GO for targeted real-board precomputation
+
+Operational policy, derived from the table:
+
+| player class | policy |
+|---|---|
+| weekly improvement ~0 | proxy/market only; never spend CE seasons |
+| 1-2 pts | 4,000-season audit when nominated |
+| 8+ pts | 4,000-season audit, precomputed between nominations |
+| 18+ pts | 4,000 is 30x more than needed; spend budget on allocation seeds |
+| near a high-dollar frontier | larger offline confirmation, or UNDERPOWERED_AT_CAP |
+
+### Remaining limitations
+
+* Fabricated board only; no real auction observed.
+* Tiers are built by scaling one candidate, so tier and "which player" are not
+  separated — a different candidate at the same scale might behave differently.
+* Elite effects (0.35-0.57 CE) are enormous because the fabricated pool has a
+  thin top; real boards will compress this.
+* Only three allocation seeds.
+
+### Exact next step
+
+**Run the tier ladder on a second, structurally different candidate** (a
+different position and bye week at the same scales) to confirm the power curve
+is a property of player strength rather than of this one fabricated player.

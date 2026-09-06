@@ -140,3 +140,11 @@ sample size and with this candidate, the effect is indistinguishable from
 Monte Carlo noise. Roster-dependent CE valuation is **not yet demonstrated to
 behave credibly** -- it is demonstrated to be measurable without confounds,
 which is a different and lesser claim.
+
+> **Follow-up: the NO-GO drawn from this page was too broad.**
+> `docs/TACTICAL_POWER.md` shows the estimator resolves cleanly once the
+> candidate actually matters -- strong starters at |d|/SE 14-33 and elite
+> players at 47-69, all at 4,000 seasons. This page's null is a true-near-zero
+> effect for a weak candidate, which is the estimator working, not failing.
+> The verdict for targeted real-board precomputation is **GO**; see that
+> document for the tiered sampling policy.
