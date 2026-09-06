@@ -22,3 +22,11 @@ where = ["src"]
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["error"]
+markers = [
+    # The auction layer's buy/pass comparison runs two full completion
+    # searches and simulates finalists on two independent samples, so a
+    # single one costs seconds. Tests built on it are marked so a developer
+    # can run `pytest -m "not slow"` for a fast pass and the full suite
+    # before committing. Nothing is skipped by default.
+    "slow: exercises the auction search end to end; seconds per test",
+]

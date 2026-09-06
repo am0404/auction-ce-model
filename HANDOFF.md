@@ -147,6 +147,7 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
 .venv/bin/python -m pytest              # 758 tests, ~25 min
+.venv/bin/python -m pytest -m "not slow"   # 731 tests, ~4 min
 .venv/bin/ce-lab league --sims 20000    # CE for all 12 teams
 .venv/bin/ce-lab lineup --weeks 1 8 14  # why each starter was chosen
 .venv/bin/ce-lab experiments            # list the experiments
@@ -162,7 +163,10 @@ Python 3.9+. NumPy is the only runtime dependency; pytest is the only dev depend
 
 ## 4. Test results
 
-**758 tests, 0 failed, 0 warnings**. The suite now takes about 25 minutes: the corrected buy/pass is 4.4x slower, and the auction tests exercise it heavily (`filterwarnings = ["error"]`).
+**758 tests, 0 failed, 0 warnings**. The suite takes about 25 minutes because
+the corrected buy/pass is 4.4x slower and 27 tests drive it end to end. Those
+27 carry a `slow` marker, so `pytest -m "not slow"` runs the other 731 in about
+four minutes for a fast pass; nothing is skipped by default (`filterwarnings = ["error"]`).
 Every test is deterministic — fixed seeds, no tolerance tuned to a lucky draw, no
 `flaky` markers. 146 at the start of Phase 1, 46 added there, 39 in Phase 2, and 24 in the Phase 2 audit-correction pass.
 

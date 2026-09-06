@@ -343,6 +343,7 @@ def _proxy_disagrees_fixture():
     return state, cast, costs, steady, volatile
 
 
+@pytest.mark.slow
 def test_the_fixture_really_does_make_proxy_and_equity_disagree():
     """Guard on the fixture itself, so the next test cannot pass vacuously."""
     state, cast, costs, steady, volatile = _proxy_disagrees_fixture()
@@ -364,6 +365,7 @@ def test_the_fixture_really_does_make_proxy_and_equity_disagree():
         f"the fixture needs equity to prefer the volatile player: {ce}")
 
 
+@pytest.mark.slow
 def test_buy_pass_now_selects_its_completions_by_championship_equity():
     """The finding: both branches used to stop at the expected-points proxy.
 
@@ -387,6 +389,7 @@ def test_buy_pass_now_selects_its_completions_by_championship_equity():
     assert result.buy.best.ce is not None
 
 
+@pytest.mark.slow
 def test_the_reported_advantage_uses_an_independent_holdout_sample():
     """Selecting on a sample and quoting that same sample is biased upward."""
     d = build_demo_auction()
@@ -430,6 +433,7 @@ def test_a_proxy_only_completion_says_so_and_is_not_called_equity():
     assert res.to_dict()["selection_basis"] == "expected-points proxy"
 
 
+@pytest.mark.slow
 def test_a_rival_continuation_states_which_rule_chose_it():
     d = build_demo_auction()
     cand = d.default_candidate().player_id
@@ -447,6 +451,7 @@ def test_a_rival_continuation_states_which_rule_chose_it():
         CompletionSettings(rival_selection="vibes")
 
 
+@pytest.mark.slow
 def test_a_rival_continuation_is_optimised_for_his_own_equity():
     """Not for ours. Optimising an opponent's roster to help us is not a rival."""
     d = build_demo_auction()
@@ -510,6 +515,7 @@ def test_a_candidate_the_cast_already_assigns_to_a_rival_is_refused():
                             PassDestination.unavailable(), settings=settings)
 
 
+@pytest.mark.slow
 def test_a_sparse_ladder_reports_a_bracket_and_not_a_price():
     """Testing $10 then $40 says nothing about $11-$39."""
     setups, cand, settings = _reservation_setup()
@@ -529,6 +535,7 @@ def test_a_sparse_ladder_reports_a_bracket_and_not_a_price():
     assert "frontier BRACKET" in text or "integer frontier" in text
 
 
+@pytest.mark.slow
 def test_every_untested_interval_is_reported():
     setups, cand, settings = _reservation_setup()
     res = search_reservation(setups, cand, PassDestination.unavailable(),
@@ -542,6 +549,7 @@ def test_every_untested_interval_is_reported():
     assert res.to_dict()["untested_intervals"]
 
 
+@pytest.mark.slow
 def test_the_transition_gap_is_named():
     setups, cand, settings = _reservation_setup()
     res = search_reservation(setups, cand, PassDestination.unavailable(),
@@ -571,6 +579,7 @@ def _refinement_setup():
             d.default_candidate().player_id, settings)
 
 
+@pytest.mark.slow
 def test_refinement_evaluates_untested_prices_inside_the_gap():
     """Closing the whole gap on a real board costs minutes; the mechanics do not.
 
@@ -604,6 +613,7 @@ def test_refinement_evaluates_untested_prices_inside_the_gap():
     assert (after_gap[1] - after_gap[0] + 1) < before, "the gap must shrink"
 
 
+@pytest.mark.slow
 def test_refinement_walks_the_gap_and_never_bisects():
     """Bisection would assume the monotonicity the violation check tests for."""
     setups, cand, settings = _refinement_setup()
@@ -623,6 +633,7 @@ def test_refinement_walks_the_gap_and_never_bisects():
         f"expected a contiguous walk from ${gap[0]}, got {new_prices}")
 
 
+@pytest.mark.slow
 def test_refinement_honours_its_budget():
     setups, cand, settings = _refinement_setup()
     for budget in (2, 5):
@@ -633,6 +644,7 @@ def test_refinement_honours_its_budget():
         assert res.refined_prices == budget
 
 
+@pytest.mark.slow
 def test_refinement_closes_a_small_gap_completely():
     """With a gap it can afford, refinement leaves nothing untested in it."""
     setups, cand, settings = _refinement_setup()
@@ -650,6 +662,7 @@ def test_refinement_closes_a_small_gap_completely():
     assert refined.per_scenario["s1"].transition_gap is None
 
 
+@pytest.mark.slow
 def test_an_exhaustive_ladder_yields_an_exact_frontier():
     d = build_demo_auction()
     # A tiny legal range so exhaustive really is exhaustive.
@@ -694,6 +707,7 @@ def test_an_upward_step_is_never_called_beneficial_economics():
         _classify(pt(1, 0.01, 0.0001, buy=(1,)), pt(2, 0.05, 0.0001, buy=(2,)))}
 
 
+@pytest.mark.slow
 def test_the_output_explains_why_an_upward_step_cannot_be_economics():
     setups, cand, settings = _reservation_setup()
     res = search_reservation(setups, cand, PassDestination.unavailable(),
@@ -760,6 +774,7 @@ def test_overall_exactness_requires_all_three_stages():
 # ==========================================================================
 
 
+@pytest.mark.slow
 def test_intervals_are_labelled_pointwise_not_simultaneous():
     setups, cand, settings = _reservation_setup()
     res = search_reservation(setups, cand, PassDestination.unavailable(),
@@ -775,6 +790,7 @@ def test_intervals_are_labelled_pointwise_not_simultaneous():
     assert "POINTWISE 95%" in text
 
 
+@pytest.mark.slow
 def test_a_conservative_simultaneous_alternative_is_available_and_wider():
     setups, cand, settings = _reservation_setup()
     res = search_reservation(setups, cand, PassDestination.unavailable(),
@@ -855,6 +871,7 @@ def _scenario_states(availability_lift: float, hazard: float):
     return state, cast, costs
 
 
+@pytest.mark.slow
 def test_scenarios_that_really_change_the_specs_change_the_reservation_result():
     """The end-to-end pipeline test the earlier example could not provide."""
     fh_state, fh_cast, fh_costs = _scenario_states(1.00, 0.02)

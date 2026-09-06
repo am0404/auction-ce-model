@@ -209,6 +209,7 @@ def test_the_output_never_calls_itself_a_bid(fixture, candidate):
 # ==========================================================================
 
 
+@pytest.mark.slow
 def test_a_rival_who_takes_the_candidate_actually_gets_him_and_pays(fixture, candidate):
     st, cast, book, _ = fixture
     r = compare_buy_vs_pass(st, cast, book, candidate, 20,
@@ -247,6 +248,7 @@ def test_the_focus_owner_cannot_be_the_pass_destination(fixture, candidate):
                             PassDestination.to_rival(FOCUS, 20), settings=FAST)
 
 
+@pytest.mark.slow
 def test_who_receives_the_player_changes_the_simulated_league(fixture, candidate):
     """The test that would fail if rival identity were ignored.
 
@@ -276,6 +278,7 @@ def test_who_receives_the_player_changes_the_simulated_league(fixture, candidate
         "identity is not reaching the simulation")
 
 
+@pytest.mark.slow
 def test_passing_to_a_rival_is_never_better_for_us_than_the_player_vanishing(
         fixture, candidate):
     """A directional sanity check, stated as the weak inequality it is.
@@ -333,6 +336,7 @@ def test_a_price_above_the_legal_maximum_is_refused(fixture, candidate):
                            prices=[st.focus.max_bid + 1], settings=FAST)
 
 
+@pytest.mark.slow
 def test_prices_are_integers_and_never_exceed_the_ceiling(fixture, candidate):
     st, cast, book, _ = fixture
     res = search_reservation([ScenarioSetup("s1", st, cast, book)], candidate,
@@ -342,6 +346,7 @@ def test_prices_are_integers_and_never_exceed_the_ceiling(fixture, candidate):
     assert max(res.prices_searched) <= res.legal_max_bid
 
 
+@pytest.mark.slow
 def test_a_cheap_price_is_favorable_and_an_expensive_one_is_not(fixture, candidate):
     """The basic shape: a good player is worth $1 and is not worth everything."""
     st, cast, book, _ = fixture
@@ -406,6 +411,7 @@ def test_a_price_favorable_nowhere_yields_no_robust_price():
     assert res.result_kind == "unfavorable at every tested price"
 
 
+@pytest.mark.slow
 def test_monotonicity_is_checked_and_classified(fixture, candidate):
     st, cast, book, _ = fixture
     res = search_reservation([ScenarioSetup("s1", st, cast, book)], candidate,
@@ -418,6 +424,7 @@ def test_monotonicity_is_checked_and_classified(fixture, candidate):
     assert isinstance(res.to_dict()["monotonicity_violations"], list)
 
 
+@pytest.mark.slow
 def test_a_reduced_grid_says_it_is_reduced(fixture, candidate):
     st, cast, book, _ = fixture
     res = search_reservation([ScenarioSetup("s1", st, cast, book)], candidate,
@@ -438,6 +445,7 @@ def test_a_full_grid_is_not_flagged(fixture, candidate):
     assert "REDUCED SCENARIO GRID" not in format_reservation(res)
 
 
+@pytest.mark.slow
 def test_the_reservation_output_refuses_bid_language(fixture, candidate):
     st, cast, book, _ = fixture
     res = search_reservation([ScenarioSetup("s1", st, cast, book)], candidate,
@@ -451,6 +459,7 @@ def test_the_reservation_output_refuses_bid_language(fixture, candidate):
     assert res.to_dict()["label"].startswith("CE reservation-price range")
 
 
+@pytest.mark.slow
 def test_the_binding_alternatives_are_reported(fixture, candidate):
     st, cast, book, _ = fixture
     res = search_reservation([ScenarioSetup("s1", st, cast, book)], candidate,
@@ -518,6 +527,7 @@ def test_the_cache_cannot_mix_cost_books(fixture, candidate):
         ReservationCache.key(b, candidate, 10, d, FAST)
 
 
+@pytest.mark.slow
 def test_the_cache_is_used_on_a_repeat_price(fixture, candidate):
     st, cast, book, _ = fixture
     cache = ReservationCache()
