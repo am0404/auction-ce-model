@@ -2058,3 +2058,103 @@ Operational policy, derived from the table:
 **Run the tier ladder on a second, structurally different candidate** (a
 different position and bye week at the same scales) to confirm the power curve
 is a property of player strength rather than of this one fabricated player.
+
+---
+
+## Phase: real-board tactical pilot — NO-GO
+
+Branch `real-board-tactical-pilot`, from
+`36f533077649e99cfade1a45be996063b2dbf207`. Full detail in
+`docs/REAL_BOARD_PILOT.md`; sanitized aggregates in
+`docs/real_pilot_sanitized.json`. Player-level output is at
+`local_data/tactical/real_board_pilot.json` (gitignored, not committed).
+
+### VERDICT: NO-GO for full targeted precomputation
+
+Not because the machinery is wrong — conservation held on every arm, league CE
+summed to exactly 1.0 everywhere, runtime is comfortable, and QB/TE behaviour
+matches the real lineup graph. The blocker is that **allocation instability
+dominates every audited effect on the real board**:
+
+```
+position   between-alloc SD   within-alloc SE   SD/effect   sign stable
+QB                  0.02547           0.00626        0.97      True
+RB                  0.04717           0.00644        2.14      FALSE
+WR                  0.04980           0.00632        2.11      FALSE
+```
+
+Fabricated board: 0.016-0.157. Real board: 0.97-2.14 — 13x to 130x worse, with
+sign flips for RB and WR. A sign flip is not a precision problem; the estimate
+has no stable value to be precise about.
+
+### Two more blockers, same root cause
+
+**Opening symmetry FAILED.** Structurally identical Team02/Team03 in an empty
+room gave CE 0.04325 vs 0.05500 — a 0.01175 gap against ~0.00322 SE, 3.6 SE
+apart. Opponent identity is being manufactured by continuation jitter before a
+single sale.
+
+**Ladders never bind.** Every tested price in all four ladders returned an
+identical delta (QB $14 and $38 both +0.03650). With $186 and fifteen open
+slots the same completions stay affordable, so the nested set correctly selects
+the same joint world. **No robust maximum from this pilot may be quoted** — the
+highest favorable price is just the highest price tested. A reservation price
+needs money to be scarce, which means mid-auction.
+
+All three share one cause: the shared-board continuation's per-(player, owner)
+tie-breaking jitter compounds over 180 allocations on a 260-player board.
+
+### What did validate
+
+```
+contract 549 -> 260 mapped PlayerSpecs (QB 35 / RB 70 / WR 112 / TE 43)
+149 anchored (57%); 111 unanchored priced at the $1 floor (stated, not valued)
+222 individual injury profiles, 38 positional fallback
+opening room: $2,400 total, 180 slots, $186 opening legal max, no duplicate ids
+conservation OK on every arm; league CE = 1.0 exactly on every arm
+runtime: 20.5s load, 7.5s per audited candidate, 232s total
+```
+
+Selection: 12 candidates, 3 per position, 3 tiers, 0 substitutions, chosen by
+each position's own clearing-price order — no name in the selection code.
+
+6 audited (5 resolved, 1 unresolved), 6 proxy-only (0 seasons spent).
+
+### Position findings
+
+**QB / superflex.** All three QBs show the largest lineup improvements on the
+board (6.86 / 4.86 / 3.87): a second startable QB beats the skill fallback for
+the open superflex seat. No strict-2QB behaviour, no QB premium, 1-QB and 5-QB
+rosters both legal and tested. **QB3 insurance was NOT measured** — an empty
+room has no existing QB availability risk to insure against.
+
+**TE / no TE slot.** The sharpest market-vs-CE disagreement in the pilot:
+
+```
+TE expensive: anchor $34, band $12/$13/$14, lineup improvement 0.22 -> PROXY ONLY
+WR expensive: anchor $48, band $30/$32/$34, lineup improvement 1.71 -> +0.0795
+```
+
+No scarcity premium, none hard-coded (asserted by test). Caveat: the reference
+roster already carries three TEs, so a fourth reads low.
+
+**Handcuffs: NOT SUPPORTED.** No conditional-backfield mapping exists; the
+contract carries standalone projections only. No named handcuff recommendation
+may be made from this pilot.
+
+### A bug this pilot caught
+
+The first run filled the diagnostic's fourteen reference slots with the top
+fourteen by projection. In a superflex league that is fourteen quarterbacks —
+not a legal roster — and it read the best QB on the board as a 0.03-point
+improvement. Fixed to a legal 1 QB / 4 RB / 6 WR / 3 TE reference and
+regression-tested.
+
+### Exact next step
+
+**Fix allocation instability before anything else.** Run one real candidate
+across ~15 continuation seeds and characterise the distribution of delta_ce.
+Then either report a between-allocation interval alongside the paired SE, or
+reduce the continuation's dependence on tie-breaking jitter. Until a single
+number is stable across continuations, no real-board price is defensible — and
+the opening-symmetry failure is the cheapest test that the fix worked.

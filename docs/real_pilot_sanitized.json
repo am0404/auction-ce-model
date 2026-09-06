@@ -1,0 +1,979 @@
+{
+  "label": "SANITIZED AGGREGATE. Counts, rates and positional aggregates only. No player name, no proprietary projection row, no player-level dollar figure.",
+  "coverage": {
+    "contract_players": 549,
+    "mapped_playerspecs": 260,
+    "pool_limit": 260,
+    "position_counts": {
+      "QB": 35,
+      "RB": 70,
+      "WR": 112,
+      "TE": 43
+    },
+    "with_market_anchor": 149,
+    "without_market_anchor": 111,
+    "with_individual_injury": 222,
+    "injury_fallback_positional": 38,
+    "unresolved_placeholder_fields": 260,
+    "mapping_warnings": 3,
+    "mapping_skipped": 0,
+    "anchor_rows": 1024,
+    "market_scenario": "base",
+    "performance_scenario": "median_target/full_health/week_sd/exclude"
+  },
+  "selection": {
+    "candidates": 12,
+    "by_position": {
+      "QB": 3,
+      "RB": 3,
+      "WR": 3,
+      "TE": 3
+    },
+    "by_tier": {
+      "expensive": 4,
+      "mid": 4,
+      "cheap": 4
+    },
+    "substitutions": []
+  },
+  "diagnostics": [
+    {
+      "position": "QB",
+      "tier": "expensive",
+      "lineup_improvement": 6.8566,
+      "candidate_weekly": 126.4179,
+      "replacement_weekly": 119.5614,
+      "role": "clear starter",
+      "policy": "4000-season audit",
+      "reason": "weekly starting improvement 6.86 >= 3.0; strong-tier effects resolved at |d|/SE 14-33 in the power study"
+    },
+    {
+      "position": "QB",
+      "tier": "mid",
+      "lineup_improvement": 4.863,
+      "candidate_weekly": 125.9392,
+      "replacement_weekly": 121.0762,
+      "role": "clear starter",
+      "policy": "4000-season audit",
+      "reason": "weekly starting improvement 4.86 >= 3.0; strong-tier effects resolved at |d|/SE 14-33 in the power study"
+    },
+    {
+      "position": "QB",
+      "tier": "cheap",
+      "lineup_improvement": 3.8685,
+      "candidate_weekly": 124.9447,
+      "replacement_weekly": 121.0762,
+      "role": "clear starter",
+      "policy": "4000-season audit",
+      "reason": "weekly starting improvement 3.87 >= 3.0; strong-tier effects resolved at |d|/SE 14-33 in the power study"
+    },
+    {
+      "position": "RB",
+      "tier": "expensive",
+      "lineup_improvement": 3.2969,
+      "candidate_weekly": 121.9387,
+      "replacement_weekly": 118.6418,
+      "role": "clear starter",
+      "policy": "4000-season audit",
+      "reason": "weekly starting improvement 3.30 >= 3.0; strong-tier effects resolved at |d|/SE 14-33 in the power study"
+    },
+    {
+      "position": "RB",
+      "tier": "mid",
+      "lineup_improvement": 0.6744,
+      "candidate_weekly": 121.7506,
+      "replacement_weekly": 121.0762,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "weekly starting improvement 0.67; marginal-tier effects resolved at |d|/SE 2.5-5.4 in the power study"
+    },
+    {
+      "position": "RB",
+      "tier": "cheap",
+      "lineup_improvement": 0.1935,
+      "candidate_weekly": 121.2697,
+      "replacement_weekly": 121.0762,
+      "role": "bench/insurance",
+      "policy": "proxy only",
+      "reason": "weekly starting improvement 0.19 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence"
+    },
+    {
+      "position": "WR",
+      "tier": "expensive",
+      "lineup_improvement": 1.7097,
+      "candidate_weekly": 121.2325,
+      "replacement_weekly": 119.5228,
+      "role": "marginal starter",
+      "policy": "4000-season audit",
+      "reason": "weekly starting improvement 1.71; marginal-tier effects resolved at |d|/SE 2.5-5.4 in the power study"
+    },
+    {
+      "position": "WR",
+      "tier": "mid",
+      "lineup_improvement": 0.0877,
+      "candidate_weekly": 121.1639,
+      "replacement_weekly": 121.0762,
+      "role": "bench/insurance",
+      "policy": "proxy only",
+      "reason": "weekly starting improvement 0.09 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence"
+    },
+    {
+      "position": "WR",
+      "tier": "cheap",
+      "lineup_improvement": 0.0866,
+      "candidate_weekly": 121.1628,
+      "replacement_weekly": 121.0762,
+      "role": "bench/insurance",
+      "policy": "proxy only",
+      "reason": "weekly starting improvement 0.09 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence"
+    },
+    {
+      "position": "TE",
+      "tier": "expensive",
+      "lineup_improvement": 0.216,
+      "candidate_weekly": 121.1828,
+      "replacement_weekly": 120.9669,
+      "role": "bench/insurance",
+      "policy": "proxy only",
+      "reason": "weekly starting improvement 0.22 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence"
+    },
+    {
+      "position": "TE",
+      "tier": "mid",
+      "lineup_improvement": 0.0549,
+      "candidate_weekly": 121.1312,
+      "replacement_weekly": 121.0762,
+      "role": "bench/insurance",
+      "policy": "proxy only",
+      "reason": "weekly starting improvement 0.05 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence"
+    },
+    {
+      "position": "TE",
+      "tier": "cheap",
+      "lineup_improvement": 0.0067,
+      "candidate_weekly": 121.0829,
+      "replacement_weekly": 121.0762,
+      "role": "bench/insurance",
+      "policy": "proxy only",
+      "reason": "weekly starting improvement 0.01 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence"
+    }
+  ],
+  "results": {
+    "audited": [
+      {
+        "position": "QB",
+        "tier": "expensive",
+        "price": 26,
+        "market_band": [
+          24,
+          26,
+          28
+        ],
+        "anchor_display": 52,
+        "lineup_improvement": 6.8566,
+        "ce_buy": 0.08275,
+        "ce_pass": 0.06025,
+        "delta_ce": 0.0225,
+        "delta_se": 0.005268,
+        "ci95": [
+          0.01217,
+          0.03283
+        ],
+        "verdict": "favorable",
+        "buy_rank": 6,
+        "pass_rank": 8,
+        "league_ce_sum": 1.0,
+        "conservation_ok": true,
+        "joint_fp_buy": "0a66cb1f564178e2",
+        "joint_fp_pass": "d6ec64d07fbe9fc9",
+        "recipient_price": 37,
+        "n_alternatives_lost": 3,
+        "runtime_s": 7.5
+      },
+      {
+        "position": "QB",
+        "tier": "mid",
+        "price": 21,
+        "market_band": [
+          20,
+          21,
+          22
+        ],
+        "anchor_display": 31,
+        "lineup_improvement": 4.863,
+        "ce_buy": 0.03425,
+        "ce_pass": 0.0385,
+        "delta_ce": -0.00425,
+        "delta_se": 0.003992,
+        "ci95": [
+          -0.01207,
+          0.00357
+        ],
+        "verdict": "unresolved",
+        "buy_rank": 9,
+        "pass_rank": 9,
+        "league_ce_sum": 1.0,
+        "conservation_ok": true,
+        "joint_fp_buy": "c3c1ae159c477d9a",
+        "joint_fp_pass": "bb9d9a33dccadda9",
+        "recipient_price": 28,
+        "n_alternatives_lost": 4,
+        "runtime_s": 7.51
+      },
+      {
+        "position": "QB",
+        "tier": "cheap",
+        "price": 19,
+        "market_band": [
+          18,
+          19,
+          20
+        ],
+        "anchor_display": 24,
+        "lineup_improvement": 3.8685,
+        "ce_buy": 0.02425,
+        "ce_pass": 0.09275,
+        "delta_ce": -0.0685,
+        "delta_se": 0.005021,
+        "ci95": [
+          -0.07834,
+          -0.05866
+        ],
+        "verdict": "unfavorable",
+        "buy_rank": 11,
+        "pass_rank": 6,
+        "league_ce_sum": 1.0,
+        "conservation_ok": true,
+        "joint_fp_buy": "18bd404fc177e80b",
+        "joint_fp_pass": "6474d9cbde814988",
+        "recipient_price": 25,
+        "n_alternatives_lost": 8,
+        "runtime_s": 7.54
+      },
+      {
+        "position": "RB",
+        "tier": "expensive",
+        "price": 44,
+        "market_band": [
+          41,
+          44,
+          47
+        ],
+        "anchor_display": 58,
+        "lineup_improvement": 3.2969,
+        "ce_buy": 0.1505,
+        "ce_pass": 0.086,
+        "delta_ce": 0.0645,
+        "delta_se": 0.006734,
+        "ci95": [
+          0.0513,
+          0.0777
+        ],
+        "verdict": "favorable",
+        "buy_rank": 1,
+        "pass_rank": 6,
+        "league_ce_sum": 1.0,
+        "conservation_ok": true,
+        "joint_fp_buy": "5f939e1be760cd6b",
+        "joint_fp_pass": "bf92b54c45aac9eb",
+        "recipient_price": 55,
+        "n_alternatives_lost": 7,
+        "runtime_s": 7.56
+      },
+      {
+        "position": "RB",
+        "tier": "mid",
+        "price": 25,
+        "market_band": [
+          24,
+          25,
+          27
+        ],
+        "anchor_display": 28,
+        "lineup_improvement": 0.6744,
+        "ce_buy": 0.1365,
+        "ce_pass": 0.04625,
+        "delta_ce": 0.09025,
+        "delta_se": 0.006044,
+        "ci95": [
+          0.0784,
+          0.1021
+        ],
+        "verdict": "favorable",
+        "buy_rank": 2,
+        "pass_rank": 11,
+        "league_ce_sum": 1.0,
+        "conservation_ok": true,
+        "joint_fp_buy": "1bd2adb4c2687c1a",
+        "joint_fp_pass": "a3efd00a13c3f91b",
+        "recipient_price": 30,
+        "n_alternatives_lost": 6,
+        "runtime_s": 7.54
+      },
+      {
+        "position": "WR",
+        "tier": "expensive",
+        "price": 32,
+        "market_band": [
+          30,
+          32,
+          34
+        ],
+        "anchor_display": 48,
+        "lineup_improvement": 1.7097,
+        "ce_buy": 0.14075,
+        "ce_pass": 0.06125,
+        "delta_ce": 0.0795,
+        "delta_se": 0.006046,
+        "ci95": [
+          0.06765,
+          0.09135
+        ],
+        "verdict": "favorable",
+        "buy_rank": 2,
+        "pass_rank": 9,
+        "league_ce_sum": 1.0,
+        "conservation_ok": true,
+        "joint_fp_buy": "3313ccb0258879f1",
+        "joint_fp_pass": "e2beab6f446c22ba",
+        "recipient_price": 41,
+        "n_alternatives_lost": 5,
+        "runtime_s": 7.52
+      }
+    ],
+    "proxy_only": [
+      {
+        "position": "RB",
+        "tier": "cheap",
+        "reason": "weekly starting improvement 0.19 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence",
+        "lineup_improvement": 0.1935,
+        "market_band": [
+          14,
+          15,
+          16
+        ]
+      },
+      {
+        "position": "WR",
+        "tier": "mid",
+        "reason": "weekly starting improvement 0.09 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence",
+        "lineup_improvement": 0.0877,
+        "market_band": [
+          15,
+          17,
+          17
+        ]
+      },
+      {
+        "position": "WR",
+        "tier": "cheap",
+        "reason": "weekly starting improvement 0.09 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence",
+        "lineup_improvement": 0.0866,
+        "market_band": [
+          7,
+          8,
+          8
+        ]
+      },
+      {
+        "position": "TE",
+        "tier": "expensive",
+        "reason": "weekly starting improvement 0.22 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence",
+        "lineup_improvement": 0.216,
+        "market_band": [
+          12,
+          13,
+          14
+        ]
+      },
+      {
+        "position": "TE",
+        "tier": "mid",
+        "reason": "weekly starting improvement 0.05 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence",
+        "lineup_improvement": 0.0549,
+        "market_band": [
+          9,
+          10,
+          10
+        ]
+      },
+      {
+        "position": "TE",
+        "tier": "cheap",
+        "reason": "weekly starting improvement 0.01 < 0.25; zero-improvement candidates never resolved in the power study and CE seasons on them are waste, not evidence",
+        "lineup_improvement": 0.0067,
+        "market_band": [
+          5,
+          6,
+          6
+        ]
+      }
+    ],
+    "n_resolved": 5,
+    "n_unresolved": 1,
+    "by_position": {
+      "QB": {
+        "audited": 3,
+        "resolved": 2,
+        "deltas": [
+          0.0225,
+          -0.00425,
+          -0.0685
+        ],
+        "anchors": [
+          52,
+          31,
+          24
+        ],
+        "bands": [
+          26,
+          21,
+          19
+        ]
+      },
+      "RB": {
+        "audited": 2,
+        "resolved": 2,
+        "deltas": [
+          0.0645,
+          0.09025
+        ],
+        "anchors": [
+          58,
+          28
+        ],
+        "bands": [
+          44,
+          25
+        ]
+      },
+      "WR": {
+        "audited": 1,
+        "resolved": 1,
+        "deltas": [
+          0.0795
+        ],
+        "anchors": [
+          48
+        ],
+        "bands": [
+          32
+        ]
+      }
+    },
+    "allocation_spread": {
+      "QB": {
+        "tier": "expensive",
+        "seeds": [
+          20260906,
+          424242,
+          987654321
+        ],
+        "deltas": [
+          0.0225,
+          0.003,
+          0.0535
+        ],
+        "paired_ses": [
+          0.005268,
+          0.007962,
+          0.005538
+        ],
+        "fingerprints": [
+          "8484b64a0486d77b",
+          "7d3854847efc22b7",
+          "889455a9e1dfc9a0"
+        ],
+        "distinct_allocations": 3,
+        "mean_delta": 0.026333,
+        "between_allocation_sd": 0.025467,
+        "mean_within_allocation_se": 0.006256,
+        "dominated_by_allocation": true,
+        "spread_to_effect": 0.9671,
+        "dominates_effect": true,
+        "sign_stable": true,
+        "note": "between-allocation spread does NOT shrink with more seasons and is never pooled into the paired SE. 'dominated_by_allocation' compares it to SEASON noise (where to spend effort); 'dominates_effect' compares it to the EFFECT (whether a number may be quoted)."
+      },
+      "RB": {
+        "tier": "expensive",
+        "seeds": [
+          20260906,
+          424242,
+          987654321
+        ],
+        "deltas": [
+          0.0645,
+          -0.02875,
+          0.03025
+        ],
+        "paired_ses": [
+          0.006734,
+          0.008231,
+          0.004369
+        ],
+        "fingerprints": [
+          "7506eff4b8f79a8d",
+          "baa5d71fee79d94e",
+          "58478fcc5a50653c"
+        ],
+        "distinct_allocations": 3,
+        "mean_delta": 0.022,
+        "between_allocation_sd": 0.047169,
+        "mean_within_allocation_se": 0.006445,
+        "dominated_by_allocation": true,
+        "spread_to_effect": 2.1441,
+        "dominates_effect": true,
+        "sign_stable": false,
+        "note": "between-allocation spread does NOT shrink with more seasons and is never pooled into the paired SE. 'dominated_by_allocation' compares it to SEASON noise (where to spend effort); 'dominates_effect' compares it to the EFFECT (whether a number may be quoted)."
+      },
+      "WR": {
+        "tier": "expensive",
+        "seeds": [
+          20260906,
+          424242,
+          987654321
+        ],
+        "deltas": [
+          0.0795,
+          -0.016,
+          0.00725
+        ],
+        "paired_ses": [
+          0.006046,
+          0.007799,
+          0.005129
+        ],
+        "fingerprints": [
+          "0bb1863232d65745",
+          "375147ff4e3b4df5",
+          "4d38452746cb572f"
+        ],
+        "distinct_allocations": 3,
+        "mean_delta": 0.023583,
+        "between_allocation_sd": 0.049801,
+        "mean_within_allocation_se": 0.006325,
+        "dominated_by_allocation": true,
+        "spread_to_effect": 2.1117,
+        "dominates_effect": true,
+        "sign_stable": false,
+        "note": "between-allocation spread does NOT shrink with more seasons and is never pooled into the paired SE. 'dominated_by_allocation' compares it to SEASON noise (where to spend effort); 'dominates_effect' compares it to the EFFECT (whether a number may be quoted)."
+      }
+    },
+    "ladders": {
+      "QB": {
+        "tier": "expensive",
+        "policy": "4000-season audit",
+        "market_band": [
+          24,
+          26,
+          28
+        ],
+        "anchor_display": 52,
+        "tested_prices": [
+          14,
+          24,
+          26,
+          28,
+          38
+        ],
+        "rows": [
+          {
+            "price": 14,
+            "delta_ce": 0.0365,
+            "delta_se": 0.005639,
+            "ci95": [
+              0.02545,
+              0.04755
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 24,
+            "delta_ce": 0.0365,
+            "delta_se": 0.005639,
+            "ci95": [
+              0.02545,
+              0.04755
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 26,
+            "delta_ce": 0.0365,
+            "delta_se": 0.005639,
+            "ci95": [
+              0.02545,
+              0.04755
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 28,
+            "delta_ce": 0.0365,
+            "delta_se": 0.005639,
+            "ci95": [
+              0.02545,
+              0.04755
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 38,
+            "delta_ce": 0.0365,
+            "delta_se": 0.005639,
+            "ci95": [
+              0.02545,
+              0.04755
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          }
+        ],
+        "nested": true,
+        "robust_max": 38,
+        "bracket": null,
+        "untested_gaps": [
+          [
+            15,
+            23
+          ],
+          [
+            25,
+            25
+          ],
+          [
+            27,
+            27
+          ],
+          [
+            29,
+            37
+          ]
+        ],
+        "legal_max": 186,
+        "exactness": "sparse ladder; the highest favorable price is a BRACKET, not an exact frontier"
+      },
+      "RB": {
+        "tier": "expensive",
+        "policy": "4000-season audit",
+        "market_band": [
+          41,
+          44,
+          47
+        ],
+        "anchor_display": 58,
+        "tested_prices": [
+          31,
+          41,
+          44,
+          47,
+          57
+        ],
+        "rows": [
+          {
+            "price": 31,
+            "delta_ce": 0.078,
+            "delta_se": 0.006909,
+            "ci95": [
+              0.06446,
+              0.09154
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 41,
+            "delta_ce": 0.078,
+            "delta_se": 0.006909,
+            "ci95": [
+              0.06446,
+              0.09154
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 44,
+            "delta_ce": 0.078,
+            "delta_se": 0.006909,
+            "ci95": [
+              0.06446,
+              0.09154
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 47,
+            "delta_ce": 0.078,
+            "delta_se": 0.006909,
+            "ci95": [
+              0.06446,
+              0.09154
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 57,
+            "delta_ce": 0.078,
+            "delta_se": 0.006909,
+            "ci95": [
+              0.06446,
+              0.09154
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          }
+        ],
+        "nested": true,
+        "robust_max": 57,
+        "bracket": null,
+        "untested_gaps": [
+          [
+            32,
+            40
+          ],
+          [
+            42,
+            43
+          ],
+          [
+            45,
+            46
+          ],
+          [
+            48,
+            56
+          ]
+        ],
+        "legal_max": 186,
+        "exactness": "sparse ladder; the highest favorable price is a BRACKET, not an exact frontier"
+      },
+      "WR": {
+        "tier": "expensive",
+        "policy": "4000-season audit",
+        "market_band": [
+          30,
+          32,
+          34
+        ],
+        "anchor_display": 48,
+        "tested_prices": [
+          20,
+          30,
+          32,
+          34,
+          44
+        ],
+        "rows": [
+          {
+            "price": 20,
+            "delta_ce": 0.1315,
+            "delta_se": 0.0066,
+            "ci95": [
+              0.11856,
+              0.14444
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 30,
+            "delta_ce": 0.1315,
+            "delta_se": 0.0066,
+            "ci95": [
+              0.11856,
+              0.14444
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 32,
+            "delta_ce": 0.1315,
+            "delta_se": 0.0066,
+            "ci95": [
+              0.11856,
+              0.14444
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 34,
+            "delta_ce": 0.1315,
+            "delta_se": 0.0066,
+            "ci95": [
+              0.11856,
+              0.14444
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 44,
+            "delta_ce": 0.1315,
+            "delta_se": 0.0066,
+            "ci95": [
+              0.11856,
+              0.14444
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          }
+        ],
+        "nested": true,
+        "robust_max": 44,
+        "bracket": null,
+        "untested_gaps": [
+          [
+            21,
+            29
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            33,
+            33
+          ],
+          [
+            35,
+            43
+          ]
+        ],
+        "legal_max": 186,
+        "exactness": "sparse ladder; the highest favorable price is a BRACKET, not an exact frontier"
+      },
+      "TE": {
+        "tier": "expensive",
+        "policy": "proxy only",
+        "market_band": [
+          12,
+          13,
+          14
+        ],
+        "anchor_display": 34,
+        "tested_prices": [
+          2,
+          12,
+          13,
+          14,
+          24
+        ],
+        "rows": [
+          {
+            "price": 2,
+            "delta_ce": 0.09875,
+            "delta_se": 0.006335,
+            "ci95": [
+              0.08633,
+              0.11117
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 12,
+            "delta_ce": 0.09875,
+            "delta_se": 0.006335,
+            "ci95": [
+              0.08633,
+              0.11117
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 13,
+            "delta_ce": 0.09875,
+            "delta_se": 0.006335,
+            "ci95": [
+              0.08633,
+              0.11117
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 14,
+            "delta_ce": 0.09875,
+            "delta_se": 0.006335,
+            "ci95": [
+              0.08633,
+              0.11117
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          },
+          {
+            "price": 24,
+            "delta_ce": 0.09875,
+            "delta_se": 0.006335,
+            "ci95": [
+              0.08633,
+              0.11117
+            ],
+            "verdict": "favorable",
+            "n_feasible": 15
+          }
+        ],
+        "nested": true,
+        "robust_max": 24,
+        "bracket": null,
+        "untested_gaps": [
+          [
+            3,
+            11
+          ],
+          [
+            15,
+            23
+          ]
+        ],
+        "legal_max": 186,
+        "exactness": "sparse ladder; the highest favorable price is a BRACKET, not an exact frontier"
+      }
+    },
+    "symmetry": {
+      "branches": [
+        {
+          "recipient": "Team02",
+          "ce": 0.04325,
+          "rank": 8
+        },
+        {
+          "recipient": "Team03",
+          "ce": 0.055,
+          "rank": 7
+        }
+      ],
+      "abs_gap": 0.01175,
+      "approx_1se": 0.00322,
+      "within_noise": false,
+      "note": "in an empty room two rivals are structurally identical; a material gap here would mean opponent identity was invented before any sale"
+    }
+  },
+  "runtime": {
+    "load_s": 20.5,
+    "total_s": 231.8,
+    "audited_candidates": 6,
+    "proxy_only_candidates": 6,
+    "mean_audit_s": 7.53
+  },
+  "warnings": [],
+  "assumptions": [
+    "performance scenario: median_target/full_health/week_sd/exclude",
+    "market scenario: base",
+    "unanchored mapped players priced at the $1 league minimum, which is a stated floor and not a valuation",
+    "lineup-improvement diagnostic is measured against ONE reference roster (1 QB / 4 RB / 6 WR / 3 TE); a position already carried three deep in that reference will read low",
+    "no real conditional-backfield (handcuff) mapping exists; standalone projections only",
+    "empty-room state only: this prices nothing mid-auction"
+  ]
+}
