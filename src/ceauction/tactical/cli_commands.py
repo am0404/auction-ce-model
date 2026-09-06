@@ -500,8 +500,53 @@ def cmd_context(args) -> int:
     return 0
 
 
+def cmd_signal_power(args) -> int:
+    """Estimator power by candidate tier, and the sampling plan it implies."""
+    from .power_experiment import run, verdict
+    if args.pilot_sims < 2:
+        raise UsageError("--pilot-sims must be at least 2")
+    if args.sims < args.pilot_sims:
+        raise UsageError(
+            "--sims (confirmatory) must be at least --pilot-sims; a "
+            "confirmation smaller than the pilot that triggered it is not a "
+            "confirmation")
+    if args.target_half_width <= 0:
+        raise UsageError("--target-half-width must be positive")
+    if args.cap_sims < args.sims:
+        raise UsageError("--cap-sims must be at least --sims")
+    seeds = tuple(args.alloc_seed or (20260906, 424242, 987654321))
+    if len(set(seeds)) < 2:
+        raise UsageError("give at least two distinct --alloc-seed values to "
+                         "separate allocation noise from season noise")
+    print(_FABRICATED)
+    print()
+    print("ESTIMATOR POWER BY CANDIDATE TIER")
+    print("A weak candidate returning 'unresolved' is the estimator refusing")
+    print("false precision, not the estimator failing. What this measures is")
+    print("whether a player who genuinely matters produces an effect that")
+    print("resolves at a practical sample size.")
+    print()
+    blob = run(pilot_sims=args.pilot_sims, confirm_sims=args.sims,
+               cap_sims=args.cap_sims,
+               target_half_width=args.target_half_width,
+               alloc_seeds=seeds)
+    v, why = verdict(blob)
+    blob["verdict"], blob["verdict_reason"] = v, why
+    print()
+    print(f"  pilot {blob['pilot_sims']:,} (seed {blob['pilot_seed']}) -> "
+          f"confirmatory {blob['confirm_sims']:,} (seed "
+          f"{blob['confirm_seed']}); cap {blob['cap_sims']:,}")
+    print(f"  allocation seeds {list(seeds)}")
+    print(f"  runtime {blob['runtime_s']:.0f}s")
+    print()
+    print(f"  VERDICT: {v} -- {why}")
+    _write_json(args.json_out, blob)
+    return 0
+
+
 _COMMANDS = {
     "validate": cmd_validate,
+    "signal-power": cmd_signal_power,
     "context": cmd_context,
     "bidders": cmd_bidders,
     "recipients": cmd_recipients,
@@ -616,6 +661,22 @@ def add_tactical_parser(sub) -> None:
                    help="holdout seasons per arm (default 4000)")
     s.add_argument("--selection-sims", type=int, default=None,
                    help="independent selection-sample seasons")
+    s.add_argument("--json-out", default=None)
+
+    s = inner.add_parser(
+        "signal-power",
+        help="estimator power by candidate tier + sampling plan (slow)")
+    s.add_argument("--sims", type=int, default=4000,
+                   help="confirmatory holdout seasons")
+    s.add_argument("--pilot-sims", type=int, default=1000,
+                   help="independent pilot seasons used only for variance")
+    s.add_argument("--target-half-width", type=float, default=0.005,
+                   help="target 95%% half-width in CE; a reporting choice, "
+                        "not a claim of economic materiality")
+    s.add_argument("--cap-sims", type=int, default=40000,
+                   help="beyond this the plan reports UNDERPOWERED_AT_CAP")
+    s.add_argument("--alloc-seed", type=int, action="append",
+                   help="shared-board allocation seed; repeatable")
     s.add_argument("--json-out", default=None)
 
     s = inner.add_parser("benchmark", help="runtime for every live stage")
