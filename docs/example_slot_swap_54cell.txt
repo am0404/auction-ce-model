@@ -1,0 +1,245 @@
+================================================================================================
+54-CELL SLOT-SWAP EXPERIMENT
+================================================================================================
+
+SELECTION (fixed before any outcome was seen)
+  rule              focus team = integration roster whose baseline CE is nearest the median of the twelve (ties to lower index); weakest slot = that team's lowest base_mean FLEX-eligible player; marginal starter = its 6th-ranked FLEX-eligible player, the last of the six non-QB starting slots; incoming = highest base_mean FLEX-eligible unrostered player; adjacent = the next such player; all ties by player_id. Cast chosen once under the baseline scenario and held fixed across all cells.
+  focus team        #11 Real12 (baseline CE 0.0717)
+  bench slot out    id 2815612255556608946
+  starter slot out  id 1688267398811093119
+  incoming          id 801590813510031343
+  adjacent          id 1283547090018898333
+
+  Player names and projection values are withheld from committed
+  output; ids are stable hashes of the canonical player key.
+
+================================================================================================
+SCENARIO BAND -- bench_slot
+================================================================================================
+bench-slot-upgraded minus baseline, focus team Real12
+54 of 54 scenarios, 16,000 seasons per arm, seed 20260904
+
+Arm B replaces the focus team's WEAKEST FLEX-eligible player -- the 15th roster spot -- with the best FLEX-eligible player nobody rosters.
+
+PER-SCENARIO PAIRED DELTA CE
+  scenario                   dCE       se                95% CI  discord    
+  --------------------------------------------------------------------------
+  fh-f025-s010-w2       -0.00250  0.00130  [-0.00505, +0.00005]   0.0271    
+  fh-f050-s010-n0       -0.00131  0.00138  [-0.00401, +0.00139]   0.0303    
+  fh-f050-s000-n0       -0.00119  0.00140  [-0.00393, +0.00155]   0.0313    
+  fh-f050-s000-w1       -0.00119  0.00140  [-0.00393, +0.00155]   0.0313    
+  fh-f050-s000-w2       -0.00119  0.00140  [-0.00393, +0.00155]   0.0313    
+  fh-f025-s020-w2       -0.00106  0.00121  [-0.00343, +0.00130]   0.0233    
+  fh-f000-s020-w1       -0.00100  0.00073  [-0.00243, +0.00043]   0.0085    
+  fh-f025-s020-w1       -0.00081  0.00119  [-0.00315, +0.00152]   0.0227    
+  fh-f050-s010-w2       -0.00075  0.00137  [-0.00344, +0.00194]   0.0301    
+  fh-f000-s020-n0       -0.00069  0.00042  [-0.00151, +0.00013]   0.0028    
+  fh-f025-s020-n0       -0.00069  0.00123  [-0.00309, +0.00172]   0.0241    
+  fh-f025-s000-n0       -0.00063  0.00134  [-0.00326, +0.00201]   0.0289    
+  fh-f025-s000-w1       -0.00063  0.00134  [-0.00326, +0.00201]   0.0289    
+  fh-f025-s000-w2       -0.00063  0.00134  [-0.00326, +0.00201]   0.0289    
+  fh-f050-s010-w1       -0.00063  0.00137  [-0.00331, +0.00206]   0.0300    
+  aa-f000-s000-n0       -0.00063  0.00100  [-0.00259, +0.00134]   0.0161    
+  aa-f000-s000-w1       -0.00063  0.00100  [-0.00259, +0.00134]   0.0161    
+  aa-f000-s000-w2       -0.00063  0.00100  [-0.00259, +0.00134]   0.0161    
+  fh-f000-s010-w1       -0.00044  0.00052  [-0.00146, +0.00058]   0.0043    
+  fh-f025-s010-n0       -0.00044  0.00128  [-0.00295, +0.00208]   0.0263    
+  fh-f050-s020-w1       -0.00031  0.00127  [-0.00280, +0.00217]   0.0257    
+  fh-f050-s020-w2       -0.00025  0.00132  [-0.00284, +0.00234]   0.0279    
+  fh-f000-s000-n0       -0.00006  0.00044  [-0.00092, +0.00080]   0.0031    
+  fh-f000-s000-w1       -0.00006  0.00044  [-0.00092, +0.00080]   0.0031    
+  fh-f000-s000-w2       -0.00006  0.00044  [-0.00092, +0.00080]   0.0031    
+  fh-f000-s010-w2       -0.00006  0.00045  [-0.00094, +0.00081]   0.0032    
+  fh-f000-s010-n0       +0.00000  0.00039  [-0.00076, +0.00076]   0.0024    
+  fh-f050-s020-n0       +0.00006  0.00133  [-0.00254, +0.00267]   0.0283    
+  fh-f025-s010-w1       +0.00031  0.00132  [-0.00227, +0.00290]   0.0278    
+  aa-f000-s010-w2       +0.00031  0.00074  [-0.00114, +0.00177]   0.0088    
+  aa-f000-s020-n0       +0.00031  0.00062  [-0.00089, +0.00152]   0.0061    
+  fh-f000-s020-w2       +0.00044  0.00056  [-0.00065, +0.00153]   0.0049    
+  aa-f000-s020-w2       +0.00050  0.00074  [-0.00096, +0.00196]   0.0089    
+  aa-f000-s010-w1       +0.00081  0.00065  [-0.00045, +0.00208]   0.0067    
+  aa-f000-s010-n0       +0.00100  0.00060  [-0.00017, +0.00217]   0.0057    
+  aa-f025-s020-n0       +0.00169  0.00121  [-0.00068, +0.00405]   0.0233    
+  aa-f000-s020-w1       +0.00181  0.00081  [+0.00022, +0.00340]   0.0106  **
+  aa-f025-s000-n0       +0.00300  0.00153  [-0.00001, +0.00601]   0.0376    
+  aa-f025-s000-w1       +0.00300  0.00153  [-0.00001, +0.00601]   0.0376    
+  aa-f025-s000-w2       +0.00300  0.00153  [-0.00001, +0.00601]   0.0376    
+  aa-f025-s020-w2       +0.00325  0.00119  [+0.00091, +0.00559]   0.0227  **
+  aa-f025-s010-w2       +0.00419  0.00124  [+0.00175, +0.00663]   0.0248  **
+  aa-f025-s020-w1       +0.00475  0.00119  [+0.00241, +0.00709]   0.0227  **
+  aa-f025-s010-w1       +0.00481  0.00124  [+0.00238, +0.00725]   0.0247  **
+  aa-f050-s020-w1       +0.00513  0.00124  [+0.00269, +0.00756]   0.0248  **
+  aa-f050-s010-n0       +0.00625  0.00130  [+0.00369, +0.00881]   0.0272  **
+  aa-f025-s010-n0       +0.00637  0.00122  [+0.00398, +0.00877]   0.0239  **
+  aa-f050-s010-w1       +0.00681  0.00130  [+0.00427, +0.00936]   0.0271  **
+  aa-f050-s020-w2       +0.00719  0.00124  [+0.00475, +0.00963]   0.0248  **
+  aa-f050-s000-n0       +0.00737  0.00159  [+0.00425, +0.01050]   0.0408  **
+  aa-f050-s000-w1       +0.00737  0.00159  [+0.00425, +0.01050]   0.0408  **
+  aa-f050-s000-w2       +0.00737  0.00159  [+0.00425, +0.01050]   0.0408  **
+  aa-f050-s020-n0       +0.00762  0.00131  [+0.00506, +0.01019]   0.0274  **
+  aa-f050-s010-w2       +0.00781  0.00135  [+0.00516, +0.01046]   0.0293  **
+  --------------------------------------------------------------------------
+  ** = this cell's own 95% interval excludes zero.
+
+BAND
+  point estimates          [-0.00250, +0.00781]   width 0.01031
+  widened by Monte Carlo   [-0.00505, +0.01050]   width 0.01555
+  MC inflation             1.51x   (1.00 = sampling adds nothing)
+  lowest  cell             fh-f025-s010-w2  (availability=full_health, forecastable_share=0.25, season_sd=0.10, signal=2x_week_sd)
+  highest cell             aa-f050-s010-w2  (availability=availability_adjusted, forecastable_share=0.50, season_sd=0.10, signal=2x_week_sd)
+  dominant assumption      availability_interpretation
+  cells resolved           15 of 54
+  sign stable              False
+  rank stability           NONE
+  total runtime            1363.6s
+
+No cell in this grid is the correct one. Quoting a point estimate
+requires naming its scenario. The band is the model's own range of
+answers, and it is not a confidence interval.
+
+RANK STABILITY HERE IS ABOUT ONE COMPARISON ONLY. A stable sign for
+this pair of players says nothing about whether every other pair on
+the board keeps its order; that would need the same test run over
+the pairs in question.
+================================================================================================
+
+================================================================================================
+SCENARIO BAND -- marginal_starter_slot
+================================================================================================
+marginal-starter-replaced minus baseline, focus team Real12
+54 of 54 scenarios, 16,000 seasons per arm, seed 20260904
+
+Arm B replaces the focus team's MARGINAL STARTER -- the 6th-ranked FLEX-eligible player, holding the last non-QB starting slot -- with the best available player. The sign is expected to be negative: this is a downgrade, and its size is the replacement value of a starting slot.
+
+PER-SCENARIO PAIRED DELTA CE
+  scenario                   dCE       se                95% CI  discord    
+  --------------------------------------------------------------------------
+  fh-f050-s000-n0       -0.02038  0.00164  [-0.02360, -0.01715]   0.0436  **
+  fh-f050-s000-w1       -0.02038  0.00164  [-0.02360, -0.01715]   0.0436  **
+  fh-f050-s000-w2       -0.02038  0.00164  [-0.02360, -0.01715]   0.0436  **
+  fh-f050-s010-w2       -0.01981  0.00160  [-0.02295, -0.01668]   0.0413  **
+  fh-f050-s010-n0       -0.01731  0.00163  [-0.02050, -0.01412]   0.0427  **
+  fh-f025-s000-n0       -0.01713  0.00167  [-0.02039, -0.01386]   0.0447  **
+  fh-f025-s000-w1       -0.01713  0.00167  [-0.02039, -0.01386]   0.0447  **
+  fh-f025-s000-w2       -0.01713  0.00167  [-0.02039, -0.01386]   0.0447  **
+  fh-f050-s010-w1       -0.01681  0.00162  [-0.01999, -0.01364]   0.0423  **
+  fh-f000-s000-n0       -0.01625  0.00201  [-0.02019, -0.01231]   0.0650  **
+  fh-f000-s000-w1       -0.01625  0.00201  [-0.02019, -0.01231]   0.0650  **
+  fh-f000-s000-w2       -0.01625  0.00201  [-0.02019, -0.01231]   0.0650  **
+  fh-f050-s020-w2       -0.01562  0.00158  [-0.01872, -0.01253]   0.0403  **
+  fh-f050-s020-n0       -0.01556  0.00161  [-0.01873, -0.01240]   0.0419  **
+  fh-f025-s010-w2       -0.01537  0.00171  [-0.01872, -0.01203]   0.0467  **
+  fh-f025-s010-n0       -0.01463  0.00168  [-0.01793, -0.01132]   0.0456  **
+  fh-f050-s020-w1       -0.01425  0.00155  [-0.01728, -0.01122]   0.0385  **
+  fh-f000-s010-w1       -0.01419  0.00189  [-0.01788, -0.01049]   0.0571  **
+  fh-f025-s010-w1       -0.01388  0.00168  [-0.01716, -0.01059]   0.0451  **
+  fh-f025-s020-w2       -0.01381  0.00164  [-0.01702, -0.01060]   0.0431  **
+  fh-f025-s020-n0       -0.01306  0.00159  [-0.01619, -0.00994]   0.0408  **
+  fh-f000-s010-w2       -0.01244  0.00191  [-0.01618, -0.00869]   0.0586  **
+  fh-f025-s020-w1       -0.01238  0.00156  [-0.01543, -0.00932]   0.0391  **
+  aa-f050-s000-n0       -0.01213  0.00167  [-0.01541, -0.00884]   0.0450  **
+  aa-f050-s000-w1       -0.01213  0.00167  [-0.01541, -0.00884]   0.0450  **
+  aa-f050-s000-w2       -0.01213  0.00167  [-0.01541, -0.00884]   0.0450  **
+  fh-f000-s020-n0       -0.01069  0.00189  [-0.01439, -0.00699]   0.0572  **
+  fh-f000-s020-w2       -0.01056  0.00173  [-0.01396, -0.00717]   0.0481  **
+  aa-f025-s000-n0       -0.01044  0.00176  [-0.01389, -0.00699]   0.0497  **
+  aa-f025-s000-w1       -0.01044  0.00176  [-0.01389, -0.00699]   0.0497  **
+  aa-f025-s000-w2       -0.01044  0.00176  [-0.01389, -0.00699]   0.0497  **
+  aa-f000-s000-n0       -0.00994  0.00207  [-0.01400, -0.00588]   0.0688  **
+  aa-f000-s000-w1       -0.00994  0.00207  [-0.01400, -0.00588]   0.0688  **
+  aa-f000-s000-w2       -0.00994  0.00207  [-0.01400, -0.00588]   0.0688  **
+  aa-f050-s010-n0       -0.00850  0.00144  [-0.01132, -0.00568]   0.0333  **
+  fh-f000-s010-n0       -0.00838  0.00192  [-0.01214, -0.00461]   0.0592  **
+  aa-f050-s010-w1       -0.00794  0.00144  [-0.01075, -0.00512]   0.0331  **
+  aa-f050-s020-w1       -0.00781  0.00139  [-0.01055, -0.00508]   0.0312  **
+  aa-f050-s010-w2       -0.00731  0.00142  [-0.01009, -0.00453]   0.0322  **
+  aa-f000-s010-n0       -0.00719  0.00156  [-0.01024, -0.00414]   0.0388  **
+  fh-f000-s020-w1       -0.00700  0.00167  [-0.01027, -0.00373]   0.0445  **
+  aa-f025-s020-n0       -0.00625  0.00147  [-0.00913, -0.00337]   0.0345  **
+  aa-f025-s010-w1       -0.00588  0.00150  [-0.00882, -0.00293]   0.0362  **
+  aa-f000-s010-w2       -0.00556  0.00152  [-0.00854, -0.00258]   0.0371  **
+  aa-f000-s020-n0       -0.00456  0.00153  [-0.00756, -0.00157]   0.0374  **
+  aa-f000-s010-w1       -0.00450  0.00149  [-0.00742, -0.00158]   0.0355  **
+  aa-f000-s020-w2       -0.00450  0.00142  [-0.00728, -0.00172]   0.0323  **
+  aa-f025-s010-w2       -0.00444  0.00149  [-0.00736, -0.00152]   0.0356  **
+  aa-f025-s010-n0       -0.00438  0.00147  [-0.00725, -0.00150]   0.0344  **
+  aa-f050-s020-n0       -0.00419  0.00148  [-0.00709, -0.00129]   0.0351  **
+  aa-f025-s020-w2       -0.00413  0.00148  [-0.00702, -0.00123]   0.0349  **
+  aa-f050-s020-w2       -0.00375  0.00144  [-0.00658, -0.00092]   0.0334  **
+  aa-f000-s020-w1       -0.00350  0.00138  [-0.00621, -0.00079]   0.0306  **
+  aa-f025-s020-w1       -0.00331  0.00141  [-0.00608, -0.00054]   0.0319  **
+  --------------------------------------------------------------------------
+  ** = this cell's own 95% interval excludes zero.
+
+BAND
+  point estimates          [-0.02038, -0.00331]   width 0.01706
+  widened by Monte Carlo   [-0.02360, -0.00054]   width 0.02305
+  MC inflation             1.35x   (1.00 = sampling adds nothing)
+  lowest  cell             fh-f050-s000-n0  (availability=full_health, forecastable_share=0.50, season_sd=0.00, signal=none)
+  highest cell             aa-f025-s020-w1  (availability=availability_adjusted, forecastable_share=0.25, season_sd=0.20, signal=week_sd)
+  dominant assumption      availability_interpretation
+  cells resolved           54 of 54
+  sign stable              True
+  rank stability           STRONG
+  total runtime            1363.6s
+
+No cell in this grid is the correct one. Quoting a point estimate
+requires naming its scenario. The band is the model's own range of
+answers, and it is not a confidence interval.
+
+RANK STABILITY HERE IS ABOUT ONE COMPARISON ONLY. A stable sign for
+this pair of players says nothing about whether every other pair on
+the board keeps its order; that would need the same test run over
+the pairs in question.
+================================================================================================
+
+================================================================================================
+SCENARIO BAND -- adjacent_alternative
+================================================================================================
+bench-slot-next-best minus bench-slot-upgraded, focus team Real12
+54 of 54 scenarios, 16,000 seasons per arm, seed 20260904
+
+Arm B takes the SECOND-best available replacement instead of the best. This is the CE distance between two neighbouring players on the board.
+
+BAND
+  point estimates          [-0.00550, +0.00331]   width 0.00881
+  widened by Monte Carlo   [-0.00828, +0.00598]   width 0.01426
+  MC inflation             1.62x   (1.00 = sampling adds nothing)
+  lowest  cell             aa-f050-s020-n0  (availability=availability_adjusted, forecastable_share=0.50, season_sd=0.20, signal=none)
+  highest cell             fh-f050-s020-w2  (availability=full_health, forecastable_share=0.50, season_sd=0.20, signal=2x_week_sd)
+  dominant assumption      availability_interpretation
+  cells resolved           15 of 54
+  sign stable              False
+  rank stability           NONE
+  total runtime            1363.6s
+
+No cell in this grid is the correct one. Quoting a point estimate
+requires naming its scenario. The band is the model's own range of
+answers, and it is not a confidence interval.
+
+RANK STABILITY HERE IS ABOUT ONE COMPARISON ONLY. A stable sign for
+this pair of players says nothing about whether every other pair on
+the board keeps its order; that would need the same test run over
+the pairs in question.
+================================================================================================
+
+================================================================================================
+WHAT THE BANDS MEAN FOR PRESENTATION
+================================================================================================
+  CE gap to the adjacent alternative     0.00550
+  bench_slot                           band 0.01031   ratio 1.88
+  marginal_starter_slot                band 0.01706   ratio 3.10
+
+  WIDE: the model's own range of answers is at least as large as
+  the distance between two neighbouring players. Values must be
+  reported as scenario-dependent ranges naming the dominant
+  assumption, not as points.
+
+  Either way a best-alternative solver is still required. A wide
+  band changes how a value is PRESENTED, not whether opportunity
+  cost exists -- passing on a player still means spending the money
+  on someone, under every scenario in the grid.
+
+  AND THESE ARE TWO COMPARISONS ON ONE ROSTER. They do not
+  establish that every player ranking on the board is robust.
+================================================================================================
