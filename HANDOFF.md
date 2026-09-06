@@ -1546,9 +1546,29 @@ asserts at least one verdict carries a real standard error.
 ### Still provisional
 
 * No real auction has been observed. Every bidder coefficient is still chosen.
-* `ce_pass` is still exactly `0.0` at 400 sims — plausible for a below-median
-  team (0 titles in 400 seasons) but it means the delta is measured against a
-  floor. **Next: re-run the audited comparison at 4,000+ sims and confirm the
-  pass branch lifts off zero.** If it does not, our completion is still too weak
-  relative to the field and the continuation needs another look.
 * Only the fabricated world is wired in; there is no live-room loader.
+
+### Checked before handing off: the pass branch does lift off the floor
+
+```
+sims=  400  ce_buy=0.04500  ce_pass=0.00000  delta=+0.04500 se=0.01038  favorable
+sims= 4000  ce_buy=0.06300  ce_pass=0.00200  delta=+0.06100 se=0.00387  favorable
+```
+
+The `0.0` pass branch at 400 sims was Monte Carlo resolution (0 titles in 400
+seasons), not a structural floor. At 4,000 it resolves.
+
+**But look at the magnitudes, because they are the next problem.** League
+average CE is `1/12 = 0.083`. Our completion sits at `0.002` without the
+candidate and `0.063` with him — one mid-tier back, bought for $13, moves us
+from bottom of the league to just under average. Championship equity really is
+convex in roster strength near the playoff cutoff, so a large marginal effect is
+not automatically wrong; a swing this large from one cheap player is still more
+than that convexity comfortably explains.
+
+**Exact next step: find out whether our completion is sitting on a knife-edge.**
+Sweep the candidate's price (or drop him for the next-best alternative) at 4,000
+sims and plot `ce_buy`; if equity collapses toward zero the moment he is
+removed, the continuation is leaving our roster balanced exactly at the cutoff
+and the shared board is still handing rivals too much. Until that is understood,
+treat the audited delta as directionally right and its *size* as unverified.
