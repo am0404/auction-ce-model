@@ -69,8 +69,16 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
 
     # --- primary: the RB that previously flipped sign ----------------------
     primary_pos = positions[0]
-    prim = next(c for c in cands
-                if c.position == primary_pos and c.tier == "expensive")
+    # The candidate a quota-free diagnostic says is worth auditing, not the
+    # most expensive one. Price does not decide who earns CE seasons.
+    audited_here = [c for c in cands if c.position == primary_pos
+                    and diags[(c.position, c.tier)].policy != "proxy only"]
+    if not audited_here:
+        raise RuntimeError(
+            f"no {primary_pos} qualifies for a CE audit under the quota-free "
+            f"diagnostic; nothing to run")
+    prim = max(audited_here,
+               key=lambda c: diags[(c.position, c.tier)].lineup_improvement)
     rec = recipient_for(prim.player_id)
     if rec is None:
         raise RuntimeError("no legal recipient for the primary candidate")
@@ -91,7 +99,10 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
         proxy=px, holdout_sims=holdout_sims, holdout_seed=HOLDOUT_SEED,
         performance_scenario=inputs.performance_scenario,
         runtime_budget_s=runtime_budget_s, progress=progress)
-    out["primary"] = {"position": primary_pos, "tier": "expensive",
+    out["primary"] = {"position": primary_pos, "tier": prim.tier,
+                      "role": diags[(prim.position, prim.tier)].role,
+                      "lineup_improvement":
+                          diags[(prim.position, prim.tier)].lineup_improvement,
                       **ens.to_dict(include_draws=False),
                       "convergence": ens.running(CONVERGENCE_KS)}
     local["primary"] = ens.to_dict(include_draws=True)
@@ -120,16 +131,24 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
     # --- secondary positions ----------------------------------------------
     small = balanced_schedule(len(st.owners), secondary_k)
     for pos in positions[1:]:
-        d = diags.get((pos, "expensive"))
-        c = next((x for x in cands
-                  if x.position == pos and x.tier == "expensive"), None)
+        eligible = [x for x in cands if x.position == pos
+                    and diags[(x.position, x.tier)].policy != "proxy only"]
+        if eligible:
+            c = max(eligible,
+                    key=lambda x: diags[(x.position, x.tier)].lineup_improvement)
+            d = diags[(c.position, c.tier)]
+        else:
+            c = next((x for x in cands if x.position == pos), None)
+            d = diags.get((c.position, c.tier)) if c else None
         if c is None or d is None:
             continue
         if d.policy == "proxy only":
             out["positions"][pos] = {
                 "status": "PROXY ONLY -- retained; no CE seasons spent",
+                "tier": c.tier,
                 "lineup_improvement": d.lineup_improvement,
-                "reason": d.reason}
+                "improvement_at_min": d.improvement_at_min,
+                "role": d.role, "reason": d.reason}
             if verbose:
                 print(f"\n  {pos}: PROXY ONLY (improvement "
                       f"{d.lineup_improvement:.2f}); no ensemble run")
@@ -147,7 +166,8 @@ def run(inputs: PilotInputs, *, k: int = 15, holdout_sims: int = 4000,
             proxy=px, holdout_sims=holdout_sims, holdout_seed=HOLDOUT_SEED,
             performance_scenario=inputs.performance_scenario,
             runtime_budget_s=runtime_budget_s - (time.perf_counter() - t0))
-        out["positions"][pos] = {"tier": "expensive",
+        out["positions"][pos] = {"tier": c.tier, "role": d.role,
+                                 "lineup_improvement": d.lineup_improvement,
                                  **e.to_dict(include_draws=False)}
         local["positions"][pos] = e.to_dict(include_draws=True)
         if verbose:

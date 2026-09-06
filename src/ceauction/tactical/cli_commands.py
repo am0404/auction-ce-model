@@ -675,8 +675,101 @@ def cmd_allocation_ensemble(args) -> int:
     return 0
 
 
+def cmd_marginal_diagnostics(args) -> int:
+    """Quota-free with/without completion diagnostics for real candidates."""
+    from pathlib import Path as _P
+    from ..auction.completion import CompletionSettings
+    from ..auction.proxy import ProxyEvaluator
+    from .realpilot import (NO_CONTINGENCY_MODEL, PilotInputs,
+                            SanitizationError, SanitizedReport, diagnose,
+                            load_real_board, select_candidates)
+
+    inputs = PilotInputs(
+        contract=_P(args.contract), sleeper_csv=_P(args.sleeper_csv),
+        out_dir=_P(args.out_dir), pool_limit=args.pool_limit,
+        market_scenario=args.market_scenario,
+        performance_scenario=args.performance_scenario)
+    missing = inputs.missing()
+    if missing:
+        raise UsageError(
+            "real inputs are missing: " + ", ".join(missing) + ". See "
+            "`ce-lab tactical real-pilot` for setup; both live under "
+            "local_data/, which is gitignored.")
+    if "local_data" not in _P(args.out_dir).parts:
+        raise UsageError(
+            f"--out-dir must sit under local_data/ (got {args.out_dir!r})")
+    if args.per_position < 1:
+        raise UsageError("--per-position must be at least 1")
+    if args.beam_width < 4:
+        raise UsageError("--beam-width must be at least 4")
+
+    print("QUOTA-FREE MARGINAL DIAGNOSTICS")
+    print("Roster composition is an OUTPUT of legal completion, never an input.")
+    print("No position is required, capped, or reserved a number of places.")
+    print()
+    board = load_real_board(inputs)
+    px = ProxyEvaluator(board.state.pool, board.state.settings, 16, 7)
+    cs = CompletionSettings(beam_width=args.beam_width,
+                            candidate_pool=args.candidate_pool,
+                            proxy_candidates=32, finalists=3,
+                            max_candidates=160, proxy_reps=16)
+    positions = tuple(args.position or ("QB", "RB", "WR", "TE"))
+    cands, notes = select_candidates(board, per_position=args.per_position,
+                                     positions=positions)
+    print(f"  {'pos':<4}{'tier':<11}{'$':>5}{'@price':>9}{'@$1':>8}{'start%':>8}"
+          f"  {'role':<21}{'policy':<19}composition")
+    rows, local_rows = [], []
+    for c in cands:
+        d = diagnose(board, c, proxy=px, settings=cs)
+        comp = d.with_candidate.composition
+        rows.append(d.to_dict())
+        local_rows.append({"name": board.name_by_id.get(c.player_id),
+                           **d.to_dict(include_identity=True)})
+        print(f"  {c.position:<4}{c.tier:<11}{d.price:>5}"
+              f"{d.lineup_improvement:>9.2f}{d.improvement_at_min:>8.2f}"
+              f"{d.start_share:>8.0%}  {d.role:<21}{d.policy:<19}"
+              f"QB{comp.get('QB', 0)}/RB{comp.get('RB', 0)}/"
+              f"WR{comp.get('WR', 0)}/TE{comp.get('TE', 0)}")
+    audited = sum(1 for r in rows if r["policy"] == "4000-season audit")
+    print()
+    print(f"  audited {audited}/{len(rows)}, proxy-only {len(rows) - audited}")
+    print(f"  completion exactness: "
+          f"{sorted({r['with_candidate']['exactness'] for r in rows})}")
+    print(f"  contingency: {NO_CONTINGENCY_MODEL}")
+
+    out = _P(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "marginal_diagnostics.json").write_text(
+        json.dumps(local_rows, indent=2, default=str), encoding="utf-8")
+    report = SanitizedReport(
+        coverage=board.coverage,
+        selection={"candidates": len(cands), "substitutions": notes,
+                   "positions": list(positions)},
+        diagnostics=rows,
+        results={"audited": audited, "proxy_only": len(rows) - audited,
+                 "compositions": [r["with_candidate"]["composition"]
+                                  for r in rows]},
+        runtime={}, warnings=notes,
+        assumptions=[NO_CONTINGENCY_MODEL,
+                     "no positional quota of any kind enters diagnostics or "
+                     "sampling; composition is an output of legal completion",
+                     "market scenario: " + args.market_scenario,
+                     "performance scenario: " + args.performance_scenario])
+    names = [r.get("name") for r in local_rows if r.get("name")]
+    try:
+        report.check(names)
+    except SanitizationError as exc:
+        raise UsageError(f"refusing to emit the sanitized report: {exc}")
+    if args.report_out:
+        _write_json(args.report_out, report.to_dict())
+    print(f"  player-level output -> {out / 'marginal_diagnostics.json'} "
+          f"(IGNORED)")
+    return 0
+
+
 _COMMANDS = {
     "validate": cmd_validate,
+    "marginal-diagnostics": cmd_marginal_diagnostics,
     "allocation-ensemble": cmd_allocation_ensemble,
     "real-pilot": cmd_real_pilot,
     "signal-power": cmd_signal_power,
@@ -868,6 +961,27 @@ def add_tactical_parser(sub) -> None:
     s.add_argument("--performance-scenario",
                    default="median_target/full_health/week_sd/exclude")
     s.add_argument("--runtime-budget", type=float, default=3000.0)
+
+    s = inner.add_parser(
+        "marginal-diagnostics",
+        help="quota-free with/without completion diagnostics (real inputs)")
+    s.add_argument("--contract",
+                   default="local_data/real_player_contract_v1.json")
+    s.add_argument("--sleeper-csv",
+                   default="local_data/sleeper_2qb_values_2026_clean.csv")
+    s.add_argument("--out-dir", default="local_data/tactical")
+    s.add_argument("--report-out", default=None,
+                   help="sanitized aggregate JSON (safe to commit)")
+    s.add_argument("--pool-limit", type=int, default=260)
+    s.add_argument("--per-position", type=int, default=3)
+    s.add_argument("--position", action="append",
+                   choices=["QB", "RB", "WR", "TE"])
+    s.add_argument("--beam-width", type=int, default=32)
+    s.add_argument("--candidate-pool", type=int, default=40)
+    s.add_argument("--market-scenario", default="base",
+                   choices=["low", "base", "high"])
+    s.add_argument("--performance-scenario",
+                   default="median_target/full_health/week_sd/exclude")
 
     s = inner.add_parser("benchmark", help="runtime for every live stage")
     common(s, scenarios=True, mode=True)

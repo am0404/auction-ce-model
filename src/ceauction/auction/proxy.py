@@ -33,7 +33,7 @@ avoid. Its only job is to pick a finalist set small enough to simulate.
 
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Dict, Sequence
 
 import numpy as np
 
@@ -102,6 +102,25 @@ class ProxyEvaluator:
         mask = select_lineups_mask(proj, avail, pos)
         started = (mask * proj).sum(axis=-1)                      # (R, W)
         return float(started[:, : self._score_weeks].mean())
+
+    def lineup_shares(self, player_ids: Sequence[int]) -> Dict[int, float]:
+        """Fraction of scoring weeks each roster member is in the chosen eight.
+
+        The same ``select_lineups_mask`` that :meth:`strength` uses, kept rather
+        than summed away. It answers "does this player actually start" without
+        any positional template: the lineup is chosen by the league's real
+        eligibility graph from whoever is on the roster, so a roster of six
+        tight ends starts as many of them as the WR/TE and flex seats allow and
+        no more.
+        """
+        idx = np.array([self.index[p] for p in player_ids], dtype=np.int64)
+        proj = np.moveaxis(self._projection[:, idx, :], 1, -1)
+        avail = np.moveaxis(self._available[:, idx, :], 1, -1)
+        pos = np.broadcast_to(
+            self._arrays.position[idx][None, None, :], proj.shape)
+        mask = select_lineups_mask(proj, avail, pos)[:, : self._score_weeks, :]
+        share = mask.reshape(-1, len(idx)).mean(axis=0)
+        return {int(pid): float(share[i]) for i, pid in enumerate(player_ids)}
 
     def strength_many(self, rosters: Sequence[Sequence[int]]) -> np.ndarray:
         """Strength for several rosters of the same size, in one pass."""
