@@ -648,9 +648,21 @@ def evaluate_tactical(
                         performance_scenario=sc.performance_scenario,
                         recipient_label=label, recipient_owner=b.owner_id,
                         recipient_price=b.price, delta=bp.delta_ce,
-                        se=bp.delta_ce_se, verdict=bp.verdict,
-                        basis="championship equity (matched seasons, holdout "
-                              "sample)",
+                        se=bp.delta_ce_se,
+                        # A paired difference of exactly zero with exactly zero
+                        # spread means the two branches produced the SAME
+                        # completed league, not that buying wins. The engine's
+                        # own rule reads lo >= 0 as favorable; here that would
+                        # be reporting a degenerate comparison as evidence.
+                        verdict=("unresolved"
+                                 if (bp.delta_ce == 0.0 and bp.delta_ce_se == 0.0)
+                                 else bp.verdict),
+                        basis=("championship equity (matched seasons, holdout "
+                               "sample)"
+                               + ("; DEGENERATE: buy and pass produced an "
+                                  "identical completed league"
+                                  if (bp.delta_ce == 0.0
+                                      and bp.delta_ce_se == 0.0) else "")),
                         selection_sims=bp.selection_sims,
                         holdout_sims=bp.n_sims,
                         board_exactness=board.exactness,

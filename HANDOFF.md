@@ -1381,3 +1381,87 @@ assumptions with a residual.
 A tactical max bid still needs a bidder model, simultaneous multi-owner
 completion, and a runtime budget that fits a bid timer. None of the three should
 be attempted before the band has been checked against a real room even once.
+
+---
+
+## Phase: the tactical bidding layer
+
+Built on branch `auction-tactical-bidding`, from `54506f4`. Full detail in
+`docs/TACTICAL_LAYER.md`; a worked fabricated auction is in
+`docs/TACTICAL_WALKTHROUGH.md`. This section is the summary.
+
+**This is a foundation, not a draft-ready bidder.** It is honest about who gets
+the player if we stop, and it keeps the four prices apart. It has not been
+checked against a single real auction, its bidder scenarios are stated rather
+than fitted, and its audited path can go degenerate on a fully-allocated shared
+board. Do not take a number from it into a live room without reading the
+"still provisional" list below.
+
+### What was added
+
+`src/ceauction/tactical/`
+
+| module | what it answers |
+|---|---|
+| `endgame.py` | pure room arithmetic: candidate-specific legal maxima, financial-control threshold, who falls out, whose leverage is illusory. No simulation. |
+| `bidders.py` | five named bidder scenarios and a willingness **range** per owner per candidate, capped by legality. |
+| `recipients.py` | named pass-recipient branches, evaluated one at a time; illegal named recipients refused, never substituted. |
+| `board.py` | shared-board continuation: one pool, no duplicates, legal completions, $1 per open slot, seeded and deterministic. |
+| `maxbid.py` | robust / base / permissive tactical maxima over a price ladder, immediate (proxy) and audited (CE) paths, and the cache key. |
+| `precompute.py` | bounded precomputation, resume only on an exact key match, refuses real output outside `local_data/`. |
+| `demo.py` | one fabricated world where the auction pool and the market prior describe the same players. |
+| `walkthrough.py` | regenerates `docs/TACTICAL_WALKTHROUGH.md`. |
+| `cli_commands.py` | `ce-lab tactical …`. |
+
+### Measured runtime (fabricated demo, this machine)
+
+| stage | seconds |
+|---|---|
+| endgame arithmetic | 0.007 |
+| bidder willingness, whole room | 0.007 |
+| named recipient branches | 0.010 |
+| shared-board continuation | 0.135 |
+| immediate max-bid, cold (3 scenarios x 6 prices x 4 recipients) | **7.56** |
+| immediate max-bid, cache hit | **0.022** |
+| audited comparison, one price, one scenario | **13.25** |
+
+The 10-second target is **met but not comfortably** by the cold immediate path
+at default settings, and met with three hundred milliseconds to spare only
+because the ladder is short. The cache-hit path is 22ms and is the one that
+should actually be used live. The audited path must be precomputed.
+
+### Simplifying assumptions
+
+Every one of these is stated in `docs/TACTICAL_LAYER.md` with the field that
+carries it into output:
+
+1. Clearing price = second-highest willingness + one increment, capped. An
+   **approximation**, not Sleeper's mechanism.
+2. Opponent continuations use a named **proxy**, never championship equity.
+3. Recipient weights are stated assumptions applied *after* the branches exist.
+4. Immediate-mode value is our completion's expected starting points minus the
+   league mean. A proxy ordering with no interval; not equity.
+5. A bounded scarcity term (+0-20%) and a per-scenario soft budget share.
+6. `pool_depth` and `max_allocations` are real cuts on the continuation.
+7. Sparse ladders give brackets; only `--refine` walks integers.
+
+### Still provisional
+
+* **No real auction has been observed.** Every bidder coefficient is chosen.
+* The **audited path can be degenerate**: when the shared board allocates the
+  whole pool, buy and pass can yield an identical completed league and the
+  paired difference is exactly zero. Reported as `unresolved` with `DEGENERATE`
+  in the basis, but it means the audited comparison currently needs the board to
+  leave our completion real choices. This is the largest known weakness.
+* Only the **fabricated** world is wired in. There is no loader for a live room.
+* Nonmonotonicity detection is implemented and tested structurally; the
+  fabricated board has not yet produced a real instance.
+
+### Recommended next step
+
+**Make the audited comparison non-degenerate.** Reserve a bounded slice of the
+board from the shared continuation (or complete our roster *before* the last
+rival allocations) so the buy and pass branches genuinely differ, then re-run
+`ce-lab tactical max-bid --mode audited` and confirm the intervals are non-zero.
+Until that is fixed, the CE-backed path is architecture rather than evidence and
+only the proxy ordering is usable.
