@@ -9,6 +9,7 @@
     ce-lab calibrate     map the contract to PlayerSpecs; CE smoke + sensitivity
     ce-lab auction       auction room state, roster completion, buy/pass,
                          CE reservation ranges, the 54-cell slot swap
+    ce-lab market        Sleeper anchors, expected clearing prices, live sales
     ce-lab bench         runtime benchmarks and Monte Carlo uncertainty
 
 Everything it touches is SYNTHETIC data (see ``synthetic.py``).
@@ -574,6 +575,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     from .auction.cli_commands import add_auction_parser
     add_auction_parser(sub)
+
+    from .market.cli_commands import add_market_parser
+    add_market_parser(sub)
 
     s = sub.add_parser("bench", help="runtime benchmarks")
     s.add_argument("--counts", type=int, nargs="+", default=None)
