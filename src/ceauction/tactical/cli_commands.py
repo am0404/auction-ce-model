@@ -460,8 +460,49 @@ def cmd_benchmark(args) -> int:
     return 0 if met else 0
 
 
+def cmd_context(args) -> int:
+    """The controlled one-factor roster-context experiment."""
+    from .context_experiment import InvalidExperiment, run
+    sims = args.sims or 4000
+    sel = args.selection_sims or max(400, sims // 4)
+    print(_FABRICATED)
+    print()
+    print("CONTROLLED ROSTER-CONTEXT EXPERIMENT")
+    print("Exactly one factor varies: the projected scoring of the players the")
+    print("focus team ALREADY OWNS. Budget, spend, roster size, open slots,")
+    print("positions, the remaining board, its costs, every rival, the market,")
+    print("the candidate, its price, the recipient and every seed are held")
+    print("identical and asserted so before any season is simulated.")
+    print()
+    try:
+        blob = run(holdout_sims=sims, selection_sims=sel)
+    except InvalidExperiment as exc:
+        raise UsageError(str(exc))
+    print()
+    print(f"  {'regime':<16}{'scale':>7}{'p(playoff)':>12}{'p(bye)':>9}"
+          f"{'CE':>9}{'rank':>6}   candidate delta (95%)")
+    for name, r in blob["regimes"].items():
+        pre = r["pre_acquisition"]
+        row = r["rows"][0]
+        hw = (row["ci95"][1] - row["ci95"][0]) / 2
+        print(f"  {name:<16}{pre['strength_scale']:>7.2f}"
+              f"{pre['playoff_probability']:>12.3f}"
+              f"{pre['bye_probability']:>9.3f}"
+              f"{pre['championship_equity']:>9.4f}{pre['ce_rank']:>6}   "
+              f"{row['delta_ce']:+.5f} +/-{hw:.5f}  {row['verdict']}")
+    print()
+    print(f"  holdout {blob['holdout_sims']:,} seasons, selection "
+          f"{blob['selection_sims']:,} seasons (independent)")
+    print(f"  seeds: board {blob['board_seed']}, selection "
+          f"{blob['selection_seed']}, holdout {blob['holdout_seed']}")
+    print(f"  runtime {blob['runtime_s']:.0f}s")
+    _write_json(args.json_out, blob)
+    return 0
+
+
 _COMMANDS = {
     "validate": cmd_validate,
+    "context": cmd_context,
     "bidders": cmd_bidders,
     "recipients": cmd_recipients,
     "endgame": cmd_endgame,
@@ -568,6 +609,15 @@ def add_tactical_parser(sub) -> None:
                         "entries whose full cache key matches")
     s.add_argument("--out", default=None,
                    help="write the precompute report JSON")
+    s = inner.add_parser(
+        "context",
+        help="controlled one-factor roster-context experiment (slow)")
+    s.add_argument("--sims", type=int, default=None,
+                   help="holdout seasons per arm (default 4000)")
+    s.add_argument("--selection-sims", type=int, default=None,
+                   help="independent selection-sample seasons")
+    s.add_argument("--json-out", default=None)
+
     s = inner.add_parser("benchmark", help="runtime for every live stage")
     common(s, scenarios=True, mode=True)
     s.add_argument("--audited", action="store_true",

@@ -1,5 +1,20 @@
 # Player value across roster-strength regimes (fabricated)
 
+> **WITHDRAWN AS A CAUSAL COMPARISON — CONFOUNDED.**
+> These four regimes varied the number of pre-owned players, and with it our
+> money, our open slots, our positional pattern, the remaining board, which
+> players rivals could reach, and every rival's completion. Four factors moved
+> at once, so nothing measured here can be attributed to roster strength. The
+> labels did not match the outcomes either: `bye_contender` finished 6th and
+> `favorite` 7th.
+>
+> The controlled one-factor replacement is `docs/TACTICAL_CONTEXT.md`, and its
+> result **contradicts the conclusion below**: with one factor isolated, the
+> candidate's marginal equity is unresolved in every roster context.
+>
+> Retained as historical evidence only. Do not cite it as a finding.
+
+
 `python -m ceauction.tactical.regime_experiment 4000`.
 4,000-season holdout, 1,000-season independent
 selection sample, 58s. Every player is `Fabricated####`.

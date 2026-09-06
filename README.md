@@ -61,7 +61,8 @@ ever makes the first kind.
 | `docs/TACTICAL_LAYER.md` | Bidder scenarios, named pass recipients, shared-board continuation, the tactical max bid |
 | `docs/TACTICAL_WALKTHROUGH.md` | A fabricated end-to-end auction showing all of the above |
 | `docs/TACTICAL_JOINT_SWEEP.md` | Joint-allocation conservation and the corrected CE price sweep |
-| `docs/TACTICAL_REGIMES.md` | Nested opportunity sets and player value across four roster-strength regimes |
+| `docs/TACTICAL_REGIMES.md` | Nested opportunity sets; the roster-strength table is CONFOUNDED and withdrawn |
+| `docs/TACTICAL_CONTEXT.md` | Controlled one-factor roster-context experiment and its null result |
 | `docs/example_slot_swap_54cell.txt` | The 54-cell scenario band on one roster's two marginal slots |
 | `docs/examples/` | Sanitized `ce-lab auction` runs on a fabricated auction, including a sparse-versus-refined price ladder |
 | `docs/example_sensitivity_output.txt` | Paired real-data CE sensitivity, 16,000 seasons per scenario |

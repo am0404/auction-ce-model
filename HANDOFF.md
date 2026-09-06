@@ -1855,3 +1855,105 @@ Audited is precomputation, as intended. The cached lookup is 22ms.
 `budget_remaining` constant across regimes by adjusting `spend_per_player`, so
 the regime comparison isolates roster strength. Then re-run
 `regime_experiment` and confirm the ordering survives.
+
+---
+
+## Phase: controlled roster-context isolation
+
+Branch `tactical-context-isolation`, from
+`6150391273b644d12090ecde99fdd5f5745c82ad`. Detail in
+`docs/TACTICAL_CONTEXT.md`.
+
+### The previous regime conclusion is withdrawn
+
+`docs/TACTICAL_REGIMES.md` varied pre-owned count, money, open slots, the
+remaining board, which players rivals could reach, and every rival's completion
+— four factors at once. Its labels did not match its outcomes (`bye_contender`
+6th, `favorite` 7th). It is marked CONFOUNDED in place and retained as history
+only.
+
+### The controlled design
+
+`tactical/context.py`. One fabricated auction; four regimes; the **only**
+difference is the `base_mean` of the eight PlayerSpecs the focus team already
+owns. Those players are off the board in every regime, so scaling their scoring
+cannot reach the auction.
+
+```
+structural differences across all pairs of 4 regimes: 0
+```
+
+covering focus owner, budget, spend, roster size, open slots, player ids,
+positions, prices, remaining-board ids, remaining-board costs, every rival's
+roster/spend/budget/slots, market fingerprint, cost-book fingerprint, league
+settings, withdrawn set, cast, candidate, price, recipient, leader and seeds.
+`check_structural_equality` refuses the experiment if any of them moves, and
+three tests plant a budget / board / rival difference to prove it fires.
+
+Expected differences reported separately: pool fingerprints differ (the factor);
+**every projection outside the focus roster is byte-identical**, asserted
+spec-by-spec.
+
+### Calibration — labels earned from simulated outcomes
+
+```
+regime           scale  weekly  wins   p(playoff)  p(bye)      CE   rank
+underdog          0.88   102.6   8.7        0.040   0.004  0.0022     12
+playoff_bubble    0.99   112.2  13.6        0.456   0.142  0.0707     12
+bye_bubble        1.06   118.6  17.1        0.833   0.496  0.2427      1
+favorite          1.16   127.4  21.3        0.992   0.915  0.5305      1
+```
+
+Bubbles are genuine coin-flips on the boundary they name. `underdog` is not
+pinned at zero, so a marginal effect had room to appear.
+
+### The result: NULL
+
+```
+regime            delta at $1     95% half-width   |delta|/SE
+underdog           -0.00050          0.00183          0.54
+playoff_bubble     -0.00300          0.00790          0.74
+bye_bubble         +0.00525          0.01288          0.80
+favorite           +0.00750          0.01276          1.15
+```
+
+**Every arm is unresolved at 4,000 holdout seasons, at every tested price
+($1/$13/$20/$30).** The context effect is *not* statistically distinguishable.
+
+The sign pattern (negative for weak contexts, positive for strong) is the
+**opposite** of the confounded experiment's conclusion. That conclusion does not
+survive isolation — and neither does its reverse, because nothing resolves.
+
+Resolving the `playoff_bubble` point estimate would need roughly **27,000
+holdout seasons**, about 7x this run.
+
+Invariants all held: league CE sums to 1.0 in every arm; nesting exact; joint
+worlds validated; price changed neither the focus completion nor the rival
+allocation within a regime (nested sets working as designed).
+
+### Remaining limitations
+
+* The candidate is weak — with 8 pre-owned and 11 full rival rosters, the best
+  player left is marginal. A stronger candidate might resolve where this does not.
+* One candidate, one recipient, one fabricated board. A null on one player is
+  not a null on player valuation.
+* The regimes are calibrated against a weak fabricated field: `bye_bubble` ranks
+  1st on CE while sitting on a genuine bye coin-flip.
+* No real auction observed; bidder coefficients remain chosen.
+
+### NO-GO for real-board precomputation
+
+The machinery is sound — structurally controlled, conservation-clean, nested,
+labels earned. But it has not yet demonstrated that it can *measure* a player's
+context-dependent value at an affordable sample size. Precomputing real-board
+prices on a signal indistinguishable from noise would produce confident-looking
+numbers with no evidence behind them.
+
+### Exact next step
+
+**Re-run the controlled experiment with a materially stronger candidate** —
+reduce `N_PREOWNED` or `rival_keep` so a genuinely valuable player remains on
+the board — and check whether any regime resolves at 4,000 seasons. If the
+effect resolves there, the null above is about this candidate; if it does not,
+it is about the estimator's power, and that must be fixed before any real-board
+work.
