@@ -325,6 +325,15 @@ class MarketPrior:
     def draftable(self) -> Tuple[PlayerPrior, ...]:
         return tuple(p for p in self.players if p.draftable)
 
+    @property
+    def anchor_display_total(self) -> int:
+        """What the board would cost at Sleeper's displayed prices.
+
+        Printed beside the discretionary pool because the comparison is the
+        whole argument for a reconciliation step existing.
+        """
+        return sum(p.display_anchor or 0 for p in self.draftable)
+
     def scenario_total(self, scenario: str) -> int:
         attr = {"low": "low_price", "base": "base_price", "high": "high_price"}[scenario]
         return sum(getattr(p, attr) for p in self.draftable)
@@ -377,6 +386,7 @@ class MarketPrior:
             "credibility": {k: v.to_dict() for k, v in self.credibility.items()},
             "reconciliation": self.reconciliation,
             "priced_players": len(self.draftable),
+            "anchor_display_total": self.anchor_display_total,
             "scenario_totals": {s: self.scenario_total(s)
                                 for s in ("low", "base", "high")},
             "positional": self.positional_summary(),
@@ -599,8 +609,7 @@ def format_prior_summary(prior: MarketPrior, width: int = 90) -> str:
            f"  committed at $1/slot   ${b.minimum_committed}",
            f"  discretionary          ${b.discretionary}",
            f"  priced anchors         {len(prior.draftable)} totalling "
-           f"${prior.anchor_provenance.get('raw_total', '')}"
-           f"{book_total(prior)}",
+           f"${prior.anchor_display_total} at list",
            f"  minimum-price fills    {b.roster_slots - len(prior.draftable)}",
            "",
            "  Paying list is not merely unlikely, it is arithmetically",
@@ -641,5 +650,3 @@ def format_prior_summary(prior: MarketPrior, width: int = 90) -> str:
     return "\n".join(out)
 
 
-def book_total(prior: MarketPrior) -> str:
-    return ""

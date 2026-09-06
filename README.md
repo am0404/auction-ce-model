@@ -57,6 +57,7 @@ ever makes the first kind.
 | `docs/INGESTION_AUDIT.md` | Sanitized result of running the ingestion layer |
 | `docs/CALIBRATION_AUDIT.md` | What the mapping calibrated, how well, and what is still unresolved |
 | `docs/AUCTION_LAYER.md` | The auction layer: opportunity cost, the three prices, why values are ranges |
+| `docs/MARKET_PRIOR.md` | The Sleeper anchor, why it is not a price, and the provisional clearing-price band |
 | `docs/example_slot_swap_54cell.txt` | The 54-cell scenario band on one roster's two marginal slots |
 | `docs/examples/` | Sanitized `ce-lab auction` runs on a fabricated auction, including a sparse-versus-refined price ladder |
 | `docs/example_sensitivity_output.txt` | Paired real-data CE sensitivity, 16,000 seasons per scenario |

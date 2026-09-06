@@ -1288,3 +1288,96 @@ different piece of work from one that needs two.
 **Explicitly still not next:** dollar values for real players, opening or live
 max bids, auction inflation, or anything presented as a market price. All of
 them are blocked on the acquisition-cost data this repository does not have.
+
+
+---
+
+## 17. The market prior: provisional acquisition cost
+
+Built on branch `auction-market-prior`. Full detail in `docs/MARKET_PRIOR.md`.
+
+> **Every committed example uses fabricated anchors.** The real Sleeper export
+> is an ignored `local_data/` path and no player-level output from it is in
+> version control.
+
+### The gap this fills
+
+Acquisition cost was the missing input: the completion search needs a price for
+every player it might buy, and this league has no auction history. Sleeper's
+generic 2026 `2qb` value list is the only anchor available — and it is an
+anchor, not a price.
+
+### Four quantities, and only two of them exist
+
+| | Built here? |
+|---|---|
+| `sleeper_display_anchor` — what managers see | **yes**, preserved exactly |
+| `expected_clearing_price` — what this room may pay | **yes**, provisional |
+| `ce_reservation_range` — what we can afford | elsewhere; unchanged |
+| `tactical_max_bid` — what to bid | **nowhere** |
+
+### What was built
+
+```
+src/ceauction/market/
+  anchors.py       load and validate the Sleeper CSV; identity join
+  prior.py         format credibility, budget reconciliation, price bands
+  live.py          partially pooled updates from observed sales
+  pressure.py      per-owner ability, legality, fit and evidence
+  costbook.py      populate the acquisition-cost contract
+  demo.py          fabricated anchors and a scripted sale sequence
+  cli_commands.py  ce-lab market ...
+```
+
+### Real-file aggregates
+
+1,024 rows; **149 priced, rosterable, active anchors** totalling **$2,384.26**
+raw and **$2,379** displayed; 6 positive players the league cannot roster
+(five defenses, one inactive QB). Positional raw totals reproduce the stated
+source facts exactly: QB 29/$541.12, RB 45/$802.77, WR 56/$828.61, TE
+19/$211.76. **All 149 priced anchors join to the real contract.**
+
+### Why a reconciliation is mandatory
+
+$2,400 room, 180 slots, $180 committed at the $1 floor, **$2,220
+discretionary** — against $2,379 of priced anchors *before* the other 31 slots
+are filled. Paying list is arithmetically impossible, not merely unlikely.
+
+Reconciled boards: low $1,957, base $2,107, high $2,213, each within integer
+rounding of its scenario target.
+
+### Positional outcome
+
+TE moves furthest from its list price (0.736 of displayed), then QB (0.855), WR
+(0.885), RB (0.946) — out of the lineup graph, not a table of preferences. This
+league has no dedicated TE slot and its superflex accepts an RB, so both label
+mismatches in a generic `2qb` list are represented as **credibility**, a weight
+that evidence can move in either direction, rather than as a hand-coded
+discount that could never be wrong.
+
+### Simplifying assumptions
+
+1. Every coefficient is a **stated scenario**: spend rate, anchor adherence,
+   four credibility weights, learn rates, prior strengths, outlier cap. Nothing
+   is fitted; no auction history exists.
+2. Budget reconciliation is a single monotone scale per scenario. A
+   replacement-level transformation was considered and rejected for needing a
+   baseline nothing here measures.
+3. Buyer-level learning needs two purchases before it characterises anyone.
+4. Roster fit is structural — unfilled seats, not preferences.
+5. Price tiers are four coarse buckets.
+6. Nonpositive anchors are *unpriced*, not $1 sales; Sleeper's UI rule for them
+   was never observed.
+7. Room-wide effects require sales spanning more than one position.
+
+### Recommended next step
+
+**Record the first live auction with `observe-sale`, then compare the observed
+clearing prices against the low/base/high bands.** That is the first real
+evidence about the six coefficients currently chosen rather than estimated. One
+auction will not settle them, but it converts them from assumptions into
+assumptions with a residual.
+
+A tactical max bid still needs a bidder model, simultaneous multi-owner
+completion, and a runtime budget that fits a bid timer. None of the three should
+be attempted before the band has been checked against a real room even once.

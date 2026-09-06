@@ -19,7 +19,7 @@ ROOM BUDGET
   roster slots           180
   committed at $1/slot   $180
   discretionary          $2220
-  priced anchors         162 totalling $
+  priced anchors         162 totalling $4140 at list
   minimum-price fills    18
 
   Paying list is not merely unlikely, it is arithmetically
