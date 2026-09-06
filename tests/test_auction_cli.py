@@ -164,6 +164,20 @@ def test_reservation_runs_and_reports_a_range(tmp_path):
     assert blob["label"].startswith("CE reservation-price range")
     assert blob["full_grid"] is False
     assert blob["cost_level"] == "FABRICATED"
+    assert blob["interval_is"].startswith("pointwise")
+    assert blob["ladder_is_exhaustive"] is False
+
+
+def test_reservation_warns_that_a_sparse_ladder_only_brackets():
+    p = run("reservation", "--prices", "1", "40", "--estimate-only", *TINY)
+    assert "SPARSE ladder" in p.stdout
+    assert "bracket the frontier" in p.stdout
+
+
+def test_reservation_refinement_is_available_from_the_cli():
+    p = run("reservation", "--prices", "1", "6", "--refine",
+            "--max-refinement-prices", "6", *TINY)
+    assert "CE RESERVATION-PRICE RANGE" in p.stdout
 
 
 @pytest.mark.parametrize("cmd", [
@@ -213,7 +227,9 @@ def test_the_committed_examples_exist_and_are_sanitized():
     """Committed output must carry no player names and no real-value claim."""
     for name in ("auction_room.txt", "auction_completion.txt",
                  "auction_buy_pass_unavailable.txt",
-                 "auction_buy_pass_rival.txt", "auction_reservation.txt",
+                 "auction_buy_pass_rival.txt",
+                 "auction_reservation_sparse.txt",
+                 "auction_reservation_refined.txt",
                  "auction_benchmark.txt"):
         path = REPO / "docs" / "examples" / name
         assert path.exists(), f"missing committed example {name}"

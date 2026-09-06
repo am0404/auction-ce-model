@@ -204,7 +204,10 @@ def test_no_committed_document_names_a_real_player():
     for f in _tracked():
         if not (f.startswith("docs/") or f.endswith(".md")):
             continue
-        text = (REPO / f).read_text(encoding="utf-8", errors="ignore")
+        path = REPO / f
+        if not path.exists():
+            continue          # staged for deletion; nothing to read
+        text = path.read_text(encoding="utf-8", errors="ignore")
         for m in markers:
             if m in text:
                 bad.append((f, m))

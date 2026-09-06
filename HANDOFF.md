@@ -1203,15 +1203,32 @@ denial.
 |---|---:|
 | state validation / legal maxima / fingerprint | ≤0.001s |
 | completion search, proxy only | 0.43s |
-| completion search + CE (4 finalists, 3k seasons) | 3.90s |
-| buy/pass, unavailable | 2.55s |
-| buy/pass, named rival (rival re-completes) | 3.52s |
-| reservation, 1 scenario × 6 prices | 15.8s |
+| completion search + CE selection + holdout (4 finalists) | 4.75s |
+| buy/pass, unavailable | 11.2s |
+| buy/pass, named rival (rival re-completes) | 18.3s |
+| reservation, 1 scenario × 6 prices | 71.0s |
 | 54-cell slot swap, 16,000 seasons | 23 min |
-| *projected:* full 54-scenario × 12-price reservation | ~28 min |
+| *projected:* full 54-scenario × 12-price reservation | ~2 hours |
 
 **Nothing here is live-capable.** A 10-second bid timer would need a precomputed
 table, not this search.
+
+### The foundation audit
+
+Eight findings were repaired on `auction-foundation-audit-fixes`; see
+`docs/AUCTION_LAYER.md` and the commit messages. The three that changed
+*numbers* rather than labels:
+
+* **buy/pass selected completions by the expected-points proxy**, not by
+  equity, so it computed `CE(proxy-selected completion)` while claiming
+  `CE(best modelled completion)`. Both branches now select by equity and report
+  on an independent holdout sample, which costs about 4.4× the runtime;
+* **sparse price ladders were reported as reservation prices.** Testing $20 and
+  then $50 now yields a *bracket* — at least $20, below $50, with $21–$49 named
+  as never evaluated — and `--refine` will go and evaluate them;
+* **an upward step in delta CE was described as real economics.** It cannot be:
+  every roster affordable at $p+1 was affordable at $p. Such a step is now
+  classified as noise, search instability, CE-selection instability, or a bug.
 
 ### Simplifying assumptions
 
@@ -1224,7 +1241,15 @@ table, not this search.
 7. No behavioural model of who would bid.
 8. In the demo, the scenario axis exercises the API rather than moving the
    players: the fabricated pool is identical under every scenario because there
-   is no contract to re-map. Real specs arrive as one state per scenario.
+   is no contract to re-map. Real specs arrive as one state per scenario, and
+   `tests/test_auction_audit_fixes.py` exercises that path with scenarios that
+   genuinely alter the specs.
+9. Every interval is pointwise 95%. A simultaneous band over prices and
+   scenarios is not implemented; a conservative Bonferroni alternative is
+   offered and labelled conservative.
+10. A rival's continuation is optimised for his own equity against our
+    *proxy-best* roster, because our real one is not determined until after he
+    has bought.
 
 ### Recommended next phase
 

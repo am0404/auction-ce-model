@@ -13,10 +13,10 @@ cost source   FABRICATED
 FINALISTS
   rank  added   cost     proxy        CE      +/-  QB/RB/WR/TE   
   ---------------------------------------------------------------
- *1       12    102   105.352    0.0723   0.0093  3/5/4/3         
-  2       12     92   102.373    0.0327   0.0064  3/5/3/4         
-  3       12     75    94.386    0.0010   0.0011  3/6/1/5         
-  4       12     62    87.767    0.0003   0.0007  3/5/2/5         
+ *1       12    102   105.352    0.0670   0.0089  3/5/4/3         
+  2       12     92   102.373       n/a           3/5/3/4         
+  3       12     75    94.386       n/a           3/6/1/5         
+  4       12     62    87.767       n/a           3/5/2/5         
   ---------------------------------------------------------------
 
   proxy = expected weekly starting projection under this roster's
@@ -32,7 +32,7 @@ SEARCH
   candidates found     128 (128 distinct)
   finalists simulated  4
   stop reason          search completed
-  runtime              3.86s (proxy 0.15s, CE 3.42s)
+  runtime              4.97s (proxy 0.19s, CE 4.48s)
 
   This is a BOUNDED SEARCH. It is not a proof of optimality and
   the best completion found may not be the best that exists.

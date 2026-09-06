@@ -451,3 +451,348 @@ def test_a_rival_continuation_is_optimised_for_his_own_equity():
                             settings=settings)
     assert "HIS OWN equity" in r.notes
     assert r.pass_.ce_team_index == d.cast.focus_team_index
+
+
+# ==========================================================================
+# Finding 2: sparse ladders were reported as reservation prices
+# ==========================================================================
+
+
+def _reservation_setup():
+    d = build_demo_auction()
+    cand = d.default_candidate().player_id
+    settings = CompletionSettings(beam_width=40, candidate_pool=25, finalists=2,
+                                  selection_sims=500, evaluation_sims=500)
+    return [ScenarioSetup("s1", d.state, d.cast, d.costs)], cand, settings
+
+
+def test_a_sparse_ladder_reports_a_bracket_and_not_a_price():
+    """Testing $10 then $40 says nothing about $11-$39."""
+    setups, cand, settings = _reservation_setup()
+    res = search_reservation(setups, cand, PassDestination.unavailable(),
+                             prices=[1, 10, 40, 90], settings=settings)
+    r = res.per_scenario["s1"]
+    assert not r.is_exhaustive
+    assert not res.is_exhaustive
+    assert r.exact_frontier is None, "a gap cannot yield an exact frontier"
+    assert res.robust_exact_frontier is None
+    assert r.highest_tested_favorable is not None
+    bracket = r.reservation_bracket
+    assert bracket is not None and bracket[0] == r.highest_tested_favorable
+    text = format_reservation(res)
+    assert "highest TESTED favorable" in text
+    assert "SPARSE LADDER" in text
+    assert "frontier BRACKET" in text or "integer frontier" in text
+
+
+def test_every_untested_interval_is_reported():
+    setups, cand, settings = _reservation_setup()
+    res = search_reservation(setups, cand, PassDestination.unavailable(),
+                             prices=[1, 10, 40], settings=settings)
+    r = res.per_scenario["s1"]
+    gaps = r.untested_intervals
+    assert (2, 9) in gaps and (11, 39) in gaps
+    covered = {p for a, b in gaps for p in range(a, b + 1)} | set(r.tested_prices)
+    assert covered == set(range(1, res.legal_max_bid + 1)), (
+        "every legal price is either tested or named as untested")
+    assert res.to_dict()["untested_intervals"]
+
+
+def test_the_transition_gap_is_named():
+    setups, cand, settings = _reservation_setup()
+    res = search_reservation(setups, cand, PassDestination.unavailable(),
+                             prices=[1, 10, 40, 90], settings=settings)
+    r = res.per_scenario["s1"]
+    lo, hi = r.highest_tested_favorable, r.next_tested_unfavorable
+    if lo is not None and hi is not None and hi > lo + 1:
+        assert r.transition_gap == (lo + 1, hi - 1)
+
+
+def test_refinement_pins_the_frontier_that_a_sparse_ladder_only_brackets():
+    """The repair's other half: an option that actually goes and tests them."""
+    setups, cand, settings = _reservation_setup()
+    ladder = [1, 30, 70]
+    sparse = search_reservation(setups, cand, PassDestination.unavailable(),
+                                prices=ladder, settings=settings)
+    gap = sparse.per_scenario["s1"].transition_gap
+    assert gap is not None, (
+        "the fixture needs a sparse run whose boundary is not pinned")
+    refined = search_reservation(setups, cand, PassDestination.unavailable(),
+                                 prices=ladder, settings=settings,
+                                 refine=True, max_refinement_prices=60)
+    assert refined.refined_prices > 0
+    assert len(refined.prices_searched) > len(sparse.prices_searched)
+    r = refined.per_scenario["s1"]
+    # Every integer between the boundary prices has now been evaluated, so
+    # nothing untested remains where the frontier could hide.
+    assert r.transition_gap is None
+    lo, hi = r.highest_tested_favorable, r.next_tested_unfavorable
+    if lo is not None and hi is not None:
+        assert set(range(lo, hi + 1)) <= set(r.tested_prices)
+
+
+def test_refinement_evaluates_every_integer_rather_than_bisecting():
+    """Bisection would assume the monotonicity this module refuses to assume."""
+    setups, cand, settings = _reservation_setup()
+    refined = search_reservation(setups, cand, PassDestination.unavailable(),
+                                 prices=[1, 30, 70], settings=settings,
+                                 refine=True, max_refinement_prices=60)
+    r = refined.per_scenario["s1"]
+    assert r.transition_gap is None, "the gap should be closed, not narrowed"
+    lo = r.highest_tested_favorable
+    hi = r.next_tested_unfavorable
+    if lo is not None and hi is not None:
+        tested = set(r.tested_prices)
+        assert set(range(lo, hi + 1)) <= tested, (
+            "every integer between the boundary prices must be evaluated")
+        # A bisection would have tested about log2(gap) prices; this tests all
+        # of them, because assuming monotonicity to skip any is exactly what
+        # the monotonicity check exists to avoid.
+        assert hi - lo <= 1 or len(tested & set(range(lo, hi + 1))) == hi - lo + 1
+
+
+def test_an_exhaustive_ladder_yields_an_exact_frontier():
+    d = build_demo_auction()
+    # A tiny legal range so exhaustive really is exhaustive.
+    st = d.state
+    focus = st.focus
+    from ceauction.auction.state import OwnerAuctionState
+    poor = dataclasses.replace(
+        st, owners=tuple(
+            dataclasses.replace(o, budget_start=o.spent + o.open_slots + 4)
+            if o.owner_id == st.focus_owner_id else o for o in st.owners))
+    assert poor.focus.max_bid == 5
+    setups = [ScenarioSetup("s1", poor, d.cast, d.costs)]
+    settings = CompletionSettings(beam_width=30, candidate_pool=20, finalists=2,
+                                  selection_sims=400, evaluation_sims=400)
+    res = search_reservation(setups, d.default_candidate().player_id,
+                             PassDestination.unavailable(),
+                             prices=list(range(1, 6)), settings=settings)
+    assert res.is_exhaustive
+    assert res.per_scenario["s1"].untested_intervals == ()
+    if res.robust_tested_price is not None:
+        assert res.robust_exact_frontier == res.robust_tested_price
+    assert "SPARSE LADDER" not in format_reservation(res)
+
+
+def test_an_upward_step_is_never_called_beneficial_economics():
+    """Paying more cannot raise the attainable maximum. Only defects can."""
+    from ceauction.auction.reservation import MonotonicityViolation, _classify
+    from ceauction.auction.reservation import PricePoint
+
+    def pt(price, d, se, buy=(), sell=()):
+        return PricePoint(price, d, se, "favorable", 0.1, 0.1 - d, sell, buy, True)
+
+    # Overlapping intervals: noise.
+    assert _classify(pt(1, 0.010, 0.01), pt(2, 0.012, 0.01)) == "monte carlo"
+    # Disjoint intervals with different rosters: the search moved, not the world.
+    assert _classify(pt(1, 0.010, 0.0001, buy=(1,)),
+                     pt(2, 0.050, 0.0001, buy=(2,))) == "search instability"
+    # Disjoint intervals with identical rosters: selection instability.
+    assert _classify(pt(1, 0.010, 0.0001, buy=(1,)),
+                     pt(2, 0.050, 0.0001, buy=(1,))) == "ce-selection instability"
+    assert "completion changed" not in {
+        _classify(pt(1, 0.01, 0.0001, buy=(1,)), pt(2, 0.05, 0.0001, buy=(2,)))}
+
+
+def test_the_output_explains_why_an_upward_step_cannot_be_economics():
+    setups, cand, settings = _reservation_setup()
+    res = search_reservation(setups, cand, PassDestination.unavailable(),
+                             prices=[1, 5, 10, 20], settings=settings)
+    text = format_reservation(res)
+    if res.all_violations:
+        assert "never beneficial economics" in text
+        assert "affordable at $p+1 was affordable at $p" in text
+    doc = search_reservation.__module__
+    import ceauction.auction.reservation as mod
+    assert "never beneficial economics" in mod.__doc__
+
+
+# ==========================================================================
+# Finding 5: "exact" was overstated
+# ==========================================================================
+
+
+def test_exhaustive_enumeration_followed_by_truncation_is_not_exact():
+    """Enumerating everything and then simulating three of them is not exact."""
+    d = build_demo_auction()
+    settings = CompletionSettings(exact=False, beam_width=40, candidate_pool=20,
+                                  finalists=2, proxy_candidates=5,
+                                  selection_sims=300, evaluation_sims=300)
+    res = complete_roster(d.state, d.cast, d.costs, settings=settings)
+    diag = res.diagnostics
+    assert not diag.is_exact
+    ex = diag.exactness
+    assert ex["overall"] == "heuristic"
+    assert ex["candidate_enumeration"] == "bounded beam"
+    assert ex["proxy_ranking"] == "truncated"
+    assert ex["ce_selection"] == "finalists only"
+    assert 0.0 <= ex["ce_coverage"] <= 1.0
+
+
+def test_each_exactness_stage_is_reported_separately():
+    d = build_demo_auction()
+    res = complete_roster(d.state, d.cast, d.costs,
+                          settings=CompletionSettings(beam_width=30,
+                                                      candidate_pool=20,
+                                                      finalists=2,
+                                                      selection_sims=300,
+                                                      evaluation_sims=300))
+    blob = res.to_dict()["diagnostics"]["exactness"]
+    for key in ("candidate_enumeration", "proxy_ranking", "ce_evaluated",
+                "ce_coverage", "ce_selection", "overall"):
+        assert key in blob
+    assert "of" in blob["ce_evaluated"], "CE coverage is reported as a count"
+
+
+def test_overall_exactness_requires_all_three_stages():
+    from ceauction.auction.completion import SearchDiagnostics
+    d = SearchDiagnostics(enumeration_exact=True, proxy_truncated=False,
+                          ce_selection_exact=True, candidates_kept=4,
+                          finalists_evaluated=4)
+    assert d.is_exact
+    assert dataclasses.replace(d, enumeration_exact=False).is_exact is False
+    assert dataclasses.replace(d, proxy_truncated=True).is_exact is False
+    assert dataclasses.replace(d, ce_selection_exact=False).is_exact is False
+
+
+# ==========================================================================
+# Finding 6: interval language
+# ==========================================================================
+
+
+def test_intervals_are_labelled_pointwise_not_simultaneous():
+    setups, cand, settings = _reservation_setup()
+    res = search_reservation(setups, cand, PassDestination.unavailable(),
+                             prices=[1, 10, 30], settings=settings)
+    blob = res.to_dict()
+    assert blob["interval_is"].startswith("pointwise 95%")
+    assert blob["simultaneous_band"].startswith("not implemented")
+    assert blob["n_interval_statements"] == 3
+    assert "POINTWISE" in res.simultaneous_note()
+    assert "NOT implemented" in res.simultaneous_note()
+    text = format_reservation(res)
+    assert "pointwise 95% CI" in text
+    assert "POINTWISE 95%" in text
+
+
+def test_a_conservative_simultaneous_alternative_is_available_and_wider():
+    setups, cand, settings = _reservation_setup()
+    res = search_reservation(setups, cand, PassDestination.unavailable(),
+                             prices=[1, 10, 30], settings=settings)
+    bonf = res.bonferroni_intervals()["s1"]
+    for p in res.per_scenario["s1"].points:
+        lo_p, hi_p = p.ci95
+        lo_b, hi_b = bonf[p.price]
+        if p.delta_ce_se > 0:
+            assert lo_b < lo_p and hi_b > hi_p, (
+                "a simultaneous band must be wider than a pointwise one")
+
+
+def test_the_normal_quantile_helper_is_accurate():
+    from ceauction.auction.reservation import _normal_quantile
+    assert _normal_quantile(0.975) == pytest.approx(1.959964, abs=1e-5)
+    assert _normal_quantile(0.5) == pytest.approx(0.0, abs=1e-9)
+    assert _normal_quantile(0.99) == pytest.approx(2.326348, abs=1e-5)
+    assert _normal_quantile(0.001) == pytest.approx(-3.090232, abs=1e-4)
+
+
+# ==========================================================================
+# Finding 7: the scenario pipeline was only exercised, never varied
+# ==========================================================================
+
+
+def _scenario_states(availability_lift: float, hazard: float):
+    """One fabricated auction whose specs genuinely differ by scenario.
+
+    The demo auction's pool is identical under every scenario, because there is
+    no contract to re-map, so a reservation run across three scenario ids
+    produced three identical results. That exercises the API and proves nothing
+    about the pipeline. Here the two "scenarios" really do produce different
+    ``PlayerSpec`` values -- a higher per-game level and a different injury
+    hazard, which is exactly what ``availability_adjusted`` does to a real
+    mapping -- so a difference in the answer has somewhere to come from.
+    """
+    owners = tuple(f"Owner{i + 1:02d}" for i in range(12))
+    pool, pid = [], 0
+
+    def add(pos, mean, n=1, bye=7):
+        nonlocal pid
+        out = []
+        for _ in range(n):
+            pool.append(PlayerSpec(
+                player_id=pid, name=f"Fabricated{pid:04d}", position=pos,
+                nfl_team="ZZA", base_mean=mean * availability_lift, week_sd=6.0,
+                bye_week=bye, weekly_injury_hazard=hazard,
+                injury_mean_weeks=2.5, data_source="FABRICATED:scenario-fixture"))
+            out.append(pid)
+            pid += 1
+        return out
+
+    rivals = []
+    for t in range(11):
+        rivals.append(tuple(add(Position.QB, 15.0, 2, bye=5 + t % 8)
+                            + add(Position.RB, 12.0, 4, bye=5 + t % 8)
+                            + add(Position.WR, 11.5, 6, bye=6 + t % 7)
+                            + add(Position.TE, 9.5, 3, bye=7 + t % 6)))
+    focus = (add(Position.QB, 15.0, 2, bye=5) + add(Position.RB, 12.0, 3, bye=8)
+             + add(Position.WR, 11.5, 4, bye=10) + add(Position.TE, 9.5, 2, bye=12))
+    assert len(focus) == 11
+    add(Position.RB, 11.0, 6, bye=9)
+    add(Position.WR, 10.5, 8, bye=11)
+    add(Position.TE, 8.0, 6, bye=13)
+
+    state = new_auction(pool, owners, owners[0])
+    for i, ids in enumerate(rivals):
+        for p in ids:
+            state = state.apply_purchase(p, owners[i + 1], 1)
+    for p in focus:
+        state = state.apply_purchase(p, owners[0], 12)
+    state.validate()
+    cast = ComparisonCast(0, (tuple(focus) + tuple(
+        sorted(state.available_ids)[:4]),) + tuple(rivals), owners)
+    costs = CostBook(tuple(CostEntry(s.player_id, 6) for s in pool),
+                     CostProvenance("FABRICATED", "scenario fixture"))
+    return state, cast, costs
+
+
+def test_scenarios_that_really_change_the_specs_change_the_reservation_result():
+    """The end-to-end pipeline test the earlier example could not provide."""
+    fh_state, fh_cast, fh_costs = _scenario_states(1.00, 0.02)
+    aa_state, aa_cast, aa_costs = _scenario_states(1.18, 0.09)
+
+    # Same identities, genuinely different players.
+    assert [s.player_id for s in fh_state.pool] == [s.player_id for s in aa_state.pool]
+    assert fh_state.pool_fingerprint() != aa_state.pool_fingerprint()
+    assert fh_state.fingerprint() != aa_state.fingerprint()
+
+    setups = [ScenarioSetup("fh-f000-s000-w1", fh_state, fh_cast, fh_costs),
+              ScenarioSetup("aa-f000-s000-w1", aa_state, aa_cast, aa_costs)]
+    assert setups[0].cache_key() != setups[1].cache_key()
+
+    candidate = sorted(fh_state.available_ids)[10]
+    settings = CompletionSettings(beam_width=40, candidate_pool=25, finalists=3,
+                                  selection_sims=3000, evaluation_sims=3000)
+    res = search_reservation(setups, candidate, PassDestination.unavailable(),
+                             prices=[1, 15, 40], settings=settings,
+                             scenarios_available=54)
+
+    a = res.per_scenario["fh-f000-s000-w1"]
+    b = res.per_scenario["aa-f000-s000-w1"]
+    deltas_a = [p.delta_ce for p in a.points]
+    deltas_b = [p.delta_ce for p in b.points]
+    assert deltas_a != deltas_b, (
+        "two scenarios with genuinely different specs must not return "
+        "identical results; that would mean the scenario never reached the "
+        "simulation")
+    assert res.to_dict()["per_scenario_frontier"]
+
+
+def test_the_demo_reservation_example_still_discloses_its_identical_specs():
+    """The disclosure is kept: the demo pool does not vary by scenario."""
+    import inspect
+
+    from ceauction.auction import cli_commands
+    src = inspect.getsource(cli_commands.cmd_reservation)
+    assert "exercises the API" in src
+    assert "identical under every scenario" in src

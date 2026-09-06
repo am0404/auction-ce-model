@@ -6,7 +6,7 @@ player. Nothing printed below is a real value or a market price.
 AUCTION ROOM
 ========================================================================================
 focus owner   Owner01
-fingerprint   2c7773448586b197
+fingerprint   b80b86af17827eeb
 pool          310 players, 175 still available, 0 withdrawn
 transactions  135
 
@@ -26,15 +26,24 @@ transactions  135
   Owner12         92    108      3        3       89       90  3/4/3/2              yes
   -----------------------------------------------------------------------------------
   reserve = $1 held for each open slot; discretionary = budget
-  above that floor; max bid = discretionary + $1.
+  above that floor; max bid is the FINANCIAL CEILING:
+  discretionary + $1. It is what an owner can afford, which is
+  not the same as what he may legally buy -- an owner whose last
+  slot must hold a receiver cannot bid on a quarterback at any
+  price. Candidate-specific legality is below.
   feasible = a legal 8-slot lineup can still be completed. It is
   a matching question on the eligibility graph, not a positional
   quota -- this league has no quarterback maximum.
 
-WHO MAY LEGALLY BID $20
+WHO CAN AFFORD $20
+  basis: financial and roster capacity only
   able (12): Owner01, Owner02, Owner03, Owner04, Owner05, Owner06, Owner07, Owner08, Owner09, Owner10, Owner11, Owner12
 
-  This is who MAY bid, from budget, roster room and
-  feasibility. Who WOULD bid is not modelled here.
+  No player is on the block, so this is the FINANCIAL
+  CEILING only. Whether an owner may legally buy a
+  particular player also depends on that player's
+  position and the owner's remaining lineup needs.
+
+  This is who MAY bid. Who WOULD bid is not modelled here.
 
 ========================================================================================

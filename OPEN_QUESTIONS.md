@@ -121,6 +121,34 @@ pair on the board keeps its order.
 *What would settle it:* the same test over the pairs a pricing layer would
 actually have to rank.
 
+### A7. Simultaneous coverage over prices and scenarios — OPEN
+
+Every interval this project reports is **pointwise 95%**. A reservation run
+covering a dozen prices in several scenarios makes dozens of such statements at
+once, so the robust/permissive range as a whole does not carry 95% joint
+coverage, and it is not labelled as though it does.
+
+A conservative Bonferroni-adjusted band is available and is valid but wide: it
+ignores the heavy positive dependence between neighbouring prices, which share
+most of their rosters and all of their random numbers.
+
+*What would settle it:* a simultaneous procedure that exploits that dependence —
+a bootstrap over the paired per-season differences would be the natural choice,
+since the pairing is already in place and resampling seasons preserves it.
+
+### A8. Exact CE optimisation over all completions is out of reach — OPEN
+
+"Exact" now requires three things at once: exhaustive candidate enumeration, no
+proxy truncation, and championship equity evaluated for *every* feasible
+completion. On a real board the third is the binding one — thousands of
+completions at seconds apiece. Every result reports the three stages
+separately and the fraction of completions actually simulated, so a heuristic
+answer is never presented as an exact one.
+
+*What would settle it:* nothing available now. A far cheaper equity estimator,
+or a proof that some class of completions can be discarded without simulating
+them, would be the routes.
+
 ### D1. The target league is the 12-team superflex league — SETTLED
 
 `SPEC.md` is definitive. The previous model's 10-team non-superflex

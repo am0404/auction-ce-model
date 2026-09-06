@@ -36,11 +36,14 @@ _FABRICATED_BANNER = (
 
 
 def _settings(args) -> CompletionSettings:
+    sel = getattr(args, "selection_sims", None) or args.sims
+    ev = getattr(args, "evaluation_sims", None) or args.sims
     return CompletionSettings(
         beam_width=args.beam_width, candidate_pool=args.candidate_pool,
-        finalists=args.finalists, selection_sims=args.sims,
-        evaluation_sims=args.sims, selection_seed=args.seed,
-        proxy_seed=args.seed, max_runtime_s=args.max_seconds)
+        finalists=args.finalists, selection_sims=sel, evaluation_sims=ev,
+        selection_seed=args.seed, proxy_seed=args.seed,
+        rival_selection=getattr(args, "rival_selection", "ce"),
+        max_runtime_s=args.max_seconds)
 
 
 def _load(args):
@@ -168,8 +171,11 @@ def cmd_reservation(args) -> int:
         ModelScenario.from_id(sid)          # validates, raises on nonsense
     # The demo pool is fabricated and identical under every scenario -- there
     # is no contract to re-map -- so the scenario axis here exercises the API
-    # rather than moving the players. Real specs would arrive as one state per
-    # scenario, which is why ScenarioSetup carries a state at all.
+    # rather than moving the players, and the per-scenario results will be
+    # identical for that reason and no other. Real specs arrive as one state per
+    # scenario, which is why ScenarioSetup carries a state at all;
+    # tests/test_auction_audit_fixes.py exercises that path with scenarios that
+    # genuinely alter the PlayerSpecs.
     setups = [ScenarioSetup(sid, demo.state, demo.cast, demo.costs)
               for sid in scenario_ids]
 
@@ -185,6 +191,14 @@ def cmd_reservation(args) -> int:
     if len(scenario_ids) < GRID_SIZE:
         print(f"NOTE: {len(scenario_ids)} of {GRID_SIZE} scenarios. This is a "
               f"REDUCED grid, not the full cross-product.")
+    if len(scenario_ids) > 1:
+        print("NOTE: the demo pool is identical under every scenario -- there is "
+              "no contract to\n      re-map -- so the per-scenario results below "
+              "will agree for that reason\n      and no other. This exercises the "
+              "API, not the scenario pipeline.")
+    if not args.refine:
+        print("NOTE: without --refine this is a SPARSE ladder. It can bracket "
+              "the frontier,\n      not name it.")
     if args.estimate_only:
         return 0
     print()
@@ -192,7 +206,8 @@ def cmd_reservation(args) -> int:
     cache = ReservationCache()
     result = search_reservation(setups, candidate, dest, prices=prices,
                                 settings=settings, scenarios_available=GRID_SIZE,
-                                cache=cache)
+                                cache=cache, refine=args.refine,
+                                max_refinement_prices=args.max_refinement_prices)
     print(format_reservation(result, cost_disclaimer=demo.costs.disclaimer()))
     print(f"\ncache: {cache.stats()}")
     if args.json_out:
@@ -290,7 +305,19 @@ def add_auction_parser(sub) -> None:
             sp.add_argument("--candidate-pool", type=int, default=45)
             sp.add_argument("--finalists", type=int, default=4)
             sp.add_argument("--sims", type=int, default=3000,
-                            help="seasons per completion, matched across arms")
+                            help="seasons for BOTH the selection and the "
+                                 "holdout evaluation samples")
+            sp.add_argument("--selection-sims", type=int, default=None,
+                            help="seasons used to CHOOSE among finalists by "
+                                 "equity (default: --sims)")
+            sp.add_argument("--evaluation-sims", type=int, default=None,
+                            help="seasons on the INDEPENDENT holdout the "
+                                 "reported difference is measured on "
+                                 "(default: --sims)")
+            sp.add_argument("--rival-selection", default="ce",
+                            choices=["ce", "proxy"],
+                            help="how a rival's continuation is chosen; 'proxy' "
+                                 "is faster and is labelled as such")
             sp.add_argument("--seed", type=int, default=20260904)
             sp.add_argument("--max-seconds", type=float, default=None,
                             help="runtime budget for one completion search")
@@ -335,6 +362,11 @@ def add_auction_parser(sub) -> None:
                    help="explicit price ladder; default is an even ladder over "
                         "the legal range")
     s.add_argument("--max-prices", type=int, default=8)
+    s.add_argument("--refine", action="store_true",
+                   help="evaluate EVERY integer between the highest favorable "
+                        "and the next unfavorable price, so the frontier is "
+                        "pinned rather than bracketed")
+    s.add_argument("--max-refinement-prices", type=int, default=40)
     s.add_argument("--scenarios", nargs="+", default=None,
                    help="model scenario ids; a subset is reported as reduced")
     s.add_argument("--seconds-per-comparison", type=float, default=2.5,

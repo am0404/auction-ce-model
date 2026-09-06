@@ -355,8 +355,8 @@ def test_a_cheap_price_is_favorable_and_an_expensive_one_is_not(fixture, candida
     r = res.per_scenario["s1"]
     assert r.verdict_at(1) == "favorable"
     assert r.verdict_at(90) in ("unfavorable", "unresolved")
-    assert res.robust_price is not None
-    assert res.robust_price < 90
+    assert res.robust_tested_price is not None
+    assert res.robust_tested_price < 90
 
 
 def test_robust_and_permissive_prices_are_defined_correctly():
@@ -367,12 +367,15 @@ def test_robust_and_permissive_prices_are_defined_correctly():
     def pt(price, verdict):
         d = {"favorable": 0.05, "unfavorable": -0.05, "unresolved": 0.0}[verdict]
         se = 0.001 if verdict != "unresolved" else 0.05
-        return PricePoint(price, d, se, verdict, 0.1, 0.1 - d, (), verdict != "unresolved")
+        return PricePoint(price, d, se, verdict, 0.1, 0.1 - d, (), (),
+                          verdict != "unresolved")
 
     a = ScenarioReservation("A", (pt(1, "favorable"), pt(5, "favorable"),
-                                  pt(9, "unresolved"), pt(13, "unfavorable")))
+                                  pt(9, "unresolved"), pt(13, "unfavorable")),
+                            min_bid=1, legal_max=20)
     b = ScenarioReservation("B", (pt(1, "favorable"), pt(5, "unfavorable"),
-                                  pt(9, "unfavorable"), pt(13, "unfavorable")))
+                                  pt(9, "unfavorable"), pt(13, "unfavorable")),
+                            min_bid=1, legal_max=20)
     res = ReservationResult(
         candidate_id=1, focus_owner_id="O00", auction_fingerprint="x",
         legal_max_bid=20, pass_destination=PassDestination.unavailable(),
@@ -380,27 +383,27 @@ def test_robust_and_permissive_prices_are_defined_correctly():
         scenarios_run=("A", "B"), scenarios_available=2, cost_level="FABRICATED",
         n_sims=100, is_heuristic=True, runtime_s=0.0, settings=FAST)
     # $1 is favorable in both; $5 is favorable in A only.
-    assert res.robust_price == 1
+    assert res.robust_tested_price == 1
     # $9 is unresolved in A, so not demonstrably unfavorable there; $13 is
     # unfavorable everywhere.
-    assert res.permissive_price == 9
+    assert res.permissive_tested_price == 9
     assert res.dominant_scenarios == {"A": 5, "B": 1}
 
 
 def test_a_price_favorable_nowhere_yields_no_robust_price():
     from ceauction.auction.reservation import (PricePoint, ReservationResult,
                                                ScenarioReservation)
-    pt = PricePoint(1, -0.05, 0.001, "unfavorable", 0.1, 0.15, (), True)
-    r = ScenarioReservation("A", (pt,))
+    pt = PricePoint(1, -0.05, 0.001, "unfavorable", 0.1, 0.15, (), (), True)
+    r = ScenarioReservation("A", (pt,), min_bid=1, legal_max=20)
     res = ReservationResult(
         candidate_id=1, focus_owner_id="O00", auction_fingerprint="x",
         legal_max_bid=20, pass_destination=PassDestination.unavailable(),
         prices_searched=(1,), per_scenario={"A": r}, scenarios_run=("A",),
         scenarios_available=1, cost_level="FABRICATED", n_sims=100,
         is_heuristic=True, runtime_s=0.0, settings=FAST)
-    assert res.robust_price is None
-    assert res.permissive_price is None
-    assert res.result_kind == "unfavorable at every searched price"
+    assert res.robust_tested_price is None
+    assert res.permissive_tested_price is None
+    assert res.result_kind == "unfavorable at every tested price"
 
 
 def test_monotonicity_is_checked_and_classified(fixture, candidate):

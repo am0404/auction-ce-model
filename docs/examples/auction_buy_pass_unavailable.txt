@@ -12,14 +12,14 @@ if we pass        unavailable (off the board)
 scenario          fh-f000-s000-w1
 cost source       FABRICATED
                   Acquisition costs are FABRICATED (ceauction.auction.demo straight-line curve) and exist only to exercise the machinery. Nothing derived from them describes any real player.
-auction state     2c7773448586b197
+auction state     b80b86af17827eeb
 seasons           4,000 (matched, common random numbers)
 
-  CE if we buy        0.07075
-  CE if we pass       0.02425
-  paired difference   +0.04650  +/- 0.00807
-  95% interval        [+0.03843, +0.05457]
-  seasons that differ 7.00%
+  CE if we buy        0.07150
+  CE if we pass       0.02375
+  paired difference   +0.04775  +/- 0.00799
+  95% interval        [+0.03976, +0.05574]
+  seasons that differ 6.88%
   verdict at $20      FAVORABLE
 
 WHAT THE BRANCHES DISAGREE ABOUT

@@ -29,9 +29,25 @@ completion-cost assumptions and a stated model scenario set. What the room will
 actually pay is a different quantity this package does not estimate, and what to
 bid given who else is still able to bid is a third.
 
-Monotonicity is checked, never assumed. Violations are reported and classified,
-because a jump caused by a player becoming unaffordable is information and a
-jump caused by Monte Carlo noise is not.
+**A sparse ladder cannot name a reservation price.** Testing $35 and then $50
+tells you the frontier lies somewhere in $35-$49; it does not tell you it is
+$35. Every result here reports the *highest tested favorable price*, the next
+tested unfavorable price, the untested gap between them, and whether the ladder
+was exhaustive. A definitive integer frontier requires every relevant integer to
+have been evaluated, and ``refine=True`` will go and do that inside the
+transition gap.
+
+**Delta CE cannot legitimately rise with price.** With fixed acquisition costs
+and a correctly optimised completion, every roster affordable after paying
+``p + 1`` was also affordable at ``p``, so the buy branch's attainable maximum
+is non-increasing in price; and the pass branch does not depend on our price at
+all when the destination and the rival's price are fixed. A completion change
+can therefore produce a genuine *downward* discontinuity -- a dollar here puts
+somebody there out of reach -- but it can never make the true optimum improve
+because we paid more. An observed increase is Monte Carlo noise, instability in
+the bounded candidate search, instability in the CE selection, or a bug. It is
+never beneficial economics, and an earlier version of this module described it
+as such.
 """
 
 from __future__ import annotations
@@ -101,11 +117,19 @@ class PricePoint:
     ce_buy: float
     ce_pass: float
     added_in_pass: Tuple[int, ...]
-    """What the money buys instead. Its changing is what makes a jump real."""
-    resolved: bool
+    """What the money buys instead. A change here explains a downward step."""
+    added_in_buy: Tuple[int, ...] = ()
+    resolved: bool = False
 
     @property
     def ci95(self) -> Tuple[float, float]:
+        """**Pointwise** 95% interval for this price in this scenario.
+
+        Not a simultaneous band. A run covering many prices and many scenarios
+        makes many such statements, and the chance that at least one of them is
+        wrong grows with their number. See
+        :meth:`ReservationResult.simultaneous_note`.
+        """
         if math.isnan(self.delta_ce_se):
             return (float("nan"), float("nan"))
         half = 1.96 * self.delta_ce_se
@@ -115,7 +139,8 @@ class PricePoint:
         lo, hi = self.ci95
         return {"price": self.price, "delta_ce": round(self.delta_ce, 6),
                 "se": round(self.delta_ce_se, 6),
-                "ci95": [round(lo, 6), round(hi, 6)],
+                "ci95_pointwise": [round(lo, 6), round(hi, 6)],
+                "interval_is": "pointwise 95%, not simultaneous",
                 "verdict": self.verdict, "resolved": self.resolved,
                 "ce_buy": round(self.ce_buy, 6),
                 "ce_pass": round(self.ce_pass, 6),
@@ -131,14 +156,28 @@ class MonotonicityViolation:
     lower_delta: float
     higher_delta: float
     cause: str
-    """``"monte carlo"``, ``"completion changed"`` or ``"unexplained"``.
+    """Why delta CE rose with price, which it should never truly do.
 
-    ``completion changed`` means the alternative roster genuinely differs
-    between the two prices -- a dollar moved somebody out of reach -- which is
-    a real discontinuity. ``monte carlo`` means the two intervals overlap.
-    ``unexplained`` means neither, which is the one worth investigating: it
-    suggests the bounded search found a better roster at the higher price than
-    at the lower one, i.e. search instability rather than economics.
+    ``"monte carlo"``          the two pointwise intervals overlap; the rise is
+                               within sampling error.
+    ``"search instability"``   the branches found different rosters at the two
+                               prices and the rise is outside sampling error.
+                               A dollar cannot buy a *better* attainable
+                               optimum, so this is the bounded beam finding a
+                               better roster at the higher price than it found
+                               at the lower one.
+    ``"ce-selection instability"``
+                               same rosters, rise outside sampling error: the
+                               finalist chosen by equity differed between the
+                               two runs for reasons the sample cannot justify.
+    ``"unexplained"``          none of the above, and worth investigating as a
+                               possible bug.
+
+    **None of these is beneficial economics.** With fixed costs and a correctly
+    optimised completion the buy branch's attainable maximum is non-increasing
+    in price and the pass branch does not depend on our price at all. A
+    completion change can produce a genuine downward step; it cannot produce an
+    upward one.
     """
 
     def to_dict(self) -> Dict[str, object]:
@@ -156,6 +195,9 @@ class ScenarioReservation:
     points: Tuple[PricePoint, ...]
     violations: Tuple[MonotonicityViolation, ...] = ()
 
+    min_bid: int = 1
+    legal_max: int = 0
+
     @property
     def favorable_prices(self) -> Tuple[int, ...]:
         return tuple(p.price for p in self.points if p.verdict == "favorable")
@@ -169,10 +211,109 @@ class ScenarioReservation:
         return tuple(p.price for p in self.points if p.verdict == "unresolved")
 
     @property
-    def favorable_frontier(self) -> Optional[int]:
-        """Greatest searched price whose interval sits at or above zero."""
+    def tested_prices(self) -> Tuple[int, ...]:
+        return tuple(p.price for p in self.points)
+
+    @property
+    def is_exhaustive(self) -> bool:
+        """Was every integer in the legal range actually evaluated?
+
+        Only then can a frontier be stated rather than bracketed.
+        """
+        if self.legal_max < self.min_bid:
+            return False
+        return set(self.tested_prices) == set(range(self.min_bid,
+                                                    self.legal_max + 1))
+
+    @property
+    def highest_tested_favorable(self) -> Optional[int]:
+        """The greatest price *that was tested* and came back favorable.
+
+        Deliberately not called a frontier. An earlier version reported this
+        as the reservation price after testing $35 and then $50, which asserts
+        something about $36-$49 that was never measured.
+        """
         fav = self.favorable_prices
         return max(fav) if fav else None
+
+    @property
+    def next_tested_unfavorable(self) -> Optional[int]:
+        """The lowest tested unfavorable price above the favorable ones."""
+        base = self.highest_tested_favorable
+        above = [p for p in self.unfavorable_prices
+                 if base is None or p > base]
+        return min(above) if above else None
+
+    @property
+    def reservation_bracket(self) -> Optional[Tuple[int, Optional[int]]]:
+        """``(lower, upper)`` -- the frontier is at least ``lower``, below ``upper``.
+
+        ``upper`` is ``None`` when nothing above was tested unfavorable, in
+        which case the frontier is only known to be at or above ``lower``. When
+        the ladder is exhaustive the bracket is tight: ``upper == lower + 1``.
+        """
+        lo = self.highest_tested_favorable
+        if lo is None:
+            return None
+        return (lo, self.next_tested_unfavorable)
+
+    @property
+    def exact_frontier(self) -> Optional[int]:
+        """The integer frontier, only when every relevant price was evaluated.
+
+        ``None`` whenever the ladder left a gap, however small. A number here
+        is a claim that no untested price could have changed it.
+        """
+        lo = self.highest_tested_favorable
+        if lo is None:
+            return None
+        nxt = self.next_tested_unfavorable
+        if self.is_exhaustive:
+            return lo
+        if nxt is not None and nxt == lo + 1:
+            return lo
+        return None
+
+    @property
+    def untested_intervals(self) -> Tuple[Tuple[int, int], ...]:
+        """Every run of integers inside the legal range that was never tried."""
+        if self.legal_max < self.min_bid:
+            return ()
+        tested = set(self.tested_prices)
+        gaps, start = [], None
+        for price in range(self.min_bid, self.legal_max + 1):
+            if price in tested:
+                if start is not None:
+                    gaps.append((start, price - 1))
+                    start = None
+            elif start is None:
+                start = price
+        if start is not None:
+            gaps.append((start, self.legal_max))
+        return tuple(gaps)
+
+    @property
+    def transition_gap(self) -> Optional[Tuple[int, int]]:
+        """The **untested** span between the last favorable and next unfavorable.
+
+        This is what :func:`search_reservation` refines when asked to pin the
+        frontier: everywhere else an untested price cannot move the answer as
+        much as this one can.
+
+        ``None`` once every integer in that span has been evaluated -- including
+        when they came back *unresolved*, which is a measured verdict and not a
+        gap. Treating an unresolved price as untested would make refinement
+        loop forever trying to test something it had already tested.
+        """
+        lo = self.highest_tested_favorable
+        hi = self.next_tested_unfavorable
+        if lo is None or hi is None or hi <= lo + 1:
+            return None
+        tested = set(self.tested_prices)
+        missing = [p for p in range(lo + 1, hi) if p not in tested]
+        if not missing:
+            return None
+        return (min(missing), max(missing))
 
     @property
     def unresolved_region(self) -> Optional[Tuple[int, int]]:
@@ -186,9 +327,17 @@ class ScenarioReservation:
         return None
 
     def to_dict(self) -> Dict[str, object]:
+        bracket = self.reservation_bracket
         return {
             "scenario_id": self.scenario_id,
-            "favorable_frontier": self.favorable_frontier,
+            "highest_tested_favorable": self.highest_tested_favorable,
+            "next_tested_unfavorable": self.next_tested_unfavorable,
+            "reservation_bracket": list(bracket) if bracket else None,
+            "exact_frontier": self.exact_frontier,
+            "ladder_is_exhaustive": self.is_exhaustive,
+            "untested_intervals": [list(g) for g in self.untested_intervals],
+            "transition_gap": list(self.transition_gap)
+            if self.transition_gap else None,
             "unresolved_region": list(self.unresolved_region)
             if self.unresolved_region else None,
             "n_favorable": len(self.favorable_prices),
@@ -217,6 +366,8 @@ class ReservationResult:
     is_heuristic: bool
     runtime_s: float
     settings: CompletionSettings
+    refined_prices: int = 0
+    """Extra integer prices evaluated to pin the frontier."""
     notes: str = ""
 
     @property
@@ -224,8 +375,17 @@ class ReservationResult:
         return len(self.scenarios_run) == self.scenarios_available
 
     @property
-    def robust_price(self) -> Optional[int]:
-        """Greatest searched price favorable in EVERY scenario run."""
+    def is_exhaustive(self) -> bool:
+        """Was every legal integer price evaluated in every scenario run?"""
+        return all(r.is_exhaustive for r in self.per_scenario.values())
+
+    @property
+    def robust_tested_price(self) -> Optional[int]:
+        """Highest **tested** price favorable in EVERY scenario run.
+
+        Not a frontier unless :attr:`is_exhaustive`. With a sparse ladder the
+        true frontier lies somewhere in :attr:`robust_bracket`.
+        """
         best = None
         for price in self.prices_searched:
             if all(r.verdict_at(price) == "favorable"
@@ -233,9 +393,36 @@ class ReservationResult:
                 best = price if best is None else max(best, price)
         return best
 
+    #: Kept so existing callers keep working; the name is misleading on a
+    #: sparse ladder, which is the point of the rename.
     @property
-    def permissive_price(self) -> Optional[int]:
-        """Greatest searched price not demonstrably unfavorable in some scenario."""
+    def robust_price(self) -> Optional[int]:
+        return self.robust_tested_price
+
+    @property
+    def robust_bracket(self) -> Optional[Tuple[int, Optional[int]]]:
+        """Where the robust frontier lies: at least ``lower``, below ``upper``."""
+        lo = self.robust_tested_price
+        if lo is None:
+            return None
+        above = [p for p in self.prices_searched
+                 if p > lo and any(r.verdict_at(p) == "unfavorable"
+                                   for r in self.per_scenario.values())]
+        return (lo, min(above) if above else None)
+
+    @property
+    def robust_exact_frontier(self) -> Optional[int]:
+        """The robust frontier as an integer, only if it was actually pinned."""
+        lo, hi = self.robust_bracket or (None, None)
+        if lo is None:
+            return None
+        if self.is_exhaustive or (hi is not None and hi == lo + 1):
+            return lo
+        return None
+
+    @property
+    def permissive_tested_price(self) -> Optional[int]:
+        """Highest **tested** price not demonstrably unfavorable somewhere."""
         best = None
         for price in self.prices_searched:
             if any(r.verdict_at(price) in ("favorable", "unresolved")
@@ -244,9 +431,56 @@ class ReservationResult:
         return best
 
     @property
+    def permissive_price(self) -> Optional[int]:
+        return self.permissive_tested_price
+
+    @property
+    def untested_intervals(self) -> Tuple[Tuple[int, int], ...]:
+        """Untested integer runs, from the first scenario's ladder."""
+        if not self.scenarios_run:
+            return ()
+        return self.per_scenario[self.scenarios_run[0]].untested_intervals
+
+    @property
+    def n_interval_statements(self) -> int:
+        """How many pointwise 95% claims this run makes."""
+        return sum(len(r.points) for r in self.per_scenario.values())
+
+    def simultaneous_note(self) -> str:
+        """Why the reported intervals are not a joint 95% band."""
+        n = self.n_interval_statements
+        return (f"Every interval here is POINTWISE 95%. This run makes {n} such "
+                f"statements across {len(self.prices_searched)} price(s) and "
+                f"{len(self.scenarios_run)} scenario(s), so the probability "
+                f"that at least one is wrong is far above 5%. A simultaneous "
+                f"band over prices and scenarios is NOT implemented; a "
+                f"Bonferroni-adjusted alternative is available via "
+                f"`bonferroni_intervals()` and is conservative rather than "
+                f"exact.")
+
+    def bonferroni_intervals(self) -> Dict[str, Dict[int, Tuple[float, float]]]:
+        """Conservative simultaneous intervals, by splitting alpha evenly.
+
+        Valid but wide: it ignores the heavy positive dependence between
+        neighbouring prices, which share most of their rosters and all of their
+        random numbers. Offered because a conservative honest band is better
+        than an exact-sounding one that is not.
+        """
+        n = max(self.n_interval_statements, 1)
+        # Two-sided Bonferroni: alpha/n per statement.
+        alpha = 0.05 / n
+        z = _normal_quantile(1.0 - alpha / 2.0)
+        out: Dict[str, Dict[int, Tuple[float, float]]] = {}
+        for sid, r in self.per_scenario.items():
+            out[sid] = {p.price: (p.delta_ce - z * p.delta_ce_se,
+                                  p.delta_ce + z * p.delta_ce_se)
+                        for p in r.points}
+        return out
+
+    @property
     def scenario_band(self) -> Optional[Tuple[Optional[int], Optional[int]]]:
-        """Lowest and highest per-scenario favorable frontier."""
-        fronts = [r.favorable_frontier for r in self.per_scenario.values()]
+        """Lowest and highest per-scenario highest-tested-favorable price."""
+        fronts = [r.highest_tested_favorable for r in self.per_scenario.values()]
         present = [f for f in fronts if f is not None]
         if not present:
             return None
@@ -254,7 +488,8 @@ class ReservationResult:
 
     @property
     def dominant_scenarios(self) -> Dict[str, Optional[int]]:
-        return {sid: r.favorable_frontier for sid, r in self.per_scenario.items()}
+        return {sid: r.highest_tested_favorable
+                for sid, r in self.per_scenario.items()}
 
     @property
     def all_violations(self) -> Tuple[MonotonicityViolation, ...]:
@@ -274,11 +509,14 @@ class ReservationResult:
 
     @property
     def result_kind(self) -> str:
-        if self.robust_price is not None:
-            return "heuristic" if self.is_heuristic else "exact"
-        if self.permissive_price is not None:
-            return "unresolved (no price is favorable in every scenario)"
-        return "unfavorable at every searched price"
+        if self.robust_tested_price is None:
+            if self.permissive_tested_price is not None:
+                return "unresolved (no tested price is favorable in every scenario)"
+            return "unfavorable at every tested price"
+        pinned = self.robust_exact_frontier is not None
+        search = "heuristic search" if self.is_heuristic else "exact search"
+        ladder = "exact integer frontier" if pinned else "bracketed frontier"
+        return f"{search}, {ladder}"
 
     def to_dict(self) -> Dict[str, object]:
         band = self.scenario_band
@@ -294,8 +532,18 @@ class ReservationResult:
             "full_grid": self.full_grid,
             "cost_level": self.cost_level,
             "n_sims": self.n_sims,
-            "robust_reservation_price": self.robust_price,
-            "permissive_reservation_price": self.permissive_price,
+            "ladder_is_exhaustive": self.is_exhaustive,
+            "refined_prices": self.refined_prices,
+            "untested_intervals": [list(g) for g in self.untested_intervals],
+            "robust_highest_tested_favorable": self.robust_tested_price,
+            "robust_bracket": list(self.robust_bracket)
+            if self.robust_bracket else None,
+            "robust_exact_frontier": self.robust_exact_frontier,
+            "permissive_highest_tested_favorable": self.permissive_tested_price,
+            "interval_is": "pointwise 95%, not simultaneous",
+            "n_interval_statements": self.n_interval_statements,
+            "simultaneous_band": "not implemented; see simultaneous_note()",
+            "simultaneous_note": self.simultaneous_note(),
             "scenario_band": list(band) if band else None,
             "per_scenario_frontier": self.dominant_scenarios,
             "monotonicity_violations": [v.to_dict() for v in self.all_violations],
@@ -305,9 +553,10 @@ class ReservationResult:
             "settings": self.settings.to_dict(),
             "per_scenario": {k: v.to_dict() for k, v in self.per_scenario.items()},
             "label": ("CE reservation-price range under the stated "
-                      "completion-cost and model scenarios. NOT an opening max "
-                      "bid, NOT a recommended bid, NOT a clearing-price "
-                      "prediction."),
+                      "completion-cost and model scenarios, from a "
+                      + ("complete" if self.is_exhaustive else "SPARSE")
+                      + " integer price ladder. NOT an opening max bid, NOT a "
+                      "recommended bid, NOT a clearing-price prediction."),
             "notes": self.notes,
         }
 
@@ -364,6 +613,38 @@ class ReservationCache:
 # ---------------------------------------------------------------------------
 
 
+def _normal_quantile(p: float) -> float:
+    """Inverse standard normal CDF, Acklam's rational approximation.
+
+    Accurate to about 1.15e-9 in absolute value over the whole range, which is
+    far more than a confidence bound needs, and it avoids adding a SciPy
+    dependency the rest of this project does not have.
+    """
+    if not 0.0 < p < 1.0:
+        raise ValueError("p must be strictly between 0 and 1")
+    a = (-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+         1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00)
+    b = (-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+         6.680131188771972e+01, -1.328068155288572e+01)
+    c = (-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+         -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00)
+    d = (7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
+         3.754408661907416e+00)
+    lo, hi = 0.02425, 1 - 0.02425
+    if p < lo:
+        q = math.sqrt(-2 * math.log(p))
+        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / \
+               ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+    if p > hi:
+        q = math.sqrt(-2 * math.log(1 - p))
+        return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / \
+               ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+    q = p - 0.5
+    r = q * q
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / \
+           (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+
+
 def price_ladder(min_bid: int, legal_max: int, max_prices: int = 12) -> Tuple[int, ...]:
     """A deterministic set of prices spanning the legal range.
 
@@ -384,13 +665,23 @@ def price_ladder(min_bid: int, legal_max: int, max_prices: int = 12) -> Tuple[in
 
 
 def _classify(lo: PricePoint, hi: PricePoint) -> str:
-    if set(lo.added_in_pass) != set(hi.added_in_pass):
-        return "completion changed"
+    """Why did paying more look better? Never because it was.
+
+    Sampling error is checked first, because most such steps are noise. Only
+    when the two intervals are disjoint is the rise large enough to need a
+    structural explanation, and every available structural explanation is a
+    defect in the search rather than a property of the auction.
+    """
     lo_lo, lo_hi = lo.ci95
     hi_lo, hi_hi = hi.ci95
-    if not (math.isnan(lo_lo) or math.isnan(hi_lo)) and lo_lo <= hi_hi and hi_lo <= lo_hi:
+    overlap = (not (math.isnan(lo_lo) or math.isnan(hi_lo))
+               and lo_lo <= hi_hi and hi_lo <= lo_hi)
+    if overlap:
         return "monte carlo"
-    return "unexplained"
+    if set(lo.added_in_pass) != set(hi.added_in_pass) or \
+            set(lo.added_in_buy) != set(hi.added_in_buy):
+        return "search instability"
+    return "ce-selection instability"
 
 
 def estimate_runtime(n_scenarios: int, n_prices: int,
@@ -415,6 +706,8 @@ def search_reservation(
     scenarios_available: Optional[int] = None,
     default_cost: Optional[int] = None,
     cache: Optional[ReservationCache] = None,
+    refine: bool = False,
+    max_refinement_prices: int = 40,
     notes: str = "",
     progress=None,
 ) -> ReservationResult:
@@ -423,6 +716,17 @@ def search_reservation(
     ``scenarios_available`` is the size of the full grid, so a reduced run
     reports itself as reduced. Leaving it unset assumes the supplied scenarios
     *are* the whole grid, which is only true when they are.
+
+    ``refine`` evaluates **every integer** between the highest tested favorable
+    price and the next tested unfavorable one, in every scenario, until the
+    frontier is pinned or ``max_refinement_prices`` is spent. Without it a
+    sparse ladder can only bracket the frontier, and the result says so rather
+    than naming a price it never tested.
+
+    Refinement does **not** assume monotonicity to skip regions. Every integer
+    in the gap is evaluated. That is more expensive than a bisection would be,
+    and it is the honest cost of not assuming the property the monotonicity
+    check exists to test.
     """
     if not setups:
         raise ValueError("a reservation search needs at least one scenario setup")
@@ -449,53 +753,95 @@ def search_reservation(
 
     per_scenario: Dict[str, ScenarioReservation] = {}
     heuristic = False
+    proxies = {setup.scenario_id: ProxyEvaluator(
+        setup.state.pool, setup.state.settings, settings.proxy_reps,
+        settings.proxy_seed) for setup in setups}
+    evaluated: Dict[str, Dict[int, PricePoint]] = {s.scenario_id: {} for s in setups}
     total = len(setups) * len(ladder)
     done = 0
+
+    def evaluate(setup: ScenarioSetup, price: int) -> PricePoint:
+        nonlocal heuristic
+        k = ReservationCache.key(setup, candidate_id, price, pass_destination,
+                                 settings)
+        res = cache.get(k)
+        if res is None:
+            res = compare_buy_vs_pass(
+                setup.state, setup.cast, setup.costs, candidate_id, price,
+                pass_destination, settings=settings,
+                scenario_id=setup.scenario_id, default_cost=default_cost,
+                proxy=proxies[setup.scenario_id])
+            cache.put(k, res)
+        heuristic = heuristic or res.is_heuristic
+        return PricePoint(
+            price=price, delta_ce=res.delta_ce, delta_ce_se=res.delta_ce_se,
+            verdict=res.verdict, ce_buy=res.ce_buy, ce_pass=res.ce_pass,
+            added_in_pass=tuple(res.pass_.best.added) if res.pass_.best else (),
+            added_in_buy=tuple(res.buy.best.added) if res.buy.best else (),
+            resolved=res.resolved)
+
     for setup in setups:
-        proxy = ProxyEvaluator(setup.state.pool, setup.state.settings,
-                               settings.proxy_reps, settings.proxy_seed)
-        points: List[PricePoint] = []
         for price in ladder:
-            k = ReservationCache.key(setup, candidate_id, price,
-                                     pass_destination, settings)
-            res = cache.get(k)
-            if res is None:
-                res = compare_buy_vs_pass(
-                    setup.state, setup.cast, setup.costs, candidate_id, price,
-                    pass_destination, settings=settings,
-                    scenario_id=setup.scenario_id, default_cost=default_cost,
-                    proxy=proxy)
-                cache.put(k, res)
-            heuristic = heuristic or res.is_heuristic
-            points.append(PricePoint(
-                price=price, delta_ce=res.delta_ce, delta_ce_se=res.delta_ce_se,
-                verdict=res.verdict, ce_buy=res.ce_buy, ce_pass=res.ce_pass,
-                added_in_pass=tuple(res.pass_.best.added) if res.pass_.best else (),
-                resolved=res.resolved))
+            evaluated[setup.scenario_id][price] = evaluate(setup, price)
             done += 1
             if progress is not None:
                 progress(done, total, setup.scenario_id, price)
 
+    def build(sid: str) -> ScenarioReservation:
+        pts = tuple(evaluated[sid][p] for p in sorted(evaluated[sid]))
         violations = []
-        for a, b in zip(points, points[1:]):
-            # Paying more can only be worse, so delta must not rise with price.
+        for a, b in zip(pts, pts[1:]):
             if b.delta_ce > a.delta_ce:
                 violations.append(MonotonicityViolation(
                     a.price, b.price, a.delta_ce, b.delta_ce, _classify(a, b)))
-        per_scenario[setup.scenario_id] = ScenarioReservation(
-            setup.scenario_id, tuple(points), tuple(violations))
+        return ScenarioReservation(sid, pts, tuple(violations),
+                                   min_bid=owner.min_bid, legal_max=legal_max)
+
+    # --- optional refinement of the transition gap -------------------------
+    refined = 0
+    if refine:
+        while refined < max_refinement_prices:
+            gaps = {}
+            for setup in setups:
+                gap = build(setup.scenario_id).transition_gap
+                if gap is not None:
+                    gaps[setup.scenario_id] = gap
+            if not gaps:
+                break
+            progressed = False
+            for sid, (lo_p, hi_p) in gaps.items():
+                setup = next(s for s in setups if s.scenario_id == sid)
+                for price in range(lo_p, hi_p + 1):
+                    if price in evaluated[sid]:
+                        continue
+                    evaluated[sid][price] = evaluate(setup, price)
+                    refined += 1
+                    progressed = True
+                    if progress is not None:
+                        progress(done + refined, total + refined, sid, price)
+                    if refined >= max_refinement_prices:
+                        break
+                if refined >= max_refinement_prices:
+                    break
+            if not progressed:
+                break
+
+    for setup in setups:
+        per_scenario[setup.scenario_id] = build(setup.scenario_id)
 
     return ReservationResult(
         candidate_id=candidate_id, focus_owner_id=focus_id,
         auction_fingerprint=base.state.fingerprint(), legal_max_bid=legal_max,
-        pass_destination=pass_destination, prices_searched=ladder,
+        pass_destination=pass_destination,
+        prices_searched=tuple(sorted(
+            set(ladder) | {price for d in evaluated.values() for price in d})),
         per_scenario=per_scenario,
         scenarios_run=tuple(s.scenario_id for s in setups),
         scenarios_available=scenarios_available if scenarios_available is not None
         else len(setups),
         cost_level=base.costs.level, n_sims=settings.ce_sims,
         is_heuristic=heuristic, runtime_s=time.perf_counter() - t0,
-        settings=settings, notes=notes)
+        settings=settings, refined_prices=refined, notes=notes)
 
 
 def format_reservation(result: ReservationResult, width: int = 92,
@@ -524,43 +870,106 @@ def format_reservation(result: ReservationResult, width: int = 92,
     for sid in result.scenarios_run:
         r = result.per_scenario[sid]
         out.append(f"SCENARIO {sid}")
-        head = (f"    {'price':>7}{'dCE':>11}{'se':>9}{'95% CI':>22}"
-                f"{'verdict':>13}")
+        head = (f"    {'price':>7}{'dCE':>11}{'se':>9}"
+                f"{'pointwise 95% CI':>24}{'verdict':>13}")
         out += [head, "    " + "-" * (len(head) - 4)]
         for p in r.points:
             lo, hi = p.ci95
             out.append(f"    ${p.price:>6}{p.delta_ce:>+11.5f}{p.delta_ce_se:>9.5f}"
-                       f"  [{lo:+.5f}, {hi:+.5f}]{p.verdict:>13}")
-        out += ["    " + "-" * (len(head) - 4),
-                f"    favorable up to   "
-                + (f"${r.favorable_frontier}" if r.favorable_frontier is not None
-                   else "no searched price is favorable"),
-                f"    unresolved band   "
-                + (f"${r.unresolved_region[0]}-${r.unresolved_region[1]}"
-                   if r.unresolved_region else "none")]
+                       f"    [{lo:+.5f}, {hi:+.5f}]{p.verdict:>13}")
+        out += ["    " + "-" * (len(head) - 4)]
+        hi_fav = r.highest_tested_favorable
+        nxt = r.next_tested_unfavorable
+        out.append("    highest TESTED favorable   "
+                   + (f"${hi_fav}" if hi_fav is not None
+                      else "none of the tested prices is favorable"))
+        out.append("    next tested unfavorable    "
+                   + (f"${nxt}" if nxt is not None else "none tested above"))
+        if r.exact_frontier is not None:
+            out.append(f"    integer frontier           ${r.exact_frontier} "
+                       f"(every relevant price was evaluated)")
+        elif r.reservation_bracket is not None:
+            lo_b, hi_b = r.reservation_bracket
+            out.append(f"    frontier BRACKET           at least ${lo_b}"
+                       + (f", below ${hi_b}" if hi_b is not None
+                          else ", nothing above was tested"))
+        gap = r.transition_gap
+        if gap is not None:
+            out.append(f"    UNTESTED between them      ${gap[0]}-${gap[1]} "
+                       f"({gap[1] - gap[0] + 1} price(s) never evaluated)")
+        if r.untested_intervals:
+            spans = ", ".join(f"${a}-${b}" for a, b in r.untested_intervals[:6])
+            more = "" if len(r.untested_intervals) <= 6 else " ..."
+            out.append(f"    untested overall           {spans}{more}")
+        out.append("    unresolved band            "
+                   + (f"${r.unresolved_region[0]}-${r.unresolved_region[1]}"
+                      if r.unresolved_region else "none"))
         if r.violations:
-            out.append(f"    monotonicity      {len(r.violations)} violation(s):")
+            out.append(f"    monotonicity      {len(r.violations)} violation(s) "
+                       f"(paying more looked BETTER, which it cannot truly be):")
             for v in r.violations:
                 out.append(f"      ${v.lower_price} -> ${v.higher_price}: "
                            f"{v.lower_delta:+.5f} -> {v.higher_delta:+.5f} "
                            f"[{v.cause}]")
         out.append("")
 
-    out += [bar, "RESERVATION RANGE", bar,
-            f"  robust      "
-            + (f"${result.robust_price}" if result.robust_price is not None
-               else "none -- no searched price is favorable in every scenario"),
-            "              the greatest price favorable in EVERY scenario run",
-            f"  permissive  "
-            + (f"${result.permissive_price}" if result.permissive_price is not None
-               else "none -- every scenario says no at every searched price"),
-            "              the greatest price not demonstrably unfavorable in",
-            "              at least one scenario",
-            ""]
+    out += [bar, "RESERVATION RANGE", bar]
+    lo_b, hi_b = result.robust_bracket or (None, None)
+    if result.robust_exact_frontier is not None:
+        out.append(f"  robust frontier      ${result.robust_exact_frontier}  "
+                   f"(EXACT: every relevant integer price was evaluated)")
+    elif lo_b is not None:
+        out.append(f"  robust bracket       at least ${lo_b}"
+                   + (f", below ${hi_b}" if hi_b is not None
+                      else ", nothing above was tested"))
+        out.append("                       the highest TESTED price favorable in")
+        out.append("                       every scenario. The true frontier is")
+        out.append("                       inside this bracket, not necessarily")
+        out.append("                       at its lower end.")
+    else:
+        out.append("  robust               none -- no tested price is favorable "
+                   "in every scenario")
+    out.append("  permissive (tested)  "
+               + (f"${result.permissive_tested_price}"
+                  if result.permissive_tested_price is not None
+                  else "none -- every scenario says no at every tested price"))
+    out.append("                       highest tested price not demonstrably")
+    out.append("                       unfavorable in at least one scenario")
+    out.append("")
+    if not result.is_exhaustive:
+        gaps = result.untested_intervals
+        closed = all(r.transition_gap is None
+                     for r in result.per_scenario.values())
+        out += [f"  *** SPARSE LADDER: {len(gaps)} untested interval(s) remain "
+                f"in the legal range.", ""]
+        if closed:
+            out += ["      The TRANSITION REGION is fully evaluated: every "
+                    "integer between",
+                    "      the highest favorable and the next unfavorable price "
+                    "was tested.",
+                    "      What stops this being an exact frontier is that "
+                    "prices inside it",
+                    "      came back UNRESOLVED, or that untested prices remain "
+                    "elsewhere and",
+                    "      monotonicity is checked rather than assumed, so a "
+                    "favorable price",
+                    "      above the bracket cannot be ruled out by argument "
+                    "alone. ***", ""]
+        else:
+            out += ["      No price between the tested ones was evaluated, so "
+                    "none of the",
+                    "      numbers above is a definitive integer frontier. "
+                    "Re-run with",
+                    "      --refine to evaluate every integer in the transition "
+                    "gap. ***", ""]
+    if result.refined_prices:
+        out.append(f"  refinement           {result.refined_prices} extra integer "
+                   f"price(s) evaluated to pin the frontier")
     band = result.scenario_band
     if band:
         lo = f"${band[0]}" if band[0] is not None else "none in some scenario"
-        out.append(f"  per-scenario frontier spans {lo} to ${band[1]}")
+        out.append(f"  per-scenario highest tested favorable spans {lo} "
+                   f"to ${band[1]}")
     out += [f"  result is    {result.result_kind}",
             f"  runtime      {result.runtime_s:.1f}s", ""]
     if result.all_violations:
@@ -569,12 +978,16 @@ def format_reservation(result: ReservationResult, width: int = 92,
             causes[v.cause] = causes.get(v.cause, 0) + 1
         out += ["  Monotonicity was checked, not assumed. "
                 + ", ".join(f"{n} {c}" for c, n in sorted(causes.items())) + ".",
-                "  A 'completion changed' jump is real economics: a dollar here",
-                "  put somebody there out of reach.", ""]
+                "  With fixed costs and a correctly optimised completion, paying",
+                "  more can never raise the attainable maximum: every roster",
+                "  affordable at $p+1 was affordable at $p, and the pass branch",
+                "  does not depend on our price at all. So an upward step is",
+                "  noise or instability, never beneficial economics.", ""]
     if result.is_heuristic:
         out += ["  Both branches at every price are BOUNDED SEARCHES. The range",
                 "  is between the best rosters this search found.", ""]
-    out += ["  This is a CE reservation-price range under the stated",
+    out += ["  " + result.simultaneous_note().replace(". ", ".\n  "), "",
+            "  This is a CE reservation-price range under the stated",
             "  completion-cost assumptions and model scenarios.",
             "  It is NOT an opening maximum, NOT a bid, and NOT a prediction of",
             "  what the room will pay.", bar]

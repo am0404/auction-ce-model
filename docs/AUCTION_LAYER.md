@@ -54,9 +54,22 @@ A dollars-per-CE conversion fails for a subtler reason. At $18 you can still
 afford some other player; at $19 you cannot. The best alternative is a
 *different roster* at every price, so the comparison is a different question at
 each one. That is why the reservation search actually searches the price domain
-instead of dividing one CE difference by a constant, and why it checks
-monotonicity rather than assuming it — a jump when someone becomes unaffordable
-is real economics, not noise.
+instead of dividing one CE difference by a constant.
+
+**Which direction a jump can go is not symmetric.** With fixed acquisition
+costs and a correctly optimised completion, every roster affordable after
+paying `p + 1` was also affordable at `p`, so the buy branch's attainable
+maximum is non-increasing in price; and the pass branch does not depend on our
+price at all when the destination and the rival's price are fixed. A player
+becoming unaffordable can therefore produce a genuine **downward** step. It can
+never make the true optimum *improve* because we paid more.
+
+An earlier version of this document and of the code described an upward step as
+"real economics: a dollar here put somebody there out of reach". That was
+wrong. An observed increase in delta CE is Monte Carlo noise, instability in
+the bounded candidate search, instability in the CE selection, or a bug — and
+the violation report now classifies it as one of those four rather than
+excusing it.
 
 ## 3. Three prices, kept apart
 
@@ -173,12 +186,30 @@ it, so rather than invent a weight for it, the beam carries every spending level
 and lets the availability proxy decide.
 
 **Stage 2** re-ranks the survivors with `ceauction.auction.proxy`, which draws
-the real bye and injury process and picks lineups with the real slot rules, then
-simulates the top finalists for actual championship equity against a fixed cast,
-paired by common random numbers.
+the real bye and injury process and picks lineups with the real slot rules.
+
+**Stage 3 chooses by championship equity**, simulating the finalists against a
+fixed cast under common random numbers. **Stage 4 reports the winner on an
+independent holdout sample** at an unrelated seed. Those last two are separate
+on purpose: the maximum of several noisy estimates is biased upward, because
+the winner won partly because its sample was kind to it, and quoting that same
+sample would carry the bias into every price and every reservation frontier
+built on it. Selection and evaluation counts are reported separately, and
+constructing settings whose two seeds are equal is refused.
 
 Finalists are diversified the same way: a runner-up that differs from the leader
 by one interchangeable bench player answers nothing.
+
+**A correction worth recording.** An earlier version ran both branches of a
+buy/pass comparison with CE evaluation switched off, so each picked whichever
+roster its *expected-points* proxy liked and only then simulated that single
+roster. What it computed was `CE(proxy-selected completion)` while claiming
+`CE(best modelled completion)`. Both are now CE-selected, and every result
+states which rule chose it via `selection_basis`. A controlled fixture in
+`tests/test_auction_audit_fixes.py` makes the two rules disagree — an underdog
+whose fifteenth slot is a weekly starter, choosing between more points at
+ordinary spread and fewer points at very wide spread — and the two paths pick
+different players on it.
 
 **Known limits.** The beam is a bounded search and is labelled heuristic
 everywhere. The proxy is expected points, not equity, and is never called value.
@@ -270,6 +301,25 @@ design allows. A difference whose interval contains zero is reported as
 unresolved and never ordered on noise. Finalist completions that cannot be
 separated come back as a co-best *set*.
 
+**Every interval reported is POINTWISE 95%, not a simultaneous band.** A run
+covering many prices and many scenarios makes many such statements at once, and
+the probability that at least one of them is wrong grows with their number — so
+the robust/permissive range as a whole does **not** carry 95% joint coverage. A
+proper simultaneous procedure is **not implemented**. A conservative
+Bonferroni-adjusted alternative is available via
+`ReservationResult.bonferroni_intervals()`; it is valid but wide, because it
+ignores the heavy positive dependence between neighbouring prices that share
+most of their rosters and all of their random numbers.
+
+**A sparse price ladder brackets a frontier; it does not name one.** Testing
+$20 and then $50 says the frontier is somewhere in $20–$49, not that it is $20.
+Results report the *highest tested favorable price*, the next tested
+unfavorable price, every untested interval, and whether the ladder was
+exhaustive. An integer frontier is reported only when every relevant price was
+actually evaluated. `--refine` goes and evaluates every integer in the
+transition gap; it does **not** bisect, because bisection would assume the
+monotonicity the violation check exists to test.
+
 **Search.** The beam is heuristic. Where a board is small enough, exhaustive
 enumeration is available as a testing oracle and the beam is checked against it,
 but on a real board it is not a proof of optimality, and the difference reported
@@ -314,14 +364,22 @@ Fabricated demo auction, 12 owners, 310-player pool, 3,000 seasons per arm.
 | legal maxima for all 12 owners | <0.001s |
 | fingerprint | <0.001s |
 | completion search, proxy only | 0.43s |
-| completion search + CE (4 finalists) | 3.90s |
-| buy/pass, unavailable | 2.55s |
-| buy/pass, named rival (rival re-completes) | 3.52s |
-| reservation, 1 scenario × 6 prices | 15.8s |
+| state fingerprint (hashes every PlayerSpec field) | 0.003s |
+| completion search + CE selection + holdout (4 finalists) | 4.75s |
+| buy/pass, unavailable | 11.2s |
+| buy/pass, named rival (rival re-completes) | 18.3s |
+| reservation, 1 scenario × 6 prices | 71.0s |
 | 54-cell slot swap, 16,000 seasons | 23 min |
 
 **Projected:** a full 54-scenario × 12-price reservation range is about
-**28 minutes**. That is an offline workflow, and it is described as one.
+**two hours**. That is an offline workflow, and it is described as one.
+
+Before the audit a buy/pass comparison took 2.55s, because each branch stopped
+at its proxy and simulated one roster. Evaluating finalists by equity in both
+branches, optimising the rival's continuation for his own equity, and reporting
+on an independent holdout costs about 4.4×. That is the price of computing the
+quantity the documentation always claimed, and the old number should not be
+quoted as though the two measured the same thing.
 
 **Nothing here is live-capable.** A single buy/pass comparison is 2.5 seconds on
 fabricated data; a reservation range is minutes. A 10-second bid timer would
@@ -334,4 +392,18 @@ No dollar values for real players. No opening bids. No live bids. No auction
 inflation. No prediction of who will bid or what anything will clear for. No
 multi-owner simultaneous completion — the other eleven rosters are held fixed.
 No in-season waivers, trades, or post-draft replacement, which means a
-quarterback's real scarcity cannot yet be fully priced.
+quarterback's real scarcity cannot yet be fully priced. No simultaneous
+confidence band over prices and scenarios.
+
+## 15. Terms this document keeps apart
+
+| Term | Means |
+|---|---|
+| **proxy-selected completion** | chosen by expected weekly starting points. Cheap, and not equity |
+| **CE-selected completion** | chosen by simulated championship equity on a selection sample |
+| **holdout equity** | the chosen roster's equity on an independent sample. The number to quote |
+| **highest tested favorable price** | the greatest price that was *evaluated* and came back favorable |
+| **reservation bracket** | at least X, below Y. Where the frontier is, when the ladder left a gap |
+| **exact integer reservation frontier** | a single price, reported only when every relevant integer was evaluated |
+| **pointwise uncertainty** | a 95% interval for one price in one scenario |
+| **joint scenario uncertainty** | coverage across all prices and scenarios at once. **Not implemented** |
