@@ -544,8 +544,73 @@ def cmd_signal_power(args) -> int:
     return 0
 
 
+def cmd_real_pilot(args) -> int:
+    """The targeted real-board tactical pilot. Twelve players, not a board."""
+    from pathlib import Path as _P
+    from .realpilot import PilotInputs, SanitizationError
+    from .real_pilot_experiment import run
+
+    inputs = PilotInputs(
+        contract=_P(args.contract), sleeper_csv=_P(args.sleeper_csv),
+        out_dir=_P(args.out_dir), pool_limit=args.pool_limit,
+        market_scenario=args.market_scenario,
+        performance_scenario=args.performance_scenario)
+    missing = inputs.missing()
+    if missing:
+        raise UsageError(
+            "real inputs are missing: " + ", ".join(missing) + ".\n"
+            "  Build the contract with `ce-lab ingest --projections ... "
+            "--contract-out local_data/real_player_contract_v1.json`,\n"
+            "  and place the cleaned Sleeper export at "
+            "local_data/sleeper_2qb_values_2026_clean.csv.\n"
+            "  Both live under local_data/, which is gitignored.")
+    if "local_data" not in _P(args.out_dir).parts:
+        raise UsageError(
+            f"--out-dir must sit under local_data/ (got {args.out_dir!r}); "
+            f"real player-level output must never reach version control")
+    if args.sims < 100:
+        raise UsageError("--sims must be at least 100")
+    if args.per_position < 1:
+        raise UsageError("--per-position must be at least 1")
+    seeds = tuple(args.alloc_seed or (20260906, 424242, 987654321))
+
+    print("REAL-BOARD TACTICAL PILOT")
+    print("Real projections and real Sleeper anchors. Player-level output goes")
+    print("ONLY to local_data/. This is a PILOT of a dozen players at the")
+    print("empty-room state; it is not a draft board and prices nothing")
+    print("mid-auction.")
+    print()
+    report, local = run(
+        inputs, holdout_sims=args.sims, selection_sims=args.selection_sims,
+        per_position=args.per_position,
+        positions=tuple(args.position or ("QB", "RB", "WR", "TE")),
+        alloc_seeds=seeds, base_price_only=args.base_price_only,
+        ladders=not args.base_price_only,
+        runtime_budget_s=args.runtime_budget)
+
+    out = _P(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "real_board_pilot.json").write_text(
+        json.dumps(local, indent=2, default=str), encoding="utf-8")
+    names = [r.get("name") for r in local["candidates"] if r.get("name")]
+    try:
+        report.check(names)
+    except SanitizationError as exc:
+        raise UsageError(f"refusing to emit the sanitized report: {exc}")
+    if args.report_out:
+        _write_json(args.report_out, report.to_dict())
+    print()
+    print(f"  player-level output -> {out / 'real_board_pilot.json'} (IGNORED)")
+    r = report.results
+    print(f"  audited {len(r['audited'])}, resolved {r['n_resolved']}, "
+          f"unresolved {r['n_unresolved']}, proxy-only {len(r['proxy_only'])}")
+    print(f"  runtime {report.runtime['total_s']:.0f}s")
+    return 0
+
+
 _COMMANDS = {
     "validate": cmd_validate,
+    "real-pilot": cmd_real_pilot,
     "signal-power": cmd_signal_power,
     "context": cmd_context,
     "bidders": cmd_bidders,
@@ -678,6 +743,35 @@ def add_tactical_parser(sub) -> None:
     s.add_argument("--alloc-seed", type=int, action="append",
                    help="shared-board allocation seed; repeatable")
     s.add_argument("--json-out", default=None)
+
+    s = inner.add_parser(
+        "real-pilot",
+        help="targeted real-board tactical pilot (needs local real inputs)")
+    s.add_argument("--contract",
+                   default="local_data/real_player_contract_v1.json")
+    s.add_argument("--sleeper-csv",
+                   default="local_data/sleeper_2qb_values_2026_clean.csv")
+    s.add_argument("--out-dir", default="local_data/tactical",
+                   help="player-level output; must be under local_data/")
+    s.add_argument("--report-out", default=None,
+                   help="sanitized aggregate JSON (safe to commit)")
+    s.add_argument("--pool-limit", type=int, default=260)
+    s.add_argument("--per-position", type=int, default=3)
+    s.add_argument("--position", action="append",
+                   choices=["QB", "RB", "WR", "TE"],
+                   help="restrict to these positions; repeatable")
+    s.add_argument("--market-scenario", default="base",
+                   choices=["low", "base", "high"])
+    s.add_argument("--performance-scenario",
+                   default="median_target/full_health/week_sd/exclude")
+    s.add_argument("--sims", type=int, default=4000,
+                   help="holdout seasons per audited arm")
+    s.add_argument("--selection-sims", type=int, default=800)
+    s.add_argument("--alloc-seed", type=int, action="append")
+    s.add_argument("--base-price-only", action="store_true",
+                   help="skip ladders and allocation-seed sweeps")
+    s.add_argument("--runtime-budget", type=float, default=1800.0,
+                   help="seconds; work beyond it is skipped and reported")
 
     s = inner.add_parser("benchmark", help="runtime for every live stage")
     common(s, scenarios=True, mode=True)
