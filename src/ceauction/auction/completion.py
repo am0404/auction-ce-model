@@ -167,6 +167,23 @@ class ComparisonCast:
         return frozenset(pid for i, t in enumerate(self.rosters)
                          if i != self.focus_team_index for pid in t)
 
+    def reserved_for(self, team_index: int) -> FrozenSet[int]:
+        """Players some *other* team already holds, from this team's view.
+
+        The focus slot is excluded whichever team is asking: it is a
+        placeholder that the search is about to overwrite, so treating its
+        contents as taken would hide players from everyone.
+        """
+        return frozenset(
+            pid for i, t in enumerate(self.rosters)
+            if i not in (team_index, self.focus_team_index) for pid in t)
+
+    def with_team(self, team_index: int,
+                  player_ids: Sequence[int]) -> "ComparisonCast":
+        return replace(self, rosters=tuple(
+            tuple(player_ids) if i == team_index else t
+            for i, t in enumerate(self.rosters)))
+
     def with_focus(self, player_ids: Sequence[int]) -> Tuple[Tuple[int, ...], ...]:
         return tuple(tuple(player_ids) if i == self.focus_team_index else t
                      for i, t in enumerate(self.rosters))
@@ -220,6 +237,8 @@ class SearchDiagnostics:
     total_seconds: float = 0.0
     candidate_pool_size: int = 0
     board_size: int = 0
+    cheap_fillers_added: int = 0
+    """Players added to the pool purely so an affordable completion exists."""
     candidate_spend_levels: int = 0
     """Distinct total spends among the retained candidates.
 
@@ -248,6 +267,7 @@ class SearchDiagnostics:
             "stop_reason": self.stop_reason,
             "board_size": self.board_size,
             "candidate_pool_size": self.candidate_pool_size,
+            "cheap_fillers_added": self.cheap_fillers_added,
             "candidate_spend_levels": self.candidate_spend_levels,
             "finalist_spend_levels": self.finalist_spend_levels,
             "proxy_seconds": round(self.proxy_seconds, 3),
@@ -602,12 +622,19 @@ def complete_roster(
     evaluate_ce: bool = True,
     default_cost: Optional[int] = None,
     proxy: Optional[ProxyEvaluator] = None,
+    reserved_ids: Optional[FrozenSet[int]] = None,
     notes: str = "",
 ) -> CompletionResult:
     """Fill one owner's roster to fifteen and rank the ways of doing it.
 
     ``default_cost`` is the only route to a fallback price and passing it is an
     explicit statement about unpriced players; without it a gap raises.
+
+    ``reserved_ids`` are players the board may not offer because some other
+    team is already assumed to hold them. It defaults to the cast's rivals,
+    which is right when completing the focus owner; completing a *rival*
+    (as the pass branch does) has to pass the correct set for that team
+    instead, or the two teams would be offered the same player.
     """
     t0 = time.perf_counter()
     deadline = (t0 + settings.max_runtime_s) if settings.max_runtime_s else None
@@ -616,17 +643,41 @@ def complete_roster(
     diag = SearchDiagnostics(method="exact" if settings.exact else "beam")
 
     # --- what is buyable ---------------------------------------------------
-    rival_ids = cast.rival_ids
-    board_all = [s for s in state.available_specs if s.player_id not in rival_ids]
+    reserved = cast.rival_ids if reserved_ids is None else frozenset(reserved_ids)
+    board_all = [s for s in state.available_specs if s.player_id not in reserved]
     board_all.sort(key=lambda s: (-s.base_mean, s.player_id))
     diag.board_size = len(board_all)
-    board = board_all[: settings.candidate_pool]
-    diag.candidate_pool_size = len(board)
 
-    price_map = costs.costs_for([s.player_id for s in board], default_cost)
     spec_of = state.spec_by_id
     slots = owner.open_slots
     budget = owner.budget_remaining
+    price_all = costs.costs_for([s.player_id for s in board_all], default_cost)
+
+    # The top of the board by projection, PLUS cheap fillers at every position.
+    #
+    # Taking only the top N is what a projection-ranked cut naturally does, and
+    # it is wrong: the most expensive players on the board cannot fill twelve
+    # slots on any budget, so a pool of only good players can contain no legal
+    # completion at all. A smoke run hit exactly that and reported "no legal
+    # completion" for a roster that plainly had several. The cheap tail is not
+    # an optimisation, it is what makes the search complete.
+    board = list(board_all[: settings.candidate_pool])
+    chosen = {s.player_id for s in board}
+    for pos in (Position.QB, Position.RB, Position.WR, Position.TE):
+        cheap = sorted((s for s in board_all
+                        if Position(int(s.position)) is pos
+                        and s.player_id not in chosen),
+                       key=lambda s: (price_all[s.player_id], -s.base_mean,
+                                      s.player_id))
+        for s in cheap[: max(slots, 1)]:
+            board.append(s)
+            chosen.add(s.player_id)
+    board.sort(key=lambda s: (-s.base_mean, s.player_id))
+    diag.candidate_pool_size = len(board)
+    diag.cheap_fillers_added = len(board) - min(settings.candidate_pool,
+                                                len(board_all))
+
+    price_map = {s.player_id: price_all[s.player_id] for s in board}
 
     if slots > 0 and len(board) < slots:
         diag.stop_reason = (f"only {len(board)} players on the board but "

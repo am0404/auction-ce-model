@@ -525,9 +525,26 @@ def test_the_candidate_pool_bound_is_reported(midauction):
                           settings=CompletionSettings(beam_width=30,
                                                       candidate_pool=25,
                                                       finalists=2))
-    assert res.diagnostics.candidate_pool_size == 25
-    assert res.diagnostics.board_size > 25
+    d = res.diagnostics
+    assert d.board_size > d.candidate_pool_size
+    # The pool is the projection cut PLUS cheap fillers at every position,
+    # without which the most expensive players on the board cannot fill twelve
+    # slots on any budget and the search finds no legal completion at all.
+    assert d.cheap_fillers_added > 0
+    assert d.candidate_pool_size == 25 + d.cheap_fillers_added
     assert "considered" in format_completion(res)
+
+
+def test_the_pool_always_contains_an_affordable_completion(midauction):
+    """The cheap tail is what makes the search complete, not an optimisation."""
+    st, cast, book = midauction
+    tight = CompletionSettings(beam_width=40, candidate_pool=12, finalists=2,
+                               ce_sims=200)
+    res = complete_roster(st, cast, book, evaluate_ce=False, settings=tight)
+    assert res.best is not None, (
+        "a projection-ranked cut alone leaves only expensive players and no "
+        "legal completion")
+    assert res.best.added_cost <= st.focus.budget_remaining
 
 
 def test_a_missing_cost_stops_the_search_rather_than_defaulting(midauction):
