@@ -608,8 +608,76 @@ def cmd_real_pilot(args) -> int:
     return 0
 
 
+def cmd_allocation_ensemble(args) -> int:
+    """Exchangeable allocation ensemble + opening-symmetry estimator."""
+    from pathlib import Path as _P
+    from .realpilot import PilotInputs
+    from .ensemble_experiment import run
+
+    inputs = PilotInputs(
+        contract=_P(args.contract), sleeper_csv=_P(args.sleeper_csv),
+        out_dir=_P(args.out_dir), pool_limit=args.pool_limit,
+        market_scenario=args.market_scenario,
+        performance_scenario=args.performance_scenario)
+    missing = inputs.missing()
+    if missing:
+        raise UsageError(
+            "real inputs are missing: " + ", ".join(missing) + ".\n"
+            "  See `ce-lab tactical real-pilot` for the setup; both files live "
+            "under local_data/, which is gitignored.")
+    if "local_data" not in _P(args.out_dir).parts:
+        raise UsageError(
+            f"--out-dir must sit under local_data/ (got {args.out_dir!r})")
+    if args.draws < 2:
+        raise UsageError(
+            "--draws must be at least 2; a single allocation draw has no "
+            "between-allocation interval and is exactly the estimate this "
+            "command exists to replace")
+    if args.shock < 0.0:
+        raise UsageError("--shock must be non-negative")
+    if args.tie_break not in ("mechanical", "shock"):
+        raise UsageError("--tie-break must be mechanical or shock")
+    if args.sims < 100:
+        raise UsageError("--sims must be at least 100")
+
+    print("ALLOCATION ENSEMBLE + OPENING SYMMETRY")
+    print("A single future auction is not an estimate of opening value. This")
+    print("runs a balanced ensemble in which every initially identical owner")
+    print("occupies every priority slot equally often, and reports allocation")
+    print("uncertainty separately from season uncertainty.")
+    print()
+    out, local = run(
+        inputs, k=args.draws, holdout_sims=args.sims,
+        selection_sims=args.selection_sims, shock=args.shock,
+        shock_scenario=args.shock_scenario, secondary_k=args.secondary_draws,
+        runtime_budget_s=args.runtime_budget)
+
+    d = _P(args.out_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "allocation_ensemble.json").write_text(
+        json.dumps(local, indent=2, default=str), encoding="utf-8")
+    if args.json_out:
+        _write_json(args.json_out, out)
+    print()
+    print("  CONVERGENCE BY K")
+    print(f"    {'k':>3}{'mean':>11}{'between SD':>12}{'SE(mean)':>11}"
+          f"{'CI95':>26}{'sign+':>7}  verdict")
+    for row in out["primary"]["convergence"]:
+        ci = ("n/a" if row["ci95"] is None
+              else f"[{row['ci95'][0]:+.5f},{row['ci95'][1]:+.5f}]")
+        se = "n/a" if row["se_of_mean"] is None else f"{row['se_of_mean']:.5f}"
+        print(f"    {row['k']:>3}{row['mean']:>+11.5f}"
+              f"{row['between_sd']:>12.5f}{se:>11}{ci:>26}"
+              f"{row['sign_positive']:>7.2f}  {row['verdict']}")
+    print()
+    print(f"  player-level output -> {d / 'allocation_ensemble.json'} (IGNORED)")
+    print(f"  runtime {out['runtime_s']:.0f}s")
+    return 0
+
+
 _COMMANDS = {
     "validate": cmd_validate,
+    "allocation-ensemble": cmd_allocation_ensemble,
     "real-pilot": cmd_real_pilot,
     "signal-power": cmd_signal_power,
     "context": cmd_context,
@@ -772,6 +840,34 @@ def add_tactical_parser(sub) -> None:
                    help="skip ladders and allocation-seed sweeps")
     s.add_argument("--runtime-budget", type=float, default=1800.0,
                    help="seconds; work beyond it is skipped and reported")
+
+    s = inner.add_parser(
+        "allocation-ensemble",
+        help="exchangeable allocation ensemble + opening symmetry (slow)")
+    s.add_argument("--contract",
+                   default="local_data/real_player_contract_v1.json")
+    s.add_argument("--sleeper-csv",
+                   default="local_data/sleeper_2qb_values_2026_clean.csv")
+    s.add_argument("--out-dir", default="local_data/tactical")
+    s.add_argument("--json-out", default=None,
+                   help="sanitized position-level aggregate (safe to commit)")
+    s.add_argument("--pool-limit", type=int, default=260)
+    s.add_argument("--draws", type=int, default=15,
+                   help="allocation draws for the primary candidate")
+    s.add_argument("--secondary-draws", type=int, default=6)
+    s.add_argument("--tie-break", default="mechanical",
+                   choices=["mechanical", "shock"])
+    s.add_argument("--shock", type=float, default=0.0,
+                   help="preference-shock sigma; 0 disables it")
+    s.add_argument("--shock-scenario", default="none")
+    s.add_argument("--sims", type=int, default=4000,
+                   help="holdout seasons per arm per draw")
+    s.add_argument("--selection-sims", type=int, default=800)
+    s.add_argument("--market-scenario", default="base",
+                   choices=["low", "base", "high"])
+    s.add_argument("--performance-scenario",
+                   default="median_target/full_health/week_sd/exclude")
+    s.add_argument("--runtime-budget", type=float, default=3000.0)
 
     s = inner.add_parser("benchmark", help="runtime for every live stage")
     common(s, scenarios=True, mode=True)

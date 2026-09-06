@@ -74,11 +74,49 @@ class BoardSettings:
     """How far down the board the continuation looks. A real bound: a player
     below this cut cannot be allocated, and the result says whether it bit."""
     max_allocations: int = 200
-    jitter: float = 0.06
-    """Relative tie-breaking noise on willingness. Two owners with identical
-    scenario willingness are not identical bidders in a real room, and a
-    deterministic tie would hand every such player to the alphabetically first
-    owner. Seeded, so a fixed seed reproduces exactly."""
+    jitter: float = 0.0
+    """DEPRECATED alias for :attr:`preference_shock`. Kept at zero.
+
+    It was a 6% multiplicative shock on *willingness*, described as tie-breaking
+    and audited on the real board as something else entirely: 84.4% of the 180
+    allocations had exactly tied willingness (identical owners in an empty room
+    do), the shock changed the winner in 72.2% of them, and in 4.4% it
+    overturned a genuine non-tied gap. Worse, it was indexed by the owner's
+    *position* in the owner tuple, so at a fixed seed one team drew the same
+    noise column every time -- a persistent advantage earned by nothing but
+    list order. That is what broke opening symmetry by 3.6 SE."""
+
+    tie_break: str = "mechanical"
+    """``mechanical`` or ``shock``.
+
+    ``mechanical`` breaks a tie by owner *priority order* -- a permutation this
+    draw supplies -- and only among bids within :attr:`tie_tolerance` of the
+    best. It cannot move a winner who is genuinely ahead. ``shock`` restores
+    the old behaviour for A/B measurement and is not a default anywhere."""
+
+    tie_tolerance: float = 0.5
+    """Willingness dollars within which two bids count as tied. Above it the
+    higher bid wins, full stop; a tie-break that can overturn a real difference
+    is not a tie-break."""
+
+    preference_shock: float = 0.0
+    """Relative sigma of an EXPLICIT, scenario-labelled preference shock.
+
+    Real managers are not identical, and modelling that is legitimate -- but it
+    is a stated behavioural assumption with a name, not numerical noise hidden
+    inside a sort. Zero by default and forced to zero in a symmetry test.
+    Indexed by priority slot rather than by owner, so it permutes with the
+    ensemble instead of sticking to one team."""
+
+    shock_scenario: str = "none"
+    """Names the preference-shock assumption in output and fingerprints."""
+
+    owner_priority: Tuple[int, ...] = ()
+    """Permutation of owner indices giving this draw's priority order.
+
+    Empty means identity. A balanced set of permutations across the ensemble is
+    what makes initially identical owners exchangeable: each team occupies each
+    priority slot equally often, so no team can gain from its label."""
     focus_bids: bool = True
     """Whether the focus team competes in the continuation.
 
@@ -260,6 +298,10 @@ def continue_shared_board(
     """
     if settings.bidder_scenario not in BIDDER_SCENARIOS:
         raise ValueError(f"unknown bidder scenario {settings.bidder_scenario!r}")
+    if settings.tie_break not in ("mechanical", "shock"):
+        raise ValueError(
+            f"tie_break must be 'mechanical' or 'shock', got "
+            f"{settings.tie_break!r}")
     if settings.market_scenario not in ("low", "base", "high"):
         raise ValueError(
             f"market scenario must be low/base/high, got "
@@ -277,11 +319,24 @@ def continue_shared_board(
                                   s.player_id))
     pool_exhausted = len(order) <= settings.pool_depth
     order = order[:settings.pool_depth]
-    # One jitter draw per (player, owner) pair, taken up front so the sequence
-    # does not depend on how many owners happen to be live at each step.
+    # Priority order for this draw. Owner o sits in priority slot
+    # ``priority[o]``; a balanced ensemble of permutations puts every owner in
+    # every slot equally often, which is what makes identical owners
+    # exchangeable rather than merely similar.
     n_owners = len(state.owners)
-    noise = rng.normal(0.0, settings.jitter, size=(len(order), n_owners))
+    perm = tuple(settings.owner_priority) or tuple(range(n_owners))
+    if sorted(perm) != list(range(n_owners)):
+        raise ValueError(
+            f"owner_priority must be a permutation of 0..{n_owners - 1}, "
+            f"got {perm}")
     owner_index = {o.owner_id: i for i, o in enumerate(state.owners)}
+    priority = {o.owner_id: perm[owner_index[o.owner_id]] for o in state.owners}
+
+    # The preference shock is indexed by PRIORITY SLOT, not by owner, so it
+    # travels with the permutation instead of adhering to one team.
+    sigma = settings.preference_shock or settings.jitter
+    shock = (rng.normal(0.0, sigma, size=(len(order), n_owners))
+             if sigma > 0 else np.zeros((len(order), n_owners)))
 
     allocations: List[Allocation] = []
     held: List[int] = []
@@ -332,15 +387,30 @@ def continue_shared_board(
                 discretionary = o.discretionary
             want = market_price * sc.aggression * (1.0 + sc.fit_weight * (fit - 0.5))
             want = min(want, sc.budget_share * max(0, discretionary) + o.min_bid)
-            want *= (1.0 + float(noise[i, owner_index[o.owner_id]]))
+            slot = priority[o.owner_id]
+            want *= (1.0 + float(shock[i, slot]))
             w = int(max(0, min(legal_max, round(want))))
             if w >= o.min_bid:
-                bids.append((want, w, o.owner_id))
+                bids.append((want, w, o.owner_id, slot))
         if not bids:
             continue
-        bids.sort(key=lambda b: (-b[0], b[2]))
-        winner_want, winner_w, winner = bids[0]
-        runner = bids[1] if len(bids) > 1 else None
+        if settings.tie_break == "mechanical":
+            # Highest willingness wins outright. Only bids within the stated
+            # tolerance of the best are treated as tied, and among those the
+            # lowest priority slot wins. A tie-break cannot promote a bid that
+            # is genuinely behind.
+            best_want = max(b[0] for b in bids)
+            tied = [b for b in bids
+                    if best_want - b[0] <= settings.tie_tolerance]
+            tied.sort(key=lambda b: (b[3], b[2]))
+            winner_want, winner_w, winner, _ = tied[0]
+            rest = [b for b in bids if b[2] != winner]
+            rest.sort(key=lambda b: (-b[0], b[3], b[2]))
+            runner = rest[0] if rest else None
+        else:
+            bids.sort(key=lambda b: (-b[0], b[3], b[2]))
+            winner_want, winner_w, winner, _ = bids[0]
+            runner = bids[1] if len(bids) > 1 else None
         second = runner[1] if runner else 0
         price = max(cur.owner(winner).min_bid, second + 1)
         price = min(price, winner_w)
