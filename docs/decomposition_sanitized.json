@@ -1,7 +1,6 @@
 {
   "positions": {
     "RB": {
-      "candidate_id": 2501435459167627698,
       "position": "RB",
       "focus_price": 25,
       "rival": "Team12",
@@ -179,7 +178,6 @@
       "analytical_note": "W, UF and RF are analytical instruments, not possible auction outcomes. They carry no recipient probability."
     },
     "TE": {
-      "candidate_id": 3981200912681277253,
       "position": "TE",
       "focus_price": 6,
       "rival": "Team12",
@@ -357,7 +355,6 @@
       "analytical_note": "W, UF and RF are analytical instruments, not possible auction outcomes. They carry no recipient probability."
     },
     "QB": {
-      "candidate_id": 3655628085077906594,
       "position": "QB",
       "focus_price": 26,
       "rival": "Team12",
@@ -535,7 +532,6 @@
       "analytical_note": "W, UF and RF are analytical instruments, not possible auction outcomes. They carry no recipient probability."
     },
     "WR": {
-      "candidate_id": 4338873909304181467,
       "position": "WR",
       "focus_price": 32,
       "rival": "Team12",
@@ -716,7 +712,6 @@
   "by_recipient": {
     "RB": [
       {
-        "candidate_id": 2501435459167627698,
         "position": "RB",
         "focus_price": 25,
         "rival": "Team02",
@@ -896,7 +891,6 @@
     ],
     "TE": [
       {
-        "candidate_id": 3981200912681277253,
         "position": "TE",
         "focus_price": 6,
         "rival": "Team02",

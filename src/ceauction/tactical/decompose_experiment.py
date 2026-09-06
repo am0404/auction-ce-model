@@ -112,7 +112,8 @@ def run(inputs: PilotInputs, *, k: int = 11, holdout_sims: int = 4000,
             runtime_budget_s=runtime_budget_s - (time.perf_counter() - t0),
             progress=progress)
         out["positions"][pos] = dec.to_dict(include_draws=False)
-        local["positions"][pos] = dec.to_dict(include_draws=True)
+        local["positions"][pos] = dec.to_dict(include_draws=True,
+                                              include_identity=True)
         if verbose:
             blob = out["positions"][pos]
             print(f"  {pos} MEAN total={blob['total']['mean']:+.5f} "
@@ -145,7 +146,7 @@ def run(inputs: PilotInputs, *, k: int = 11, holdout_sims: int = 4000,
                 out["by_recipient"].setdefault(pos, []).append(
                     d2.to_dict(include_draws=False))
                 local["by_recipient"].setdefault(pos, []).append(
-                    d2.to_dict(include_draws=True))
+                    d2.to_dict(include_draws=True, include_identity=True))
                 if verbose:
                     b2 = out["by_recipient"][pos][-1]
                     print(f"    total={b2['total']['mean']:+.5f} "

@@ -268,12 +268,13 @@ class Decomposition:
         return ("mixed",
                 "no single component dominates the total at this sample size")
 
-    def to_dict(self, *, include_draws: bool = True) -> Dict[str, object]:
+    def to_dict(self, *, include_draws: bool = True,
+                include_identity: bool = False) -> Dict[str, object]:
         comps = {n: _stats(self.component_values(n))
                  for n, _, _ in COMPONENT_ORDER}
         label, why = self.classify()
         out: Dict[str, object] = {
-            "candidate_id": self.candidate_id, "position": self.position,
+            "position": self.position,
             "focus_price": self.focus_price, "rival": self.rival,
             "rival_price": self.rival_price, "k": self.k,
             "lineup_improvement": round(self.lineup_improvement, 4),
@@ -296,6 +297,11 @@ class Decomposition:
                 "W, UF and RF are analytical instruments, not possible auction "
                 "outcomes. They carry no recipient probability."),
         }
+        # The candidate id is player-level identity and belongs only in the
+        # local, gitignored report. Position, price and components are
+        # aggregates and are safe to commit.
+        if include_identity:
+            out["candidate_id"] = self.candidate_id
         if include_draws:
             out["draws"] = [d.to_dict() for d in self.draws]
         return out
