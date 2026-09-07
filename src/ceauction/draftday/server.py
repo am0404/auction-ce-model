@@ -32,36 +32,91 @@ from .caps import BASES, DISAGREEMENT_LABEL, MARKET_LED_LABEL
 from .panels import RECIPIENT_WARNING, nomination_panel, owner_table, pid, qb_panel
 from .proxycache import ProxyCeilingCache
 from .session import CONTINGENCY_TAGS, DraftSession, open_session
+from ..tactical.realpilot import OWNER_IDS
+
+from .sleepersync import (
+    NEEDS_ATTENTION_BADGE,
+    POLL_SECONDS,
+    STATUS_OFF,
+    SYNC_SCOPE_NOTE,
+    SleeperClient,
+    SleeperError,
+    SleeperSync,
+)
 
 __all__ = ["DraftDayServer", "serve", "PAGE", "MANUAL_TRACKING_BADGE",
-           "MANUAL_TRACKING_NOTE"]
+           "MANUAL_TRACKING_NOTE", "SYNC_BADGE", "DEFAULT_DRAFT_ID"]
+
+#: The real draft this dashboard tracks. Read-only, public, no credentials.
+DEFAULT_DRAFT_ID = "1386497531533357056"
+
+SYNC_BADGE = "LIVE SLEEPER SYNC"
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 
-#: The dashboard is a manual tally. It holds no Sleeper credentials, opens no
-#: outbound connection and polls nothing: the board reflects exactly what has
-#: been typed into it and nothing else. This string is on the header of every
-#: page, in the JSON state and on the console, because a tool that silently
-#: lagged the real draft would be worse than no tool.
-MANUAL_TRACKING_BADGE = "MANUAL TRACKING -- NOT CONNECTED TO SLEEPER"
+#: What the header, the JSON state and the console all say about connectivity.
+#: The dashboard can now read Sleeper's public feed, but only for *completed
+#: sales*, only while the operator has switched it on, and only read-only. A
+#: tool that silently lagged the real draft would be worse than no tool -- and
+#: one that implied it could see live bidding would be worse still.
+MANUAL_TRACKING_BADGE = "MANUAL TRACKING -- SLEEPER SYNC OFF"
 MANUAL_TRACKING_NOTE = (
-    "Live synchronisation with Sleeper is NOT implemented. There is no API "
-    "integration, no credentials and no polling anywhere in this dashboard. "
-    "Every nomination, bid and sale must be entered by hand on this page, and "
-    "the board will not notice a sale you did not record.")
+    "Live Sleeper sync is OFF by default and covers COMPLETED SALES ONLY. It "
+    "reads Sleeper's public draft feed, holds no credentials, writes nothing "
+    "and never sees a live bid, a nomination or the bid clock -- those are on "
+    "Sleeper's private draft socket, which this tool does not touch. While "
+    "sync is off the board reflects exactly what has been typed in. Manual "
+    "sale entry and undo remain available at all times, including while sync "
+    "is running.")
 
 
 class DraftDayServer:
     """Session, caches and request handling, with one lock over the engines."""
 
-    def __init__(self, session: DraftSession, *, enable_proxy: bool = True):
+    def __init__(self, session: DraftSession, *, enable_proxy: bool = True,
+                 draft_id: str = DEFAULT_DRAFT_ID):
         self.session = session
         self.lock = threading.RLock()
         self.proxy = ProxyCeilingCache(session, enabled=enable_proxy)
         self._rows_cache: Tuple[str, List[Dict[str, object]]] = ("", [])
         self._opening_rows: List[Dict[str, object]] = []
         self.started_at = time.time()
+        # Constructed, deliberately not enabled. Nothing reaches out to Sleeper
+        # until the operator turns the toggle on.
+        self.sync = SleeperSync(session, SleeperClient(draft_id),
+                                owner_ids=OWNER_IDS)
+        self._sync_thread: Optional[threading.Thread] = None
+        self._sync_stop = threading.Event()
+
+    # --- the sync poll loop ------------------------------------------------
+
+    def _sync_loop(self) -> None:
+        while not self._sync_stop.wait(POLL_SECONDS):
+            if not self.sync.enabled:
+                return
+            try:
+                with self.lock:
+                    self.sync.poll_once()
+            except Exception as exc:  # a poller must never kill the dashboard
+                self.sync.last_error = f"poll crashed: {exc}"
+
+    def start_sync(self) -> Dict[str, object]:
+        with self.lock:
+            self.sync.enable()
+            out = self.sync.poll_once()
+        if self._sync_thread is None or not self._sync_thread.is_alive():
+            self._sync_stop.clear()
+            self._sync_thread = threading.Thread(
+                target=self._sync_loop, name="sleeper-sync", daemon=True)
+            self._sync_thread.start()
+        return out
+
+    def stop_sync(self) -> Dict[str, object]:
+        self._sync_stop.set()
+        with self.lock:
+            self.sync.disable()
+            return self.sync.snapshot_status()
 
     # --- board rows, cached per state --------------------------------------
 
@@ -168,6 +223,30 @@ class DraftDayServer:
                     player_id, current_price=_int_or_none(body.get("bid")))
                 return 200, {"status": status}
 
+            if path == "/api/sleeper" and method == "GET":
+                return 200, self.sync.snapshot_status()
+
+            if path == "/api/sleeper/enable" and method == "POST":
+                try:
+                    return 200, self.start_sync()
+                except SleeperError as exc:
+                    self.sync.last_error = str(exc)
+                    return 200, self.sync.snapshot_status()
+
+            if path == "/api/sleeper/disable" and method == "POST":
+                return 200, self.stop_sync()
+
+            if path == "/api/sleeper/now" and method == "POST":
+                if not self.sync.enabled:
+                    return 400, {"error": "turn LIVE SLEEPER SYNC on first"}
+                return 200, self.sync.poll_once()
+
+            if path == "/api/sleeper/ack" and method == "POST":
+                # The operator has looked at the mismatch and fixed or accepted
+                # it. Nothing is repaired here; automatic application re-arms.
+                self.sync.clear_attention()
+                return 200, self.sync.snapshot_status()
+
             if path == "/api/sale" and method == "POST":
                 return self._sale(body)
 
@@ -193,6 +272,9 @@ class DraftDayServer:
                 if not body.get("confirm"):
                     return 400, {"error": "reset needs an explicit confirmation"}
                 self.session.reset()
+                # The ledger authorises "already applied"; a reset room must
+                # not inherit it, or the re-run would apply nothing.
+                self.sync.forget()
                 return 200, {"ok": True,
                              "fingerprint": self.session.fingerprint()}
 
@@ -331,7 +413,10 @@ class DraftDayServer:
             "manual_tracking": True,
             "manual_tracking_badge": MANUAL_TRACKING_BADGE,
             "manual_tracking_note": MANUAL_TRACKING_NOTE,
-            "live_sync_implemented": False,
+            "live_sync_implemented": True,
+            "sync_badge": SYNC_BADGE,
+            "sync_scope_note": SYNC_SCOPE_NOTE,
+            "sleeper": self.sync.snapshot_status(),
             "disagreement_label": DISAGREEMENT_LABEL,
             "proxy": self.proxy.stats(),
             "board_rows_ms": getattr(self, "_last_rows_ms", None),
@@ -438,7 +523,10 @@ def serve(*, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
     print(f"  saved to:  {session.state_path}")
     print(f"  restored:  {len(session.sales)} sale(s)")
     print(f"  {MANUAL_TRACKING_BADGE}")
-    print("             every sale is entered by hand; nothing here polls Sleeper.")
+    print(f"  sleeper:   sync is OFF. draft {app.sync.client.draft_id}")
+    print("             turn it on in the dashboard when the draft starts.")
+    print("             read-only, no credentials; COMPLETED SALES ONLY, never live bids.")
+    print("             manual entry and undo stay available the whole time.")
     print("  guardrails are MARKET/PROXY provisional unless a row says CE AUDITED.")
     print("  stop with Ctrl-C; the draft is saved after every accepted change.")
     print("=" * 72)
@@ -483,6 +571,21 @@ PAGE = r"""<!doctype html>
    padding:5px 11px;border-radius:999px;font-size:12.5px;font-weight:650;
    letter-spacing:.03em;white-space:nowrap}
  .badge .dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+
+ .badge.live{background:#0d2a1a;border-color:var(--good);color:#9fe7bd}
+ .badge.live .dot{background:var(--good)}
+ .badge.att{background:#3a1414;border-color:var(--stop);color:#ffb3ae}
+ .badge.att .dot{background:var(--stop)}
+ .badge.offb{background:var(--panel2);border-color:var(--line);color:var(--dim)}
+ .badge.offb .dot{background:var(--dim)}
+ #syncPanel.att{border-color:var(--stop);box-shadow:0 0 0 1px var(--stop) inset}
+ .attbar{background:#3a1414;border:1px solid var(--stop);color:#ffd9d5;
+   border-radius:8px;padding:10px 13px;margin-bottom:10px;font-weight:600}
+ .attbar ul{margin:7px 0 0 18px;padding:0;font-weight:400;font-size:13px}
+ .syncgrid{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end}
+ .syncgrid .k{color:var(--dim);font-size:11.5px;letter-spacing:.05em;
+   text-transform:uppercase}
+ .syncgrid .v{font-size:19px;font-weight:650;margin-top:3px}
 
  /* ---- controls -------------------------------------------------------- */
  button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
@@ -594,8 +697,9 @@ PAGE = r"""<!doctype html>
 
 <header>
  <h1>Draft Day</h1>
- <span class="badge" title="Nothing on this page talks to Sleeper. Every sale is typed in by hand.">
-   <span class="dot"></span>MANUAL TRACKING &mdash; NOT CONNECTED TO SLEEPER</span>
+ <span class="badge offb" id="syncBadge"
+   title="Completed Sleeper sales only. Never live bids.">
+   <span class="dot"></span>SLEEPER SYNC: OFF &mdash; MANUAL TRACKING</span>
  <span class="grow"></span>
  <button id="mLive" class="on">Live</button>
  <button id="mOpen">Opening</button>
@@ -606,6 +710,41 @@ PAGE = r"""<!doctype html>
 </header>
 
 <main>
+
+ <!-- ======================= live sleeper sync ======================= -->
+ <section class="panel span" id="syncPanel">
+  <h2>Live Sleeper sync <span class="s" style="font-weight:400;color:var(--dim)">
+    &mdash; completed sales only</span></h2>
+  <div id="syncAtt"></div>
+  <div class="syncgrid">
+   <div>
+    <button id="syncToggle">Turn LIVE SLEEPER SYNC on</button>
+   </div>
+   <div>
+    <div class="k">Status</div>
+    <div class="v" id="syncStatus">OFF</div>
+   </div>
+   <div>
+    <div class="k">Last successful poll</div>
+    <div class="v" id="syncPoll">never</div>
+   </div>
+   <div>
+    <div class="k">Sleeper picks</div>
+    <div class="v" id="syncPicks">&mdash;</div>
+   </div>
+   <div>
+    <div class="k">Sales on this board</div>
+    <div class="v" id="syncLocal">&mdash;</div>
+   </div>
+   <div>
+    <button id="syncNow" class="quiet">Sync now</button>
+    <button id="syncAck" class="quiet" style="display:none">Acknowledge &amp; re-arm</button>
+   </div>
+  </div>
+  <div class="s" style="margin-top:10px;color:var(--dim);max-width:900px"
+       id="syncNote"></div>
+  <div class="s" style="margin-top:5px;color:var(--dim)" id="syncDraft"></div>
+ </section>
 
  <!-- ======================= nomination + sale ======================= -->
  <section class="panel span" id="nomPanel">
@@ -727,10 +866,13 @@ PAGE = r"""<!doctype html>
  <details class="diag span" id="diag"><summary>Diagnostics &amp; transaction log</summary>
   <div class="body">
    <div class="banner" style="margin-bottom:12px">
-    <b>Live synchronisation is not implemented.</b> This dashboard has no connection to
-    Sleeper, no API credentials and no polling. Every nomination, bid and sale is entered
-    by hand on this page, and the board only reflects what has been typed in. Nothing here
-    will notice a sale you did not record.</div>
+    <b>Sleeper sync covers completed sales only &mdash; never live bids.</b>
+    When LIVE SLEEPER SYNC is on, this dashboard polls Sleeper's public draft feed
+    read-only, with no credentials and no writes, and records a sale after Sleeper has
+    already awarded the player. Nominations, live bids and the bid clock exist only on
+    Sleeper's private draft socket, which this tool does not touch: those are still
+    entered by hand. With sync off, the board reflects exactly what has been typed in and
+    nothing else.</div>
    <div class="cards" style="margin-bottom:12px" id="diagCards"></div>
    <div class="tablewrap" style="max-height:260px"><table id="log"><tbody></tbody></table></div>
   </div>
@@ -802,6 +944,71 @@ async function refresh(){
     e.innerHTML='<option value="">'+(id==='#nomLeader'?'(nobody yet)':'(not recorded)')+'</option>'
       +S.owners.map(o=>`<option value="${o.owner_id}">${esc(o.team_name)}</option>`).join(''); e.value=k;}
   $('#ovTag').innerHTML=(S.contingency_tags||[]).map(t=>`<option>${esc(t)}</option>`).join('');
+  drawSync(S.sleeper||{});
+}
+
+/* ---- live Sleeper sync -------------------------------------------------
+   The server does the polling, so the sync keeps working with the browser
+   closed. This loop only mirrors what the server already knows, and pulls a
+   full refresh when the room actually changed -- so a completed Sleeper sale
+   lands on the board with no reload. */
+let SYNC={}, LAST_FP=null;
+
+function drawSync(k){
+  SYNC=k||{};
+  const st=k.status||'OFF', att=!!k.needs_attention;
+  $('#syncStatus').textContent=st;
+  $('#syncStatus').className='v '+(att?'bad':(st==='CONNECTED'?'good':''));
+  $('#syncPoll').textContent=k.last_poll_ok_at
+    ? (new Date(k.last_poll_ok_at*1000).toLocaleTimeString()
+       +' ('+k.last_poll_age_s+'s ago)') : 'never';
+  $('#syncPicks').textContent=(k.n_sleeper_completed==null?'\u2014'
+    :k.n_sleeper_completed+' completed, '+(k.n_sleeper_applied||0)+' applied');
+  $('#syncLocal').textContent=(k.n_local_sales==null?'\u2014':k.n_local_sales);
+  $('#syncToggle').textContent=k.enabled
+    ? 'Turn LIVE SLEEPER SYNC off' : 'Turn LIVE SLEEPER SYNC on';
+  $('#syncToggle').className=k.enabled?'on':'';
+  $('#syncNow').disabled=!k.enabled;
+  $('#syncAck').style.display=att?'':'none';
+  $('#syncPanel').classList.toggle('att',att);
+
+  const b=$('#syncBadge');
+  b.className='badge '+(att?'att':(k.enabled?'live':'offb'));
+  b.innerHTML='<span class="dot"></span>'+esc(att
+    ? 'SYNC NEEDS ATTENTION \u2014 MANUAL CONTROLS STILL LIVE'
+    : (k.enabled ? 'SLEEPER SYNC: '+st+' \u2014 COMPLETED SALES ONLY'
+                 : 'SLEEPER SYNC: OFF \u2014 MANUAL TRACKING'));
+
+  let note=esc(k.scope_note||'');
+  if(k.last_error) note+=' <span class="bad">Last error: '+esc(k.last_error)+'</span>';
+  $('#syncNote').innerHTML=note;
+  const d=k.draft||{};
+  $('#syncDraft').textContent=d.draft_id
+    ? `draft ${d.draft_id} \u00b7 ${d.name||''} \u00b7 ${d.status||''} `
+      +`\u00b7 ${d.type||''} \u00b7 ${d.teams||'?'} teams \u00b7 $${d.budget||'?'} `
+      +`\u00b7 polling every ${k.poll_seconds}s (read-only, no credentials)`
+    : 'not connected to Sleeper';
+
+  const att_html=(k.attention||[]).length
+    ? '<div class="attbar">SYNC NEEDS ATTENTION \u2014 automatic application is '
+      +'STOPPED. Nothing was overwritten. Record sales by hand until this is '
+      +'cleared.<ul>'+(k.attention||[]).map(a=>'<li>'+esc(a)+'</li>').join('')
+      +'</ul></div>'
+    : '';
+  $('#syncAtt').innerHTML=att_html;
+}
+
+async function syncTick(){
+  const k=await api('/api/sleeper');
+  if(k.__err) return;
+  drawSync(k);
+  // The server may have applied a sale since the last look.
+  if(k.enabled && k.n_local_sales!==undefined){
+    const st=await api('/api/state');
+    if(st.fingerprint && st.fingerprint!==LAST_FP){
+      LAST_FP=st.fingerprint; await refresh(); if(SEL) selectPlayer(SEL);
+    }
+  }
 }
 
 function drawUs(){
@@ -1090,6 +1297,23 @@ $('#mLive').onclick=()=>{MODE='live';$('#mLive').classList.add('on');
   $('#mOpen').classList.remove('on');refresh();};
 $('#mOpen').onclick=()=>{MODE='opening';$('#mOpen').classList.add('on');
   $('#mLive').classList.remove('on');refresh();};
+$('#syncToggle').onclick=async()=>{
+  const on=SYNC.enabled;
+  if(!on && !confirm('Turn LIVE SLEEPER SYNC on?\n\nThis polls Sleeper\'s public '
+      +'draft feed every 3 seconds, read-only, and applies COMPLETED SALES only. '
+      +'It never sees live bids. Manual entry and undo stay available.')) return;
+  const k=await api(on?'/api/sleeper/disable':'/api/sleeper/enable',{method:'POST'});
+  if(k.__err){alert('sync: '+k.__err); return;}
+  drawSync(k); await refresh();};
+$('#syncNow').onclick=async()=>{
+  const k=await api('/api/sleeper/now',{method:'POST'});
+  if(k.__err){alert('sync: '+k.__err); return;}
+  drawSync(k); await refresh(); if(SEL) selectPlayer(SEL);};
+$('#syncAck').onclick=async()=>{
+  if(!confirm('Acknowledge the mismatch and re-arm automatic application?\n\n'
+     +'Nothing is repaired by this. Fix the board by hand FIRST.')) return;
+  drawSync(await api('/api/sleeper/ack',{method:'POST'}));};
+setInterval(syncTick, 2000);
 refresh();
 </script></body></html>
 """
