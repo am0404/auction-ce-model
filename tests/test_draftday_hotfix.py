@@ -528,35 +528,85 @@ def test_the_page_asks_the_ceboard_endpoint_for_the_selected_player():
 
 
 def test_a_medium_row_is_labelled_heuristic_and_not_audited():
-    assert "ROUGH CE WORKING MAX &mdash; HEURISTIC, NOT AUDITED" in PAGE
+    """The label now carries the number: WORKING MAX $X - HEURISTIC..."""
+    assert "'ROUGH CE WORKING MAX '+money(centre)" in PAGE
+    assert "HEURISTIC, NOT AUDITED" in PAGE
 
 
-def test_a_suppressed_row_sends_the_operator_to_the_market_guardrail():
-    assert "CE SIGNAL NOISY" in PAGE or "ce.message" in PAGE
-    # The LOW branch must render ce.message, never a dollar figure.
-    low = PAGE[PAGE.index("if(ce.confidence==='LOW'){"):
-               PAGE.index("const live = ce.live_rough_ce_shown;")]
-    for forbidden in ("consensus_median", "live_rough_ce", "opening_rough_ce_max"):
-        assert forbidden not in low, forbidden
+def test_a_low_row_is_labelled_an_estimate_and_not_a_max():
+    """LOW rows now DISPLAY the centre. The claim is what changes."""
+    assert "ROUGH CE ESTIMATE " in PAGE
+    assert "NOT RELIABLE AS A MAX" in PAGE
 
 
-def test_the_panel_renders_the_withheld_live_value_not_the_raw_one():
-    """`live_rough_ce` is populated even for LOW rows; `_shown` is not.
+def test_a_low_or_structural_row_states_the_operational_fallback():
+    assert "OPERATIONAL NUMBER" in PAGE
+    assert "MARKET GUARDRAIL " in PAGE
+    assert "CE/MARKET STRUCTURAL DISAGREEMENT" in PAGE
+    assert "must not be used as a maximum" in PAGE
 
-    Rendering the raw field would print an actionable maximum for exactly
-    the players the confidence gate exists to suppress.
+
+def test_a_low_row_explains_why_it_is_low():
+    assert "Why LOW:" in PAGE
+    assert "ce.suppression_reason" in PAGE
+
+
+def test_the_live_working_max_block_is_medium_only():
+    """The live/opening WORKING MAX figures stay off LOW rows.
+
+    Displaying a centre as an estimate is the new requirement; presenting a
+    LOW row a live-adjusted *maximum* is not, so that block is gated.
     """
+    assert "const live = low ? '' :" in PAGE
     assert "ce.live_rough_ce_shown" in PAGE
     assert "money(ce.live_rough_ce)" not in PAGE
+
+
+def test_the_actionable_field_is_still_withheld_for_low_rows(app):
+    """The display change must not have leaked into the actionable field."""
+    code, out = app.handle("GET", "/api/board", {"mode": ["live"]}, {})
+    assert code == 200
+    for r in out["rows"]:
+        if r.get("rough_ce_confidence") == "LOW":
+            assert r["rough_ce_max"] is None
+            assert r["rough_ce_low"] is None
+            assert r["rough_ce_high"] is None
+
+
+def test_no_ce_number_can_reach_the_guardrail_or_the_verdict():
+    """Structural proof, not a spot check.
+
+    The guardrail and the BID/STOP recommendation are produced by
+    ``opening_rows``; the CE fields are merged onto the row afterwards. So
+    the modules that compute them must not mention rough CE at all.
+    """
+    import inspect
+    from ceauction.draftday import board as board_mod
+    from ceauction.draftday import caps as caps_mod
+    for mod in (board_mod, caps_mod):
+        src = inspect.getsource(mod)
+        for leaked in ("rough_ce", "ceboard", "consensus_median"):
+            assert leaked not in src, f"{mod.__name__} mentions {leaked}"
 
 
 def test_the_cached_ce_bracket_line_stays_separate_from_rough_ce():
     assert "'Cached CE bracket'" in PAGE
 
 
-def test_the_board_carries_rough_ce_and_confidence_columns():
-    assert ">Rough CE</th>" in PAGE
+def test_the_board_carries_centre_range_and_confidence_columns():
+    assert ">Rough CE Center</th>" in PAGE
+    assert ">Context Range</th>" in PAGE
     assert ">CE Conf</th>" in PAGE
+
+
+def test_every_priced_row_carries_centre_and_context_range(app):
+    code, out = app.handle("GET", "/api/board", {"mode": ["live"]}, {})
+    assert code == 200
+    priced = [r for r in out["rows"] if r.get("rough_ce_status") == "OK"]
+    for r in priced:
+        assert r["rough_ce_center"] is not None
+        assert r["rough_ce_ctx_low"] is not None
+        assert r["rough_ce_ctx_high"] is not None
 
 
 def test_the_board_never_prices_a_low_confidence_row(app):

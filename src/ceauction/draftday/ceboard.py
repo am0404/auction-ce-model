@@ -348,7 +348,12 @@ class BoardEntry:
                                    else ("SEED/CONTEXT NOISE" if low else "")),
             "lean": self.lean if low else "",
             "diagnostics": {
+                # ``rough_ce_center`` is the display name for this number.
+                # ``consensus_median`` is kept as-is: it is the established
+                # key and renaming it would be a contract change, not a
+                # clearer label.
                 "consensus_median": self.center,
+                "rough_ce_center": self.center,
                 "p20": self.low, "p80": self.high, "spread": self.spread,
                 "n_observations": len(self.observations),
                 "seed_medians": self.seed_medians,

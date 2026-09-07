@@ -196,9 +196,19 @@ class DraftDayServer:
     def _ce_row(self, player_id: int) -> Dict[str, object]:
         """The CE columns for one board row.
 
-        A LOW row carries no ``rough_ce_max``: the field is absent, not zero
-        and not the raw consensus, so nothing downstream can render a noisy
-        number as an actionable maximum.
+        Two different things are carried here, deliberately under different
+        names, and the distinction is the whole safety property:
+
+        ``rough_ce_max`` is the ACTIONABLE field and stays ``None`` for a LOW
+        row, exactly as before. Nothing that computes a cap or a BID/STOP
+        verdict may read anything else.
+
+        ``rough_ce_center`` and the context range are DIAGNOSTIC fields and
+        are populated for every priced player, LOW included, because an
+        operator asked to see the estimate rather than a dash. They are
+        display-only. The guardrail and the recommendation are computed in
+        ``opening_rows`` before this dict is merged in, so a diagnostic
+        number cannot reach them even by accident.
         """
         from .ceboard import NOISY_MESSAGE, STRUCTURAL_MESSAGE
         if self.ceboard is None:
@@ -210,9 +220,15 @@ class DraftDayServer:
         return {
             "rough_ce_status": "OK",
             "rough_ce_confidence": e.confidence,
+            # actionable: withheld for LOW, unchanged.
             "rough_ce_max": None if low else e.center,
             "rough_ce_low": None if low else e.low,
             "rough_ce_high": None if low else e.high,
+            # diagnostic: always shown, never actionable.
+            "rough_ce_center": e.center,
+            "rough_ce_ctx_low": e.low,
+            "rough_ce_ctx_high": e.high,
+            "rough_ce_structural": e.structural_disagreement,
             "rough_ce_message": (
                 (STRUCTURAL_MESSAGE if e.structural_disagreement
                  else NOISY_MESSAGE) if low else ""),
@@ -991,10 +1007,12 @@ PAGE = r"""<!doctype html>
         title="Draft Guardrail: the working dollar figure to bid against. Where no converged tactical result exists this is max(Sleeper price, adjusted model high), clamped to our legal maximum -- the USER MARKET-ANCHOR POLICY. It is not a max bid.">Guardrail</th>
     <th class="l" data-s="guardrail_basis"
         title="Guardrail Basis: what evidence stands behind that number.">Basis</th>
-    <th data-s="rough_ce_max"
-        title="ROUGH CE MAX -- a heuristic starting point, NOT an audited CE result and not a max bid. CE ranks the players; the market price curve supplies the dollar scale. A LOW-confidence row shows no number on purpose.">Rough CE</th>
+    <th data-s="rough_ce_center"
+        title="ROUGH CE CENTER -- the centre of the fifteen seed/context observations. A heuristic starting point, NOT an audited CE result and NOT a max bid. Shown for every priced player, including LOW-confidence ones, for information only. It never feeds the Guardrail or the BID/STOP verdict.">Rough CE Center</th>
+    <th data-s="rough_ce_ctx_low"
+        title="CONTEXT RANGE -- the 20th to 80th percentile of the fifteen seed/context observations. How much the estimate moves depending on which roster shape and ranking seed you ask.">Context Range</th>
     <th class="l" data-s="rough_ce_confidence"
-        title="How far the five ranking seeds and three roster contexts disagree. MEDIUM = a usable heuristic number. LOW = the spread is too wide, or CE and the market disagree structurally; use the market guardrail instead.">CE Conf</th>
+        title="How far the five ranking seeds and three roster contexts disagree. MEDIUM = usable as a working heuristic max. LOW = too wide, or CE and the market disagree structurally; the market guardrail is the operational number.">CE Conf</th>
     <th class="l" data-s="status" title="Availability, or who bought him and for how much.">Status</th>
    </tr></thead><tbody></tbody></table></div>
   <div class="note" style="margin-top:8px">
@@ -1235,6 +1253,7 @@ function drawBoard(){
       r.ce_audited?'':' -- CE NOT AUDITED'}">${esc(shortBasis(r.guardrail_basis))}${
       r.ce_audited?'':' <span class="pill gray">no CE</span>'}</td>
     <td>${ceCell(r)}</td>
+    <td class="muted">${ceRangeCell(r)}</td>
     <td class="l" style="font-size:11.5px">${ceConfCell(r)}</td>
     <td class="l" style="font-size:12.5px">${r.sold
       ?('SOLD &middot; '+esc(r.owner_team)+' $'+r.sale_price)
@@ -1321,19 +1340,31 @@ async function selectPlayer(id){
 }
 
 // --- rough CE rendering ------------------------------------------------
-// One rule governs every one of these: a LOW row NEVER renders a dollar
-// figure. The server already withholds it (rough_ce_max is null, and
-// live_rough_ce_shown is null), and nothing here reaches around that to
-// print the raw consensus. LOW rows get the message and the market
-// guardrail instead, which is the whole point of the confidence gate.
+// Every priced player shows his ROUGH CE CENTER and context range, LOW rows
+// included. What confidence changes is the CLAIM attached to the number,
+// not whether the number is visible:
+//   MEDIUM -> "ROUGH CE WORKING MAX $X - HEURISTIC, NOT AUDITED"
+//   LOW    -> "ROUGH CE ESTIMATE $X - NOT RELIABLE AS A MAX"
+// The centre is diagnostic in both cases. It is never written into the
+// guardrail, the cap or the BID/STOP verdict -- those are computed server
+// side before the CE fields are merged onto the row, and the actionable
+// field (rough_ce_max) is still withheld for LOW rows.
 function ceCell(r){
   if(r.rough_ce_status!=='OK')
     return '<span class="c-none" title="'+esc(r.rough_ce_status||'')+'">&mdash;</span>';
-  if(r.rough_ce_max===null||r.rough_ce_max===undefined)
-    return '<span class="c-none" title="'+esc(r.rough_ce_message||'')
-      .replace(/\n/g,' ')+'">&mdash;</span>';
-  return '<b class="num warn" title="ROUGH CE WORKING MAX -- HEURISTIC, NOT AUDITED">$'
-    +r.rough_ce_max+'</b>';
+  const c=r.rough_ce_center;
+  if(c===null||c===undefined) return '<span class="c-none">&mdash;</span>';
+  const low = r.rough_ce_confidence==='LOW';
+  const t = low ? 'ROUGH CE ESTIMATE -- NOT RELIABLE AS A MAX'
+                : 'ROUGH CE WORKING MAX -- HEURISTIC, NOT AUDITED';
+  return '<b class="num '+(low?'muted':'warn')+'" title="'+t+'">$'+c+'</b>';
+}
+function ceRangeCell(r){
+  if(r.rough_ce_status!=='OK'||r.rough_ce_ctx_low===null
+     ||r.rough_ce_ctx_low===undefined)
+    return '<span class="c-none">&mdash;</span>';
+  return '<span class="num" title="20th-80th percentile of 15 seed/context '
+    +'observations">$'+r.rough_ce_ctx_low+'&ndash;$'+r.rough_ce_ctx_high+'</span>';
 }
 function ceConfCell(r){
   if(r.rough_ce_status!=='OK')
@@ -1345,9 +1376,7 @@ function ceConfCell(r){
     +esc(r.rough_ce_confidence||'')+'</span>';
 }
 
-// The selected-player rough CE block. This is the mandatory surface: the
-// board columns are a convenience, this is where the number, its label and
-// the diagnostics that justify it all appear together.
+// The selected-player rough CE block.
 function ceBlock(ce){
   if(!ce) return '';
   if(ce.status!=='OK'){
@@ -1358,9 +1387,39 @@ function ceBlock(ce){
       +esc(ce.status)+'</div><div class="s" style="margin-top:4px">'+esc(why)+'</div></div>';
   }
   const d = ce.diagnostics||{};
+  const centre = (d.rough_ce_center!==undefined&&d.rough_ce_center!==null)
+    ? d.rough_ce_center : d.consensus_median;
+  const low = ce.confidence==='LOW';
+  const structural = !!d.structural_disagreement;
+
+  // The headline claim. This is the only thing confidence changes.
+  const headline = low
+    ? 'ROUGH CE ESTIMATE '+money(centre)+' &mdash; NOT RELIABLE AS A MAX'
+    : 'ROUGH CE WORKING MAX '+money(centre)+' &mdash; HEURISTIC, NOT AUDITED';
+
+  // A structurally-disagreeing row still shows its centre, but the
+  // operational number is stated first and unmissably.
+  const fallback = (low||structural)
+    ? '<div class="banner" style="margin-top:8px">OPERATIONAL NUMBER: '
+      +'<b>MARKET GUARDRAIL '+money(ce.working_number)+'</b>'
+      +(structural
+        ? ' &mdash; CE/MARKET STRUCTURAL DISAGREEMENT. The CE centre above is '
+          +'shown for information only and must not be used as a maximum.'
+        : ' &mdash; the CE estimate above is information, not a maximum.')
+      +'</div>'
+    : '';
+
+  const reason = low
+    ? '<div class="s" style="margin-top:6px">Why LOW: <b>'
+      +esc(ce.suppression_reason||'')+'</b>'
+      +(ce.lean?' &middot; '+esc(ce.lean):'')
+      +' &middot; spread $'+d.spread+' across '+d.n_observations
+      +' observations, '+d.seed_agreement+'/5 seeds agreeing.</div>'
+    : '';
+
   const diag = '<div class="cediag">'
-    +'<span>consensus median <b>'+money(d.consensus_median)+'</b></span>'
-    +'<span>seed/context range <b>'+money(d.p20)+'&ndash;'+money(d.p80)+'</b></span>'
+    +'<span><b>ROUGH CE CENTER</b> '+money(centre)+'</span>'
+    +'<span><b>CONTEXT RANGE</b> '+money(d.p20)+'&ndash;'+money(d.p80)+'</span>'
     +'<span>spread <b>$'+d.spread+'</b></span>'
     +'<span>seeds agreeing <b>'+d.seed_agreement+'/5</b></span>'
     +'<span>observations <b>'+d.n_observations+'</b></span>'
@@ -1369,33 +1428,27 @@ function ceBlock(ce){
     +'<span>vs market <b>'+esc(d.direction||'')+'</b></span>'
     +'</div>';
 
-  if(ce.confidence==='LOW'){
-    // No actionable maximum is exposed. Not the consensus, not the live
-    // value, not a midpoint -- the operator is sent to the market guardrail.
-    const msg = (ce.message||'').split('\n').map(esc).join('<br>');
-    return '<div class="cebox low">'
-      +'<div class="celabel bad">'+msg+'</div>'
-      +'<div class="s" style="margin-top:6px">No rough CE maximum is shown for this '
-      +'player. Suppressed: <b>'+esc(ce.suppression_reason||'')+'</b>'
-      +(ce.lean?' &middot; '+esc(ce.lean):'')+'. '
-      +'Bid against the market guardrail above.</div>'
-      +diag+'</div>';
-  }
-  const live = ce.live_rough_ce_shown;
-  return '<div class="cebox medium">'
-    +'<div class="celabel">ROUGH CE WORKING MAX &mdash; HEURISTIC, NOT AUDITED</div>'
-    +'<div class="row" style="gap:22px;align-items:flex-end;margin-top:4px">'
-    +'<div><div class="k">Live-adjusted</div><div class="cenum warn">'+money(live)+'</div>'
+  const live = low ? '' :
+     '<div class="row" style="gap:22px;align-items:flex-end;margin-top:6px">'
+    +'<div><div class="k">Live-adjusted</div><div class="cenum warn">'
+    +money(ce.live_rough_ce_shown)+'</div>'
     +'<div class="s">'+money(ce.live_low)+'&ndash;'+money(ce.live_high)
     +(ce.clamped?' &middot; '+esc(ce.clamp_label||'clamped'):'')+'</div></div>'
-    +'<div><div class="k">Opening</div><div class="cenum">'+money(ce.opening_rough_ce_max)+'</div>'
+    +'<div><div class="k">Opening</div><div class="cenum">'
+    +money(ce.opening_rough_ce_max)+'</div>'
     +'<div class="s">'+money(ce.opening_low)+'&ndash;'+money(ce.opening_high)+'</div></div>'
     +'<div><div class="k">Confidence</div><div class="cenum">'+esc(ce.confidence)+'</div>'
     +'<div class="s">of MEDIUM / LOW</div></div>'
-    +'</div>'
-    +'<div class="s" style="margin-top:6px">CE ranks the players; the market price '
-    +'curve supplies the dollar scale. This is not an audited CE result, not a '
-    +'certified maximum and not a reservation price.</div>'
+    +'</div>';
+
+  return '<div class="cebox '+(low?'low':'medium')+'">'
+    +'<div class="celabel">'+headline+'</div>'
+    +'<div class="s" style="margin-top:4px">CONTEXT RANGE '+money(d.p20)
+    +'&ndash;'+money(d.p80)+' &middot; '+esc(ce.confidence)+' confidence</div>'
+    +fallback+reason+live
+    +'<div class="s" style="margin-top:6px">CE ranks the players; the market '
+    +'price curve supplies the dollar scale. This is not an audited CE result, '
+    +'not a certified maximum and not a reservation price.</div>'
     +diag+'</div>';
 }
 
