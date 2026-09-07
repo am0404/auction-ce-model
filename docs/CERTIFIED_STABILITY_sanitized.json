@@ -1,0 +1,112 @@
+{
+ "provenance": "SIMULATED MID-AUCTION STATE -- invented from the market prior for frontier testing. NOT observed, NOT recorded, NOT historical, NOT calibrated. No league sale has ever been recorded.",
+ "simulated": true,
+ "nested": true,
+ "offer_sizes": {
+  "12": {
+   "with": 84,
+   "without": 12,
+   "fingerprint": "0db184e17b6e67ca"
+  },
+  "24": {
+   "with": 168,
+   "without": 24,
+   "fingerprint": "7ca8fa07d9925f3a"
+  }
+ },
+ "verdict": {
+  "rule_fingerprint": "7f183724afc05780",
+  "declared_at": "2026-09-07, before any 12->24 CE result was run",
+  "max_worlds": 8,
+  "material_ce_shift": 0.01,
+  "label": "CE_CANDIDATE_SET_STABLE",
+  "ok": true,
+  "clauses": [
+   {
+    "clause": "no verdict changes",
+    "pass": true,
+    "evidence": "p=$65: favorable; p=$80: unfavorable"
+   },
+   {
+    "clause": "crossing still bracketed by ($65, $80)",
+    "pass": true,
+    "evidence": "p=$65: favorable; p=$80: unfavorable"
+   },
+   {
+    "clause": "no material CE-selection improvement (|shift| <= 0.01)",
+    "pass": true,
+    "evidence": "worst paired mean shift 0.000000"
+   },
+   {
+    "clause": "every selected completion within 0.5 of its certified optimum",
+    "pass": true,
+    "evidence": "all inside"
+   },
+   {
+    "clause": "reconciliation and conservation exact",
+    "pass": true,
+    "evidence": "max residual 1.4e-17"
+   }
+  ],
+  "rows": [
+   {
+    "price": 65,
+    "verdict_12": "favorable",
+    "verdict_24": "favorable",
+    "mean_delta_12": 0.02213636,
+    "mean_delta_24": 0.02213636,
+    "ci_12": [
+     0.01626495,
+     0.02800778
+    ],
+    "ci_24": [
+     0.01626495,
+     0.02800778
+    ],
+    "paired_mean_shift": 0.0,
+    "paired_shift_sd": 0.0,
+    "paired_max_abs_shift": 0.0,
+    "n_selection_changed": 0,
+    "certified_optimum": 95.633078,
+    "selected_within_proxy_band": true,
+    "max_residual": 0.0,
+    "invariants_ok": true,
+    "invariant_detail": "",
+    "worlds_compared": [
+     8,
+     8
+    ]
+   },
+   {
+    "price": 80,
+    "verdict_12": "unfavorable",
+    "verdict_24": "unfavorable",
+    "mean_delta_12": -0.05259091,
+    "mean_delta_24": -0.05259091,
+    "ci_12": [
+     -0.05667315,
+     -0.04850866
+    ],
+    "ci_24": [
+     -0.05667315,
+     -0.04850866
+    ],
+    "paired_mean_shift": 0.0,
+    "paired_shift_sd": 0.0,
+    "paired_max_abs_shift": 0.0,
+    "n_selection_changed": 0,
+    "certified_optimum": 92.476971,
+    "selected_within_proxy_band": true,
+    "max_residual": 1.3877787807814457e-17,
+    "invariants_ok": true,
+    "invariant_detail": "",
+    "worlds_compared": [
+     8,
+     8
+    ]
+   }
+  ]
+ },
+ "runtime_s": 1865.1,
+ "note": "Per-draw rows carry roster FINGERPRINTS only; identities stay under local_data/."
+}
