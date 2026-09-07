@@ -744,7 +744,7 @@ function drawQB(q){
     <div class="card"><div class="k">superflex skill fallback</div>
       ${f?`<div class="v" style="font-size:13px">QB +${f.best_available_qb.improvement}
         vs skill +${f.best_available_skill.improvement}</div>
-        <div class="k">premium ${f.qb_premium} &middot; PROXY/HEURISTIC</div>`:'<div class="v">-</div>'}</div>
+        <div class="k">gap ${f.qb_minus_skill_improvement} &middot; PROXY/HEURISTIC</div>`:'<div class="v">-</div>'}</div>
     <div class="card"><div class="k">QB3 insurance</div>
       <div class="muted" style="font-size:11px">${q.qb3_insurance}</div></div>
    </div>

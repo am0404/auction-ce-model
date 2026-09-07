@@ -260,15 +260,22 @@ def provisional_cap(rails: CapRails) -> ProvisionalCap:
     bound = min(candidates, key=lambda k: (candidates[k], k))
     cap = candidates[bound]
 
-    if "proxy_ceiling" in candidates:
+    # The basis names the rail that actually bound the number, not the most
+    # interesting rail available. When our own legal maximum is the binding
+    # constraint -- because the player is gone, or because we simply cannot
+    # reach his market price -- the answer came from auction arithmetic, and
+    # calling it a market recommendation would credit an estimate for a number
+    # the rules produced.
+    if bound == "legal_max":
+        basis = EXACT
+        label = ("LEGAL MAXIMUM BINDS" if market.is_priced
+                 else "LEGAL MAXIMUM ONLY -- NO MARKET ANCHOR")
+    elif bound == "proxy_ceiling":
         basis = PROXY
         label = MARKET_LED_LABEL
-    elif market.is_priced:
+    else:
         basis = market.basis
         label = MARKET_LED_LABEL
-    else:
-        basis = EXACT
-        label = "LEGAL MAXIMUM ONLY -- NO MARKET ANCHOR"
     if rails.proxy_status == "calculating":
         notes.append("CALCULATING -- proxy ceiling not yet available")
 

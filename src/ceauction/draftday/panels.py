@@ -338,12 +338,17 @@ def qb_panel(session: DraftSession, *,
             fallback = {
                 "best_available_qb": best_qb,
                 "best_available_skill": best_skill,
-                "qb_premium": round(best_qb["improvement"]
-                                    - best_skill["improvement"], 3),
+                # The gap between two computed lineup improvements, not a
+                # constant and not a premium: both sides come out of the same
+                # proxy over the same availability replicates, and the number
+                # is negative whenever the best skill player helps us more.
+                "qb_minus_skill_improvement": round(
+                    best_qb["improvement"] - best_skill["improvement"], 3),
                 "basis": "PROXY/HEURISTIC",
                 "note": ("Mean weekly starting-lineup projection only. This is "
                          "the existing proxy, not championship equity, and it "
-                         "ignores scoring variance entirely."),
+                         "ignores scoring variance entirely. The gap is "
+                         "computed from both rosters, never assumed."),
             }
     except Exception:
         fallback = None

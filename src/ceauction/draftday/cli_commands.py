@@ -28,6 +28,26 @@ BANNER = (
     "No unresolved or underconverged CE result produces a CE max bid.\n")
 
 
+def _require_sources(args) -> Optional[int]:
+    """Every command needs both real sources. Say which is missing, and stop.
+
+    A missing gitignored input is the most likely thing to go wrong on a fresh
+    machine, and a traceback is the least useful way to report it.
+    """
+    missing = [str(p) for p in (Path(args.contract), Path(args.sleeper_csv))
+               if not p.exists()]
+    if not missing:
+        return None
+    print("ERROR: the real sources are not where the draft-day tool expects "
+          "them.", file=sys.stderr)
+    for path in missing:
+        print(f"  missing: {path}", file=sys.stderr)
+    print("\nBoth files live under local_data/, which is gitignored. Point at "
+          "them with --contract and --sleeper-csv, or run "
+          "`ce-lab draft-day verify`.", file=sys.stderr)
+    return 2
+
+
 def _session(args, *, restore: bool = True):
     from .session import open_session
     return open_session(
@@ -39,14 +59,10 @@ def _session(args, *, restore: bool = True):
 def cmd_serve(args) -> int:
     from .server import serve
     print(BANNER)
-    try:
-        session = _session(args)
-    except FileNotFoundError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        print("\nThe real sources live under local_data/ and are gitignored. "
-              "Run `ce-lab draft-day verify` to see what is missing.",
-              file=sys.stderr)
-        return 2
+    problem = _require_sources(args)
+    if problem is not None:
+        return problem
+    session = _session(args)
     serve(host=args.host, port=args.port, open_browser=not args.no_browser,
           enable_proxy=not args.no_proxy, session=session)
     return 0
@@ -55,6 +71,9 @@ def cmd_serve(args) -> int:
 def cmd_board(args) -> int:
     from .board import load_board, opening_rows, write_opening_board
     print(BANNER)
+    problem = _require_sources(args)
+    if problem is not None:
+        return problem
     board = load_board(contract=Path(args.contract),
                        sleeper_csv=Path(args.sleeper_csv),
                        use_cache=not args.no_cache, verbose=True)
@@ -91,11 +110,15 @@ def cmd_board(args) -> int:
 def cmd_nominate(args) -> int:
     from .panels import nomination_panel, qb_panel
     print(BANNER)
+    problem = _require_sources(args)
+    if problem is not None:
+        return problem
     session = _session(args)
     matches = [pid for pid, name in session.board.name_by_id.items()
                if args.player.lower() in name.lower()]
     if not matches:
-        print(f"no player matches {args.player!r}", file=sys.stderr)
+        print(f"no player on the board matches {args.player!r}",
+              file=sys.stderr)
         return 2
     if len(matches) > 1:
         exact = [p for p in matches
@@ -245,6 +268,9 @@ def _writable(path: Path) -> bool:
 def cmd_mock(args) -> int:
     from .mock import run_mock
     print(BANNER)
+    problem = _require_sources(args)
+    if problem is not None:
+        return problem
     return run_mock(contract=Path(args.contract),
                     sleeper_csv=Path(args.sleeper_csv),
                     use_cache=not args.no_cache)
