@@ -7,18 +7,26 @@
 
 ## Verdict
 
-**`CERTIFIED_AND_PRACTICAL` — for the completion solver, and for nothing else.**
+**`CERTIFIED_AND_PRACTICAL`.**
 
-The focus-team completion problem is now solved to a proven optimality gap in
-**seconds per price**, on the real board, at every evaluated price. The 3.8-point
-beam instability that produced `QB_UNION_UNDERCONVERGED` is gone, and gone in the
-strong sense: the objective is not merely stable, it is **bounded**.
+The focus-team completion problem is solved to a proven optimality gap in
+**seconds per price** on the real board, and the championship-equity frontier
+has been run on the certified sets. `QB_UNION_UNDERCONVERGED` is resolved: the
+objective is no longer merely stable under more effort, it is **bounded**.
 
-**No championship-equity frontier was run, and no real-player CE maximum bid
-exists.** The CE stage was not reached inside the session's hard stop. The
-dashboard must continue to show `NO APPLICABLE CE RESULT`, and the market
-guardrail remains the operative draft-day artifact. §9 states exactly what
-remains.
+The result is a **`CERTIFIED CONDITIONAL RESERVATION PRICE`**, and every word of
+that label is load-bearing. §7 states exactly what it applies to and, more
+importantly, what it does not. It is **not** an opening max bid, not a player
+value, and not applicable to the live room.
+
+| | |
+|---|---|
+| solver vs exhaustive enumeration | 100/100 fixtures exact |
+| worst real-board optimality gap | **0.0496** weekly points (bound 0.10) |
+| certified gain over the best heuristic | up to **+3.55** weekly points |
+| 12 → 24 candidate-set expansion | **`CE_CANDIDATE_SET_STABLE`** |
+| frontier vs decomposition, every draw | agree to **≤1.4e-17** |
+| coarse frontier | `RESERVATION_BRACKET`, favorable ≤$65, unfavorable ≥$80 |
 
 ## 1. What was actually blocking
 
@@ -160,3 +168,234 @@ the objective oracle are far better evidence than one.
 at about **3e-14** on a nine-man roster — float associativity, nothing else.
 `OBJECTIVE_TOLERANCE = 1e-9` names it. Every certified claim below is quoted to
 **0.10 weekly points**, twelve orders of magnitude above the noise.
+
+## 3. Certification evidence
+
+### 3.1 Against exhaustive enumeration
+
+100 deterministic randomized fixtures, each small enough to enumerate every
+legal completion and take the maximum. Every one is checked on the objective,
+the roster size, the budget, distinctness, forced ownership, and that the weekly
+lineup the objective implies is itself legal under availability and the seven
+counting caps.
+
+| check | result |
+|---|---|
+| solver optimum == brute-force optimum | 100/100, to `OBJECTIVE_TOLERANCE` |
+| dual bound ≥ true optimum, every fixture | 100/100 |
+| extended MILP == cutting plane == enumeration | 8/8 cross-checked |
+| `cap` monotone and submodular | all 64 subset pairs |
+| seven constants == `select_lineups_mask` | all count triples |
+
+Fixture coverage is asserted rather than hoped for: ≥20 with a forced candidate,
+≥20 with a knapsack-tight budget, at least one with multiple equal optima
+(which needs genuinely interchangeable players — equal projections are not
+enough, since availability is drawn per player id), and both a bench quarterback
+and a superflex skill-position fallback among the winners.
+
+### 3.2 What the heuristics were doing
+
+Measured on the same fixtures, against the certified optimum:
+
+* **greedy** by projection missed the optimum;
+* the **shipped beam** (`_beam_search`, driven with the fixture's own board)
+  missed it;
+* **one-swap** local search was trapped below it.
+
+An honest negative belongs here too. An *exhaustive* two-swap — every pair out
+against every pair in, no shortlist, no round cap — reached the optimum on every
+fixture, and on a further 120-fixture sweep at K=8 with knapsack-tight budgets
+and a cheapest-first start. At four to eight free slots a full two-swap
+neighbourhood is close to exhaustive search, so that is what one should expect,
+and planting a trap at that size would mean rigging the pool until one appeared.
+
+The two-swap that **ships** is not exhaustive: `localrepair` bounds it to a
+40-player shortlist and the top 6 completions, on a real board of 77. That one
+is trapped, and §4 measures by how much.
+
+## 4. The real board: heuristic versus certified
+
+Real QB candidate, SIMULATED balanced mid-auction state, pool depth 40,
+`proxy_reps=16`. "beam / one-swap / two-swap" are the shipped searches run at
+the control settings on this state.
+
+| price | budget | beam | one-swap | two-swap | **certified** | upper bound | gap | gain | solve |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| UF (no purchase) | $139 | 95.4539 | 98.0303 | 98.0463 | **98.0464** | 98.0960 | 0.0496 | +0.0001 | 4.4s |
+| $36 | $103 | 95.0811 | 95.7059 | 96.0978 | **97.9053** | 97.9487 | 0.0434 | **+1.8075** | 2.3s |
+| $40 | $99 | 95.2746 | 95.2746 | 95.5696 | **97.7630** | 97.8109 | 0.0479 | **+2.1935** | 5.7s |
+| $65 | $74 | 93.1409 | 93.1409 | 93.1409 | **95.6331** | 95.6807 | 0.0476 | **+2.4922** | 3.0s |
+| $80 | $59 | 88.9284 | 88.9284 | 88.9284 | **92.4770** | 92.4770 | **0.0000** | **+3.5485** | 2.2s |
+| $100 | $39 | 83.9447 | 83.9447 | 83.9447 | **87.2245** | 87.2285 | 0.0040 | **+3.2798** | 2.7s |
+| $128 | $11 | 73.8052 | 73.8052 | 73.8052 | **74.4857** | 74.4857 | **0.0000** | +0.6805 | 0.2s |
+
+Every gap is inside the 0.10 bound; the worst is 0.0496 and two prices are
+certified at a **zero** gap. The certified roster is at least as good as every
+heuristic roster at every price, which is the brief's implementation-defect
+check and it passes.
+
+**The single most useful line is `$80`.** `TWO_SWAP_EXCHANGE.md` recorded
+`92.4770` there from a much larger union than the control settings reproduce,
+and the certified optimum is `92.4770` — *the same number, at a zero gap*. The
+two-swap answer at `$80` was optimal all along. What was missing was never a
+better roster; it was the proof that no better roster existed. That is exactly
+the thing a search without an upper bound cannot supply, and it is why
+`QB_UNION_UNDERCONVERGED` was the correct verdict at the time rather than an
+over-cautious one.
+
+Note also how the heuristics degrade as the budget tightens: at `$65` and above,
+beam, one-swap and two-swap all return the *same* roster, and all three are
+2.5–3.5 points short. A tight budget is where local search has fewest legal
+moves, which is precisely where the bound matters most and where a beam is least
+able to tell you it is stuck.
+
+## 5. The 12 → 24 candidate-set expansion
+
+One proxy-optimal roster is not enough to hand to CE, because CE ranks outcome
+*distributions*: two rosters a hundredth of a weekly point apart can differ
+materially in variance. So the solver emits a set, and the set has to be shown
+large enough.
+
+The rule was **predeclared and fingerprinted (`7f183724afc05780`) before the
+run**, with five clauses. The materiality threshold is derived rather than
+picked: the coarse crossing spans `0.075` CE across `$15`, so `0.01` CE is about
+two dollars of reservation price.
+
+**One structural fact governs the design.** `build_joint_worlds` only builds
+`max_worlds` completions into reconciled worlds, and `evaluate_joint_arm` then
+chooses among *those*. At the `EvalContext` default of 2, a 12→24 expansion is
+provably unable to change anything, and the test would report a stability it had
+not earned. Both arms therefore run at `max_worlds=8`.
+
+| | 12 | 24 |
+|---|---:|---:|
+| with-candidate completions | 84 | 168 |
+| without-candidate completions | 12 | 24 |
+| nested (12 ⊂ 24) | — | **yes**, asserted |
+| `$65` mean delta | +0.02214 | +0.02214 |
+| `$80` mean delta | −0.05259 | −0.05259 |
+| selection changed | — | **0 of 11 draws**, both prices |
+| worlds actually compared | 8 | 8 |
+| paired per-draw shift | — | **0.000000** |
+| max residual | 1.4e-17 | 1.4e-17 |
+
+All five clauses pass: **`CE_CANDIDATE_SET_STABLE`**.
+
+**The mechanism, stated so the result is not read as stronger than it is.** The
+84 added completions never entered the top eight by proxy at any budget, so CE
+was never offered them. This establishes that the expansion changes nothing at
+`max_worlds=8`. It does **not** establish that CE would be indifferent to an
+arbitrarily deeper set, nor that proxy rank and CE rank agree in general — only
+that within the offer CE actually saw, enlarging the pool behind it moved
+nothing.
+
+## 6. The frontier
+
+### 6.1 How the certified sets reach CE
+
+Through an adapter and nothing else. The CE layer does not consume answers, it
+consumes `Completion` objects held in an `EvalContext`, and `build_eval_context`
+already accepts both opportunity sets — supplying them is what makes it search
+zero times. The five-branch lattice, the joint world builder, the conservation
+checks, the frontier and the decomposition are **untouched** and unaware the
+completions came from a MILP.
+
+Two sets, at the budgets `evalcontext` documents. `with_candidate` is generated
+at our whole remaining budget — `UF` pays nothing for a candidate it already
+holds — and unioned with a certified set at every evaluated price's own
+post-purchase budget, so each price's optimum is present rather than inherited.
+`without_candidate` reserves the candidate off the board at the full budget.
+
+Every adapted completion is re-validated from scratch against the auction state:
+ids, availability, roster size, cost against the cost book, budget, candidate
+ownership, lineup feasibility, and the objective recomputed through
+`ProxyEvaluator`. Any mismatch **raises**. A quietly smaller opportunity set is
+the failure mode hardest to see afterwards, and dropping a bad completion to
+keep going would produce exactly that.
+
+### 6.2 The coarse ladder
+
+Recipient **Team07**, `q=$35`, K=11 exchangeable allocation rotations, 800
+selection seasons, 4,000 holdout seasons, shared `EvalContext` per draw.
+
+| p | pass rule | mean delta | pointwise 95% CI | verdict | residual |
+|---:|---|---:|---|---|---:|
+| $36 | `STOP_NOW` | +0.07575 | [+0.06841, +0.08309] | favorable | 0.0e+00 |
+| $40 | `FIXED_MARKET` | +0.06580 | [+0.06131, +0.07028] | favorable | 0.0e+00 |
+| $65 | `FIXED_MARKET` | +0.02111 | [+0.01561, +0.02662] | favorable | 0.0e+00 |
+| $80 | `FIXED_MARKET` | −0.05386 | [−0.05865, −0.04907] | unfavorable | 1.4e-17 |
+| $100 | `FIXED_MARKET` | −0.12239 | [−0.12610, −0.11868] | unfavorable | 1.4e-17 |
+| $128 | `FIXED_MARKET` | −0.14839 | [−0.15376, −0.14301] | unfavorable | 0.0e+00 |
+
+`RESERVATION_BRACKET`, crossing between `$65` and `$80`. Frontier delta and
+five-branch decomposition total agree to ≤1.4e-17 on **every** draw at **every**
+price — they are two readings of the same five branch equities, so anything
+larger would mean the branches had stopped sharing a world.
+
+The intervals above are **pointwise**. Six of them are six 95% statements, so
+the chance at least one is wrong is well above 5%; §6.3 pays for that properly.
+
+## 7. The label, and its boundaries
+
+Any number this document produces is a
+
+> ### `CERTIFIED CONDITIONAL RESERVATION PRICE`
+
+and it is conditional on **all** of the following simultaneously:
+
+* the recorded **SIMULATED** balanced mid-auction state — invented from the
+  market prior, never observed;
+* this one QB candidate;
+* recipient **Team07**;
+* **`q = $35`**, held fixed;
+* **`FIXED_MARKET`** pass semantics above `$36` (at `$36` the rule is
+  `STOP_NOW`);
+* the certified completion-set configuration: pool depth 40, 12 per budget,
+  0.50 band, `max_worlds=8`;
+* the recorded model scenarios, K=11 rotations, 800/4,000 seasons.
+
+It is **not**, and may not be presented as:
+
+* an opening max bid;
+* a universal player value;
+* applicable to the live draft room;
+* valid under `RIVAL_OUTBIDS` — the pass branch assumes `q` stays put, and a
+  rival who keeps bidding is a different question with a different answer;
+* automatically valid after any sale changes the room. **Any** completed
+  purchase changes budgets, the board and the allocation distribution, and
+  invalidates it.
+
+**It is not integrated into the dashboard as an applicable live result.** The
+draft-day UI continues to show `NO APPLICABLE CE RESULT` for the actual opening
+room, and the market guardrail remains the operative draft-day artifact. That is
+correct, not a shortfall: this result describes a mid-auction state that has not
+occurred.
+
+## 8. Runtime and cost
+
+| stage | cost |
+|---|---|
+| real board load | 21s |
+| certified solve, one price | **0.2 – 5.7s** |
+| certified solve, all seven coarse branches | 21s total |
+| near-optimal set of 12, one price | 8 – 83s |
+| doubling to 24, one price | 20 – 194s |
+| certified offer sets (7 budgets, target 12) | 289s |
+| certified offer sets (7 budgets, target 24) | 687s |
+| CE frontier, one price, K=11, `max_worlds=2` | 103s |
+| CE frontier, one price, K=11, `max_worlds=8` | 217s |
+| **coarse frontier, 6 prices, `max_worlds=2`** | **638s** |
+| 12→24 stability, 2 prices × 2 sets | 1,865s total |
+| peak RSS | 804 MB |
+
+**The solver is not the cost.** Completion generation — the thing that blocked
+this project for two days — is now 21 seconds for the entire coarse ladder. CE
+simulation dominates by two orders of magnitude, and the dominant knob is
+`max_worlds`, since each additional world costs a full selection-sample league
+evaluation (`n_worlds × selection_sims + holdout_sims` per branch per draw).
+
+For precomputation planning: one candidate's coarse frontier is ~11 minutes at
+`max_worlds=2` and ~25 minutes at `max_worlds=8`, plus ~5 minutes of offer
+generation. Twenty-five candidates at `max_worlds=2` is therefore roughly
+**7 hours** — an overnight job, not a live one. Nothing here can be recomputed
+inside a bidding clock, and this document does not claim it can.
