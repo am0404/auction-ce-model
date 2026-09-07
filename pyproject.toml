@@ -11,6 +11,11 @@ dependencies = ["numpy>=1.24"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+# The certified completion solver only. NOT required to run the draft-day
+# dashboard, the market guardrail, or any existing command: `ceauction.auction.
+# certified` is imported nowhere at package import time and reports
+# CERTIFIED_SOLVER_NO_GO rather than raising when highspy is absent.
+solver = ["highspy>=1.7"]
 
 [project.scripts]
 ce-lab = "ceauction.cli:main"
