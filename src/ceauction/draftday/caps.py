@@ -244,8 +244,18 @@ def provisional_cap(rails: CapRails) -> ProvisionalCap:
         notes.append(
             "UNANCHORED -- the market list never priced this player; this is "
             "not an observed $1 sale")
-    if rails.proxy_ceiling is not None and rails.proxy_status == "cached":
-        candidates["proxy_ceiling"] = int(rails.proxy_ceiling)
+    if rails.proxy_status == "cached":
+        if rails.proxy_ceiling is not None:
+            candidates["proxy_ceiling"] = int(rails.proxy_ceiling)
+        else:
+            # The ladder ran and no price came back favourable under any
+            # scenario. That is a result, not a missing one, and it is the
+            # opposite of permissive -- so it must be visible rather than
+            # silently leaving the market rail to bind alone.
+            notes.append(
+                "PROXY: no price on the ladder was favourable under any "
+                "scenario or recipient. The proxy supports no bid here; the "
+                "cap below is market-led only.")
 
     bound = min(candidates, key=lambda k: (candidates[k], k))
     cap = candidates[bound]

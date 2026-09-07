@@ -12,9 +12,13 @@
     ce-lab market        Sleeper anchors, expected clearing prices, live sales
     ce-lab tactical      named pass recipients, endgame arithmetic, shared-board
                          continuation, immediate and audited tactical max bids
+    ce-lab draft-day     LIVE draft tool: real opening board, local dashboard,
+                         sale entry, undo, persistence, QB scarcity
     ce-lab bench         runtime benchmarks and Monte Carlo uncertainty
 
-Everything it touches is SYNTHETIC data (see ``synthetic.py``).
+Everything it touches is SYNTHETIC data (see ``synthetic.py``) **except**
+``ingest``, ``calibrate`` and ``draft-day``, which read the real sources under
+the gitignored ``local_data/`` tree and write their output back there.
 """
 
 from __future__ import annotations
@@ -583,6 +587,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     from .tactical.cli_commands import add_tactical_parser
     add_tactical_parser(sub)
+
+    from .draftday.cli_commands import add_draftday_parser
+    add_draftday_parser(sub)
 
     s = sub.add_parser("bench", help="runtime benchmarks")
     s.add_argument("--counts", type=int, nargs="+", default=None)
