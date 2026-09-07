@@ -221,6 +221,23 @@ class RoughWorldCache:
         po = run_bracket(scores, rs, self.settings)
         return (po.champion == team_index).astype(np.float64)
 
+    def league_outcomes(self, rosters: Sequence[Sequence[int]]):
+        """``(championship_equity_per_team, champion_of_each_season)``.
+
+        The same pair :func:`simulate_seasons` returns, read off the bank. The
+        champion array rather than one team's indicator, because the reconciled
+        evaluator needs every team's equity to check that the league sums to
+        one, and a paired difference needs the per-season winner.
+        """
+        rm = self.roster_matrix(rosters)
+        scores = self._scores(rm)
+        opp = opponents_for_batch(self.seed, 0, self.seasons, self.settings)
+        rs = regular_season(scores, opp, self.settings)
+        po = run_bracket(scores, rs, self.settings)
+        n_teams = rm.shape[0]
+        ce = np.array([(po.champion == t).mean() for t in range(n_teams)])
+        return ce, po.champion
+
     def _scores(self, rm: np.ndarray) -> np.ndarray:
         """``(S, T, W)`` team scores, the same computation as ``team_scores``.
 

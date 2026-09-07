@@ -625,12 +625,45 @@ class JointArm:
         }
 
 
-def _league_ce(world: JointWorld, sims: int, seed: int, chunk: int) -> "object":
+#: Precomputed season outcomes, keyed by ``(sims, seed)``. When a bank is
+#: registered for the exact sample being asked for, it is used instead of
+#: regenerating the player-week draws.
+#:
+#: This is memoisation, not approximation. The draws depend only on the pool,
+#: the seed and the season index -- never on the rosters -- and they are keyed
+#: by player identity, so a bank reproduces ``simulate_seasons`` season for
+#: season. The equality is asserted in the tests rather than assumed here.
+#:
+#: A bank is used ONLY on an exact ``(sims, seed)`` match. Serving a holdout
+#: request from a selection bank, or a 1000-season request from a 200-season
+#: one, would silently answer a different question, so a miss falls through to
+#: the real simulation instead of adapting the bank.
+_OUTCOME_BANKS: Dict[Tuple[int, int], object] = {}
+
+
+def register_outcome_bank(sims: int, seed: int, bank) -> None:
+    """Serve ``(sims, seed)`` from ``bank`` instead of simulating."""
+    _OUTCOME_BANKS[(int(sims), int(seed))] = bank
+
+
+def clear_outcome_banks() -> None:
+    _OUTCOME_BANKS.clear()
+
+
+def _outcomes(world: JointWorld, sims: int, seed: int, chunk: int):
+    """``(championship_equity, champion_of_each_season)`` for this world."""
     from ..auction.completion import _build_roster_set
     from ..simulate import simulate_seasons
     rosters = _build_roster_set(world.state, world.cast, world.focus_roster)
+    bank = _OUTCOME_BANKS.get((int(sims), int(seed)))
+    if bank is not None:
+        return bank.league_outcomes([r.player_ids for r in rosters.rosters])
     out = simulate_seasons(rosters, sims, seed, chunk)
-    return out.championship_equity()
+    return out.championship_equity(), out.champion
+
+
+def _league_ce(world: JointWorld, sims: int, seed: int, chunk: int) -> "object":
+    return _outcomes(world, sims, seed, chunk)[0]
 
 
 def _league_ce_and_indicator(world: JointWorld, team: int, sims: int, seed: int,
@@ -641,11 +674,8 @@ def _league_ce_and_indicator(world: JointWorld, team: int, sims: int, seed: int,
     at the same seed see the same seasons, so differencing per season removes
     the season-to-season noise that dominates an unpaired comparison.
     """
-    from ..auction.completion import _build_roster_set
-    from ..simulate import simulate_seasons
-    rosters = _build_roster_set(world.state, world.cast, world.focus_roster)
-    out = simulate_seasons(rosters, sims, seed, chunk)
-    return out.championship_equity(), out.champion_indicator(team)
+    ce, champion = _outcomes(world, sims, seed, chunk)
+    return ce, (champion == team).astype(float)
 
 
 def evaluate_joint_arm(
