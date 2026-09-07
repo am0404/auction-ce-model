@@ -824,6 +824,18 @@ PAGE = r"""<!doctype html>
  .verdict{font-size:30px;font-weight:750;letter-spacing:.01em;line-height:1.15}
  .selname{font-size:24px;font-weight:700;line-height:1.2}
 
+ .cebox{border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+   background:var(--panel2);margin-top:12px}
+ .cebox.medium{border-color:var(--warn);background:#2b2210}
+ .cebox.low{border-color:#4a3c44;background:#241a1e}
+ .celabel{font-size:11.5px;font-weight:700;letter-spacing:.06em;
+   text-transform:uppercase;line-height:1.35}
+ .cebox.medium .celabel{color:#f5cf85}
+ .cebox.low .celabel{color:#f0a99f}
+ .cenum{font-size:28px;font-weight:700;margin-top:4px}
+ .cediag{margin-top:8px;font-size:11.5px;color:var(--dimmer);
+   display:flex;flex-wrap:wrap;gap:4px 16px}
+ .cediag b{color:var(--fg);font-weight:600}
  .banner{background:#332510;border:1px solid var(--warn);color:#f2cf8b;
    padding:9px 12px;border-radius:8px;margin-bottom:10px;font-size:13.5px}
  .err{background:#331618;border:1px solid var(--stop);color:#ffb3ae;
@@ -979,6 +991,10 @@ PAGE = r"""<!doctype html>
         title="Draft Guardrail: the working dollar figure to bid against. Where no converged tactical result exists this is max(Sleeper price, adjusted model high), clamped to our legal maximum -- the USER MARKET-ANCHOR POLICY. It is not a max bid.">Guardrail</th>
     <th class="l" data-s="guardrail_basis"
         title="Guardrail Basis: what evidence stands behind that number.">Basis</th>
+    <th data-s="rough_ce_max"
+        title="ROUGH CE MAX -- a heuristic starting point, NOT an audited CE result and not a max bid. CE ranks the players; the market price curve supplies the dollar scale. A LOW-confidence row shows no number on purpose.">Rough CE</th>
+    <th class="l" data-s="rough_ce_confidence"
+        title="How far the five ranking seeds and three roster contexts disagree. MEDIUM = a usable heuristic number. LOW = the spread is too wide, or CE and the market disagree structurally; use the market guardrail instead.">CE Conf</th>
     <th class="l" data-s="status" title="Availability, or who bought him and for how much.">Status</th>
    </tr></thead><tbody></tbody></table></div>
   <div class="note" style="margin-top:8px">
@@ -1054,7 +1070,7 @@ PAGE = r"""<!doctype html>
 
 <script>
 const $=s=>document.querySelector(s), fmt=v=>(v===null||v===undefined||v==='')?'-':v;
-let S={}, ROWS=[], MODE='live', SEL=null, NOM=null, sortKey='guardrail', sortDir=-1;
+let S={}, ROWS=[], MODE='live', SEL=null, NOM=null, CE=null, sortKey='guardrail', sortDir=-1;
 
 async function api(path,opts){const r=await fetch(path,opts||{});
   let j={}; try{j=await r.json()}catch(e){j={error:'unreadable response'}}
@@ -1218,6 +1234,8 @@ function drawBoard(){
     <td class="l muted" style="font-size:12px" title="${esc(r.guardrail_basis)}${
       r.ce_audited?'':' -- CE NOT AUDITED'}">${esc(shortBasis(r.guardrail_basis))}${
       r.ce_audited?'':' <span class="pill gray">no CE</span>'}</td>
+    <td>${ceCell(r)}</td>
+    <td class="l" style="font-size:11.5px">${ceConfCell(r)}</td>
     <td class="l" style="font-size:12.5px">${r.sold
       ?('SOLD &middot; '+esc(r.owner_team)+' $'+r.sale_price)
       :(r.status==='AVAILABLE'?'<span class="muted">available</span>'
@@ -1287,6 +1305,10 @@ async function selectPlayer(id){
     +(leader?`&leader=${leader}`:'')+(by?`&by=${by}`:'');
   const n=await api(u);
   if(n.__err){$('#nomOut').innerHTML=`<div class="err">${esc(n.__err)}</div>`;return;}
+  // The rough CE board is a separate, already-computed cache. Nothing is
+  // recomputed by asking for it; a failure here must not blank the panel.
+  const ce=await api(`/api/ceboard?player_id=${id}`);
+  CE = ce && !ce.__err ? ce : null;
   NOM=n; drawNom(n); drawOwners(n.owners,id); drawQB(n.qb); drawBoard();
   $('#saleWho').innerHTML=`${esc(n.name)} <span class="pill">${n.position} ${esc(n.nfl_team)}</span>`;
   $('#saleWho').classList.remove('c-none');
@@ -1296,6 +1318,85 @@ async function selectPlayer(id){
   if(!$('#salePrice').value) $('#salePrice').value=n.next_legal_bid;
   const tr=document.querySelector(`#board tbody tr[data-id="${id}"]`);
   if(tr) tr.scrollIntoView({block:'nearest'});
+}
+
+// --- rough CE rendering ------------------------------------------------
+// One rule governs every one of these: a LOW row NEVER renders a dollar
+// figure. The server already withholds it (rough_ce_max is null, and
+// live_rough_ce_shown is null), and nothing here reaches around that to
+// print the raw consensus. LOW rows get the message and the market
+// guardrail instead, which is the whole point of the confidence gate.
+function ceCell(r){
+  if(r.rough_ce_status!=='OK')
+    return '<span class="c-none" title="'+esc(r.rough_ce_status||'')+'">&mdash;</span>';
+  if(r.rough_ce_max===null||r.rough_ce_max===undefined)
+    return '<span class="c-none" title="'+esc(r.rough_ce_message||'')
+      .replace(/\n/g,' ')+'">&mdash;</span>';
+  return '<b class="num warn" title="ROUGH CE WORKING MAX -- HEURISTIC, NOT AUDITED">$'
+    +r.rough_ce_max+'</b>';
+}
+function ceConfCell(r){
+  if(r.rough_ce_status!=='OK')
+    return '<span class="c-none">'+esc((r.rough_ce_status||'').toLowerCase())+'</span>';
+  if(r.rough_ce_confidence==='LOW')
+    return '<span class="pill gray" title="'+esc(r.rough_ce_message||'')
+      .replace(/\n/g,' ')+'">LOW &middot; '+esc(r.rough_ce_suppression||'')+'</span>';
+  return '<span class="pill warn" title="ROUGH CE WORKING MAX -- HEURISTIC, NOT AUDITED">'
+    +esc(r.rough_ce_confidence||'')+'</span>';
+}
+
+// The selected-player rough CE block. This is the mandatory surface: the
+// board columns are a convenience, this is where the number, its label and
+// the diagnostics that justify it all appear together.
+function ceBlock(ce){
+  if(!ce) return '';
+  if(ce.status!=='OK'){
+    const why = ce.status==='MARKET ONLY'
+      ? 'No rough CE was computed for this player. The market guardrail is the only number here.'
+      : 'The rough CE board is not loaded for this room.';
+    return '<div class="cebox"><div class="celabel">Rough CE &mdash; '
+      +esc(ce.status)+'</div><div class="s" style="margin-top:4px">'+esc(why)+'</div></div>';
+  }
+  const d = ce.diagnostics||{};
+  const diag = '<div class="cediag">'
+    +'<span>consensus median <b>'+money(d.consensus_median)+'</b></span>'
+    +'<span>seed/context range <b>'+money(d.p20)+'&ndash;'+money(d.p80)+'</b></span>'
+    +'<span>spread <b>$'+d.spread+'</b></span>'
+    +'<span>seeds agreeing <b>'+d.seed_agreement+'/5</b></span>'
+    +'<span>observations <b>'+d.n_observations+'</b></span>'
+    +'<span>market base <b>'+money(d.market_base)+'</b></span>'
+    +'<span>CE/market ratio <b>'+d.market_ratio+'</b></span>'
+    +'<span>vs market <b>'+esc(d.direction||'')+'</b></span>'
+    +'</div>';
+
+  if(ce.confidence==='LOW'){
+    // No actionable maximum is exposed. Not the consensus, not the live
+    // value, not a midpoint -- the operator is sent to the market guardrail.
+    const msg = (ce.message||'').split('\n').map(esc).join('<br>');
+    return '<div class="cebox low">'
+      +'<div class="celabel bad">'+msg+'</div>'
+      +'<div class="s" style="margin-top:6px">No rough CE maximum is shown for this '
+      +'player. Suppressed: <b>'+esc(ce.suppression_reason||'')+'</b>'
+      +(ce.lean?' &middot; '+esc(ce.lean):'')+'. '
+      +'Bid against the market guardrail above.</div>'
+      +diag+'</div>';
+  }
+  const live = ce.live_rough_ce_shown;
+  return '<div class="cebox medium">'
+    +'<div class="celabel">ROUGH CE WORKING MAX &mdash; HEURISTIC, NOT AUDITED</div>'
+    +'<div class="row" style="gap:22px;align-items:flex-end;margin-top:4px">'
+    +'<div><div class="k">Live-adjusted</div><div class="cenum warn">'+money(live)+'</div>'
+    +'<div class="s">'+money(ce.live_low)+'&ndash;'+money(ce.live_high)
+    +(ce.clamped?' &middot; '+esc(ce.clamp_label||'clamped'):'')+'</div></div>'
+    +'<div><div class="k">Opening</div><div class="cenum">'+money(ce.opening_rough_ce_max)+'</div>'
+    +'<div class="s">'+money(ce.opening_low)+'&ndash;'+money(ce.opening_high)+'</div></div>'
+    +'<div><div class="k">Confidence</div><div class="cenum">'+esc(ce.confidence)+'</div>'
+    +'<div class="s">of MEDIUM / LOW</div></div>'
+    +'</div>'
+    +'<div class="s" style="margin-top:6px">CE ranks the players; the market price '
+    +'curve supplies the dollar scale. This is not an audited CE result, not a '
+    +'certified maximum and not a reservation price.</div>'
+    +diag+'</div>';
 }
 
 function drawNom(n){
@@ -1335,6 +1436,7 @@ function drawNom(n){
       <div class="v" style="font-size:17px">${fmt(n.lineup_improvement)} / ${fmt(n.roster_fit)}</div>
       <div class="s">PROXY/HEURISTIC</div></div>
    </div>
+   ${ceBlock(CE)}
    ${(c.notes||[]).length?`<div class="banner" style="margin-top:10px">${c.notes.map(esc).join(' &middot; ')}</div>`:''}
    <div class="cards" style="margin-top:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
     <div class="card"><div class="k">Guardrail basis</div>

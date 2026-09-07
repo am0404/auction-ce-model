@@ -517,3 +517,69 @@ def test_the_board_endpoint_exposes_the_new_columns(app):
                   "lineup_improvement", "guardrail", "guardrail_basis",
                   "recommendation", "ce_audited", "status"):
         assert field in row, field
+
+
+# --- the rough CE board is actually wired into the page --------------------
+
+def test_the_page_asks_the_ceboard_endpoint_for_the_selected_player():
+    """The cache existed and the panel never read it. That was the bug."""
+    assert "/api/ceboard?player_id=" in PAGE
+    assert "ceBlock(CE)" in PAGE
+
+
+def test_a_medium_row_is_labelled_heuristic_and_not_audited():
+    assert "ROUGH CE WORKING MAX &mdash; HEURISTIC, NOT AUDITED" in PAGE
+
+
+def test_a_suppressed_row_sends_the_operator_to_the_market_guardrail():
+    assert "CE SIGNAL NOISY" in PAGE or "ce.message" in PAGE
+    # The LOW branch must render ce.message, never a dollar figure.
+    low = PAGE[PAGE.index("if(ce.confidence==='LOW'){"):
+               PAGE.index("const live = ce.live_rough_ce_shown;")]
+    for forbidden in ("consensus_median", "live_rough_ce", "opening_rough_ce_max"):
+        assert forbidden not in low, forbidden
+
+
+def test_the_panel_renders_the_withheld_live_value_not_the_raw_one():
+    """`live_rough_ce` is populated even for LOW rows; `_shown` is not.
+
+    Rendering the raw field would print an actionable maximum for exactly
+    the players the confidence gate exists to suppress.
+    """
+    assert "ce.live_rough_ce_shown" in PAGE
+    assert "money(ce.live_rough_ce)" not in PAGE
+
+
+def test_the_cached_ce_bracket_line_stays_separate_from_rough_ce():
+    assert "'Cached CE bracket'" in PAGE
+
+
+def test_the_board_carries_rough_ce_and_confidence_columns():
+    assert ">Rough CE</th>" in PAGE
+    assert ">CE Conf</th>" in PAGE
+
+
+def test_the_board_never_prices_a_low_confidence_row(app):
+    """Whatever the fixture room's board status, no LOW row carries a number.
+
+    The fixture session may legitimately have no matching precompute, in
+    which case every row is MARKET ONLY / CE PRECOMPUTE REQUIRED and there
+    is simply nothing to suppress. Both states are asserted here so the test
+    guards the invariant without depending on a cached artefact.
+    """
+    code, out = app.handle("GET", "/api/board", {"mode": ["live"]}, {})
+    assert code == 200
+    for r in out["rows"]:
+        assert "rough_ce_status" in r
+        if r.get("rough_ce_confidence") == "LOW":
+            assert r["rough_ce_max"] is None
+            assert r["rough_ce_message"]
+        if r.get("rough_ce_status") != "OK":
+            assert r.get("rough_ce_max") is None
+
+
+def test_a_low_entry_is_rendered_without_an_actionable_maximum():
+    """The server-side CE row is the source the page renders."""
+    from ceauction.draftday.ceboard import NOISY_MESSAGE, STRUCTURAL_MESSAGE
+    assert "USE MARKET GUARDRAIL" in NOISY_MESSAGE
+    assert "USE MARKET GUARDRAIL" in STRUCTURAL_MESSAGE
