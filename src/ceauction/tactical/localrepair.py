@@ -287,3 +287,219 @@ def repair_union(
         n_already_optimal=len(targets) - improved, gains=tuple(gains),
         swap_counts=tuple(swap_counts), union_size_before=before,
         union_size_after=len(out), runtime_s=time.perf_counter() - t0)
+
+
+# ---------------------------------------------------------------------------
+# The bounded two-swap exchange
+# ---------------------------------------------------------------------------
+#
+# `docs/REPAIRED_SEARCH.md` section 8 recommended this and, more usefully, said
+# why: at a tight price the budget is the binding constraint, and improving
+# requires *simultaneously* freeing money and spending it. A one-swap
+# neighbourhood cannot express that move, so a one-swap local optimum can sit
+# above a reachable better roster with no single improving step out of it.
+#
+# The bounds below are the ones that document declared BEFORE any result was
+# seen, and they are reproduced here unchanged rather than tuned afterwards:
+# the top 40 affordable players by projection, and the top 6 completions per
+# price. Choosing a neighbourhood after seeing which neighbourhood helps is how
+# a search convinces itself it converged.
+
+#: Shortlist size for the two-swap incoming pool. Declared in advance.
+TWO_SWAP_SHORTLIST = 40
+
+#: Completions repaired per price by the two-swap pass. Declared in advance.
+TWO_SWAP_COMPLETION_LIMIT = 6
+
+#: Trials scored per batched call.
+#:
+#: The two-swap neighbourhood is about 71,000 rosters per round -- 91 removal
+#: pairs by 780 shortlist pairs -- and ``strength_many`` materialises a
+#: ``(reps, trials, weeks, roster)`` array for the whole batch. At the real
+#: shapes that is 290 million floats, or 2.3 GB, several times over. Scoring in
+#: chunks keeps the working set near 50 MB and changes no result: the chunks are
+#: concatenated in order and the selection is made over all of them together.
+TWO_SWAP_CHUNK = 1024
+
+__all__ += ["TWO_SWAP_SHORTLIST", "TWO_SWAP_COMPLETION_LIMIT",
+            "TWO_SWAP_CHUNK", "two_swap_shortlist",
+            "repair_completion_two_swap", "repair_union_two_swap"]
+
+
+def _strength_chunked(proxy: ProxyEvaluator, trials: Sequence[Sequence[int]],
+                      chunk: int = TWO_SWAP_CHUNK) -> List[float]:
+    """``strength_many`` in bounded slices. Same numbers, bounded memory."""
+    out: List[float] = []
+    for start in range(0, len(trials), max(1, chunk)):
+        vals = proxy.strength_many(trials[start:start + chunk])
+        out.extend(float(v) for v in vals)
+    return out
+
+
+def two_swap_shortlist(pool: Sequence[int], *, proxy: ProxyEvaluator,
+                       costs: CostBook, budget: int, default_cost: int = 1,
+                       size: int = TWO_SWAP_SHORTLIST) -> Tuple[int, ...]:
+    """The declared incoming shortlist: top ``size`` affordable by projection.
+
+    Affordability is checked against the whole budget, not against what one
+    particular swap leaves, because a two-for-two exchange can free money the
+    single-player test would not know about. It is a shortlist, not a
+    feasibility filter -- every candidate is still checked for real when the
+    exchange is formed.
+
+    ``solo_value`` is the static projection and is used only to order the
+    shortlist. It is not a valuation and nothing downstream reads it as one.
+    """
+    affordable = [p for p in pool
+                  if costs.cost_of(p, default_cost) <= budget]
+    # Stable: projection first, then the id, so an incidental pool ordering
+    # cannot change which forty players are considered.
+    affordable.sort(key=lambda p: (-proxy.solo_value(p), p))
+    return tuple(affordable[:size])
+
+
+def repair_completion_two_swap(
+    completion: Completion, *, state: AuctionState, costs: CostBook,
+    proxy: ProxyEvaluator, candidate_id: Optional[int],
+    owned: FrozenSet[int], budget: int, shortlist: Sequence[int],
+    default_cost: int = 1, max_rounds: int = 8,
+    chunk: int = TWO_SWAP_CHUNK,
+) -> RepairResult:
+    """Improve one completion by exchanging **two** players for two others.
+
+    Removes two rostered non-candidate players and adds two from the declared
+    shortlist, preserving roster size, the candidate, the budget, lineup
+    feasibility and distinct ownership -- the same legality the one-swap pass
+    enforces, over a neighbourhood a single swap cannot reach.
+
+    As in :func:`repair_completion`, the **best** improving exchange is taken
+    rather than the first, ties break on a stable roster fingerprint, and a move
+    is accepted only when it strictly improves, so the walk is deterministic and
+    monotone. The result is a two-swap local optimum, which is also a one-swap
+    local optimum only if the caller reached one first -- this pass does not
+    subsume the cheaper one and is meant to run after it.
+    """
+    roster = list(completion.roster)
+    cur_proxy = completion.proxy
+    cur_cost = completion.added_cost
+    swaps: List[SwapCandidate] = []
+    protected = set(owned)
+    if candidate_id is not None:
+        protected.add(candidate_id)
+    size = len(completion.roster)
+
+    def spend(rs: Iterable[int]) -> int:
+        return sum(costs.cost_of(p, default_cost) for p in rs
+                   if p not in owned)
+
+    for _ in range(max_rounds):
+        cur_set = set(roster)
+        removable = [p for p in roster if p not in protected]
+        incoming = [p for p in shortlist if p not in cur_set]
+        if len(removable) < 2 or len(incoming) < 2:
+            break
+
+        trials: List[List[int]] = []
+        meta: List[Tuple[Tuple[int, int], Tuple[int, int], int]] = []
+        for a in range(len(removable)):
+            for b in range(a + 1, len(removable)):
+                out_a, out_b = removable[a], removable[b]
+                base = [p for p in roster if p not in (out_a, out_b)]
+                base_spend = spend(base)
+                if base_spend > budget:
+                    continue
+                for i in range(len(incoming)):
+                    in_i = incoming[i]
+                    cost_i = costs.cost_of(in_i, default_cost)
+                    if base_spend + cost_i > budget:
+                        continue
+                    for j in range(i + 1, len(incoming)):
+                        in_j = incoming[j]
+                        new_spend = base_spend + cost_i + costs.cost_of(
+                            in_j, default_cost)
+                        if new_spend > budget:
+                            continue
+                        trial = base + [in_i, in_j]
+                        if len(set(trial)) != size:
+                            continue
+                        if not can_fill_lineup(_counts(trial, state)):
+                            continue
+                        trials.append(trial)
+                        meta.append(((out_a, out_b), (in_i, in_j), new_spend))
+        if not trials:
+            break
+
+        vals = _strength_chunked(proxy, trials, chunk)
+        best = None
+        for k, v in enumerate(vals):
+            if v <= cur_proxy + IMPROVEMENT_EPSILON:
+                continue
+            fp = ",".join(str(x) for x in sorted(trials[k]))
+            if best is None or (v, fp) > (best[0], best[1]):
+                best = (v, fp, k)
+        if best is None:
+            break
+
+        val, _fp, k = best
+        (out_a, out_b), (in_i, in_j), new_spend = meta[k]
+        # Recorded as the two moves it is, so the ledger of an exchange is not
+        # indistinguishable from a pair of unrelated single swaps.
+        gain = val - cur_proxy
+        swaps.append(SwapCandidate(out_id=out_a, in_id=in_i, gain=gain,
+                                   new_cost=new_spend))
+        swaps.append(SwapCandidate(out_id=out_b, in_id=in_j, gain=0.0,
+                                   new_cost=new_spend))
+        roster = sorted(trials[k])
+        cur_proxy = val
+        cur_cost = new_spend
+
+    if not swaps:
+        return RepairResult(completion, completion, ())
+    added = tuple(sorted(p for p in roster if p not in owned))
+    repaired = Completion(added=added, roster=tuple(roster),
+                          added_cost=int(cur_cost), proxy=float(cur_proxy))
+    return RepairResult(completion, repaired, tuple(swaps))
+
+
+def repair_union_two_swap(
+    union: Dict[str, Completion], *, state: AuctionState, costs: CostBook,
+    proxy: ProxyEvaluator, candidate_id: Optional[int],
+    owned: FrozenSet[int], budget: int, pool: Sequence[int],
+    default_cost: int = 1, limit: int = TWO_SWAP_COMPLETION_LIMIT,
+    shortlist_size: int = TWO_SWAP_SHORTLIST,
+    chunk: int = TWO_SWAP_CHUNK,
+) -> Tuple[Dict[str, Completion], RepairReport]:
+    """Run the bounded two-swap pass over the strongest completions.
+
+    Additive, exactly like the one-swap pass: an improved completion joins the
+    union beside its original and never replaces it, so the union stays monotone
+    and no result this pass produces can remove something an earlier search
+    found.
+    """
+    t0 = time.perf_counter()
+    shortlist = two_swap_shortlist(pool, proxy=proxy, costs=costs,
+                                   budget=budget, default_cost=default_cost,
+                                   size=shortlist_size)
+    ordered = sorted(union.values(), key=lambda c: (-c.proxy,
+                                                    completion_fingerprint(c)))
+    targets = ordered[:limit]
+    before = len(union)
+    out = dict(union)
+    gains: List[float] = []
+    swap_counts: List[int] = []
+    improved = 0
+    for c in targets:
+        r = repair_completion_two_swap(
+            c, state=state, costs=costs, proxy=proxy,
+            candidate_id=candidate_id, owned=owned, budget=budget,
+            shortlist=shortlist, default_cost=default_cost, chunk=chunk)
+        gains.append(r.gain)
+        swap_counts.append(r.n_swaps)
+        if r.improved:
+            improved += 1
+            out.setdefault(completion_fingerprint(r.repaired), r.repaired)
+    return out, RepairReport(
+        n_input=len(targets), n_improved=improved,
+        n_already_optimal=len(targets) - improved, gains=tuple(gains),
+        swap_counts=tuple(swap_counts), union_size_before=before,
+        union_size_after=len(out), runtime_s=time.perf_counter() - t0)

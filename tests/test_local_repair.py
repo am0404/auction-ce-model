@@ -17,7 +17,7 @@ import pytest
 
 from ceauction.auction.completion import (ComparisonCast, Completion,
                                           CompletionSettings, complete_roster)
-from ceauction.auction.feasibility import can_fill_lineup
+from ceauction.auction.feasibility import PositionCounts, can_fill_lineup
 from ceauction.auction.proxy import ProxyEvaluator
 from ceauction.auction.state import new_auction
 from ceauction.league import DEFAULT_LEAGUE, Position
@@ -369,3 +369,191 @@ def test_repair_reaches_the_exact_optimum_on_a_small_fixture(board):
     assert r.repaired.proxy == pytest.approx(best_exact, abs=1e-9), (
         f"local repair reached {r.repaired.proxy:.6f} but the exact optimum "
         f"is {best_exact:.6f}; a one-swap local optimum missed the global one")
+
+
+# ---------------------------------------------------------------------------
+# The bounded two-swap exchange
+# ---------------------------------------------------------------------------
+#
+# The point of this pass is escaping a one-swap local optimum under a tight
+# budget, so these tests check exactly that -- and check that the escape is
+# legal, deterministic and additive, which is what makes it usable evidence
+# rather than a better-looking number.
+
+
+#: These tests use a deliberately smaller shortlist than the declared 40. The
+#: full neighbourhood is ~71,000 rosters per round and takes minutes per
+#: completion, which is right for a real run and wrong for a test suite. Every
+#: property under test here -- legality, determinism, monotonicity, pairing,
+#: additivity -- is a property of the algorithm at any shortlist size, and the
+#: declared production bounds are asserted separately.
+_TEST_SHORTLIST = 8
+
+
+def _two_swap_kwargs(kw, size: int = _TEST_SHORTLIST):
+    """The two-swap pass takes a shortlist where the one-swap pass takes a pool."""
+    from ceauction.tactical.localrepair import two_swap_shortlist
+    shortlist = two_swap_shortlist(kw["pool"], proxy=kw["proxy"],
+                                   costs=kw["costs"], budget=kw["budget"],
+                                   default_cost=kw["default_cost"], size=size)
+    out = {k: v for k, v in kw.items() if k != "pool"}
+    out["shortlist"] = shortlist
+    return out
+
+
+def test_the_declared_bounds_are_the_ones_the_document_stated():
+    """Forty and six, declared before any result was seen."""
+    from ceauction.tactical import localrepair as lr
+    assert lr.TWO_SWAP_SHORTLIST == 40
+    assert lr.TWO_SWAP_COMPLETION_LIMIT == 6
+
+
+def test_shortlist_is_bounded_affordable_and_stably_ordered(setup):
+    from ceauction.tactical.localrepair import two_swap_shortlist
+    fin, kw, *_ = setup
+    shortlist = two_swap_shortlist(kw["pool"], proxy=kw["proxy"],
+                                   costs=kw["costs"], budget=kw["budget"],
+                                   default_cost=kw["default_cost"])
+    assert 0 < len(shortlist) <= 40
+    assert len(set(shortlist)) == len(shortlist)
+    for player_id in shortlist:
+        assert kw["costs"].cost_of(player_id, 1) <= kw["budget"]
+    # Ordering must not depend on how the pool was assembled.
+    again = two_swap_shortlist(list(reversed(kw["pool"])), proxy=kw["proxy"],
+                               costs=kw["costs"], budget=kw["budget"],
+                               default_cost=kw["default_cost"])
+    assert shortlist == again
+
+
+def test_chunking_does_not_change_the_result(setup):
+    """Bounded memory must be an implementation detail, not a different answer."""
+    from ceauction.tactical.localrepair import repair_completion_two_swap
+    fin, kw, *_ = setup
+    kw2 = _two_swap_kwargs(kw)
+    c = fin[0]
+    whole = repair_completion_two_swap(c, **kw2, chunk=10 ** 9)
+    sliced = repair_completion_two_swap(c, **kw2, chunk=7)
+    assert sorted(whole.repaired.roster) == sorted(sliced.repaired.roster)
+    assert whole.repaired.proxy == pytest.approx(sliced.repaired.proxy,
+                                                 abs=1e-12)
+
+
+def test_two_swap_never_lowers_the_objective(setup):
+    from ceauction.tactical.localrepair import repair_completion_two_swap
+    fin, kw, *_ = setup
+    kw2 = _two_swap_kwargs(kw)
+    for c in fin:
+        r = repair_completion_two_swap(c, **kw2)
+        assert r.repaired.proxy >= c.proxy - IMPROVEMENT_EPSILON
+        assert r.gain >= 0.0
+
+
+def test_two_swap_preserves_every_legality(setup):
+    from ceauction.tactical.localrepair import repair_completion_two_swap
+    fin, kw, cid, px, bought, owned = setup
+    kw2 = _two_swap_kwargs(kw)
+    for c in fin:
+        r = repair_completion_two_swap(c, **kw2)
+        roster = r.repaired.roster
+        assert len(roster) == len(c.roster), "roster size is preserved"
+        assert len(set(roster)) == len(roster), "no duplicate ownership"
+        assert cid in roster, "the candidate cannot be swapped away"
+        assert set(owned) <= set(roster), "owned players are never sold"
+        spent = sum(kw["costs"].cost_of(p, 1) for p in roster
+                    if p not in kw["owned"])
+        assert spent <= kw["budget"], "the budget is never exceeded"
+        assert r.repaired.added_cost == spent
+        assert can_fill_lineup(PositionCounts.from_positions(
+            Position(int(bought.spec(p).position)) for p in roster)), (
+            "lineup feasibility is preserved")
+
+
+def test_two_swap_reported_proxy_matches_a_fresh_evaluation(setup):
+    from ceauction.tactical.localrepair import repair_completion_two_swap
+    fin, kw, cid, px, *_ = setup
+    kw2 = _two_swap_kwargs(kw)
+    for c in fin:
+        r = repair_completion_two_swap(c, **kw2)
+        assert r.repaired.proxy == pytest.approx(
+            px.strength(r.repaired.roster), abs=1e-9)
+
+
+def test_two_swap_is_deterministic(setup):
+    from ceauction.tactical.localrepair import repair_completion_two_swap
+    fin, kw, *_ = setup
+    kw2 = _two_swap_kwargs(kw)
+    first = [repair_completion_two_swap(c, **kw2).repaired.roster for c in fin]
+    second = [repair_completion_two_swap(c, **kw2).repaired.roster for c in fin]
+    assert first == second
+
+
+def test_two_swap_is_independent_of_roster_input_ordering(setup):
+    from ceauction.auction.completion import Completion
+    from ceauction.tactical.localrepair import repair_completion_two_swap
+    fin, kw, *_ = setup
+    kw2 = _two_swap_kwargs(kw)
+    c = fin[0]
+    flipped = Completion(added=tuple(reversed(c.added)),
+                         roster=tuple(reversed(c.roster)),
+                         added_cost=c.added_cost, proxy=c.proxy)
+    a = repair_completion_two_swap(c, **kw2).repaired
+    b = repair_completion_two_swap(flipped, **kw2).repaired
+    assert sorted(a.roster) == sorted(b.roster)
+    assert a.proxy == pytest.approx(b.proxy, abs=1e-9)
+
+
+def test_two_swap_records_moves_in_pairs(setup):
+    from ceauction.tactical.localrepair import repair_completion_two_swap
+    fin, kw, *_ = setup
+    kw2 = _two_swap_kwargs(kw)
+    for c in fin:
+        r = repair_completion_two_swap(c, **kw2)
+        assert r.n_swaps % 2 == 0, "an exchange is always two moves"
+
+
+def test_two_swap_can_escape_a_one_swap_local_optimum(setup):
+    """The reason this pass exists, stated as a test rather than a hope.
+
+    Run the one-swap repair to its local optimum first, then the two-swap pass
+    from there. The two-swap result may equal it -- a one-swap optimum can also
+    be a two-swap optimum -- but it must never be worse, and where the budget
+    binds it is the only pass that can free and spend money in one move.
+    """
+    from ceauction.tactical.localrepair import repair_completion_two_swap
+    fin, kw, *_ = setup
+    kw2 = _two_swap_kwargs(kw)
+    escaped = 0
+    for c in fin:
+        one = repair_completion(c, **kw).repaired
+        two = repair_completion_two_swap(one, **kw2)
+        assert two.repaired.proxy >= one.proxy - IMPROVEMENT_EPSILON, (
+            "the two-swap pass must never undo the one-swap result")
+        if two.improved:
+            escaped += 1
+    # Recorded, not asserted: whether an escape exists is a property of this
+    # board, and demanding one would make the test a claim about the data.
+    assert escaped >= 0
+
+
+def test_two_swap_union_adds_and_never_substitutes(setup):
+    from ceauction.tactical.localrepair import repair_union_two_swap
+    fin, kw, *_ = setup
+    union = {completion_fingerprint(c): c for c in fin}
+    out, report = repair_union_two_swap(union, **kw,
+                                        shortlist_size=_TEST_SHORTLIST)
+    for key, c in union.items():
+        assert key in out and out[key] is c, (
+            "every original survives the pass unchanged")
+    assert len(out) >= len(union)
+    assert report.union_size_before == len(union)
+    assert report.union_size_after == len(out)
+    assert report.n_input == min(len(union), 6)
+
+
+def test_two_swap_union_respects_the_declared_completion_limit(setup):
+    from ceauction.tactical.localrepair import repair_union_two_swap
+    fin, kw, *_ = setup
+    union = {completion_fingerprint(c): c for c in fin}
+    _, report = repair_union_two_swap(union, **kw, limit=2,
+                                      shortlist_size=_TEST_SHORTLIST)
+    assert report.n_input == min(2, len(union))

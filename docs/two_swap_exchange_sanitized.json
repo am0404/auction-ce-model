@@ -1,0 +1,74 @@
+{
+ "price": 80,
+ "remaining_budget": 59,
+ "state_fingerprint": "44209a94d76fce67",
+ "shortlist_size": 40,
+ "completion_limit": 6,
+ "escapes": 6,
+ "n_completions": 6,
+ "best_after_one_swap": 91.8738,
+ "best_after_two_swap": 92.477,
+ "two_swap_gain": 0.6032,
+ "rows": [
+  {
+   "start": 90.5453,
+   "one_swap": 91.8738,
+   "two_swap": 92.477,
+   "one_gain": 1.3284,
+   "two_gain": 0.6032,
+   "one_s": 1.0,
+   "two_s": 3.0,
+   "two_moves": 2
+  },
+  {
+   "start": 90.4617,
+   "one_swap": 91.8738,
+   "two_swap": 92.477,
+   "one_gain": 1.4121,
+   "two_gain": 0.6032,
+   "one_s": 1.3,
+   "two_s": 3.0,
+   "two_moves": 2
+  },
+  {
+   "start": 90.4616,
+   "one_swap": 91.8738,
+   "two_swap": 92.477,
+   "one_gain": 1.4122,
+   "two_gain": 0.6032,
+   "one_s": 1.2,
+   "two_s": 3.0,
+   "two_moves": 2
+  },
+  {
+   "start": 90.4614,
+   "one_swap": 91.8738,
+   "two_swap": 92.477,
+   "one_gain": 1.4124,
+   "two_gain": 0.6032,
+   "one_s": 1.2,
+   "two_s": 3.1,
+   "two_moves": 2
+  },
+  {
+   "start": 90.4607,
+   "one_swap": 91.8738,
+   "two_swap": 92.477,
+   "one_gain": 1.4131,
+   "two_gain": 0.6032,
+   "one_s": 1.2,
+   "two_s": 3.0,
+   "two_moves": 2
+  },
+  {
+   "start": 90.4596,
+   "one_swap": 91.8738,
+   "two_swap": 92.477,
+   "one_gain": 1.4142,
+   "two_gain": 0.6032,
+   "one_s": 1.3,
+   "two_s": 3.0,
+   "two_moves": 2
+  }
+ ]
+}
