@@ -27,6 +27,9 @@ value, and not applicable to the live room.
 | 12 → 24 candidate-set expansion | **`CE_CANDIDATE_SET_STABLE`** |
 | frontier vs decomposition, every draw | agree to **≤1.4e-17** |
 | coarse frontier | `RESERVATION_BRACKET`, favorable ≤$65, unfavorable ≥$80 |
+| integer refinement $66–$79 | 14/14 prices, no invariant failure |
+| **conditional reservation price, pointwise** | **$68** |
+| **conditional reservation price, simultaneous** | **$67** (with $68–$71 unresolved) |
 
 ## 1. What was actually blocking
 
@@ -399,3 +402,110 @@ For precomputation planning: one candidate's coarse frontier is ~11 minutes at
 generation. Twenty-five candidates at `max_worlds=2` is therefore roughly
 **7 hours** — an overnight job, not a live one. Nothing here can be recomputed
 inside a bidding clock, and this document does not claim it can.
+
+### 6.3 Integer refinement, $66 – $79
+
+The coarse bracket was `($65, $80)`. Every integer inside it was evaluated —
+**exhaustively, not by binary search**, because a binary search assumes the
+delta is monotone in price and that is the property under test. Each price uses
+its own certified completion set at its own post-purchase budget (237
+with-candidate completions across the generation ladder), `max_worlds=8`, K=11,
+800/4,000 seasons.
+
+| p | mean delta | pointwise 95% CI | pointwise | simultaneous 95% CI | simultaneous | certified opt | gap |
+|---:|---:|---|---|---|---|---:|---:|
+| $66 | +0.01641 | [+0.01292, +0.01990] | favorable | [+0.01048, +0.02234] | **favorable** | 95.5696 | 0.0000 |
+| $67 | +0.00905 | [+0.00528, +0.01281] | favorable | [+0.00265, +0.01544] | **favorable** | 95.2862 | 0.0000 |
+| $68 | +0.00661 | [+0.00097, +0.01226] | **favorable** | [−0.00298, +0.01621] | unresolved | 95.1786 | 0.0000 |
+| $69 | −0.00555 | [−0.00894, −0.00215] | **unfavorable** | [−0.01132, +0.00023] | unresolved | 94.6865 | 0.0000 |
+| $70 | −0.00307 | [−0.00861, +0.00247] | *unresolved* | [−0.01248, +0.00635] | unresolved | 94.6034 | 0.0133 |
+| $71 | −0.00514 | [−0.00998, −0.00030] | unfavorable | [−0.01336, +0.00308] | unresolved | 94.4851 | 0.0013 |
+| $72 | −0.02095 | [−0.02606, −0.01585] | unfavorable | [−0.02962, −0.01229] | **unfavorable** | 94.1188 | 0.0423 |
+| $73 | −0.02639 | [−0.03088, −0.02189] | unfavorable | [−0.03402, −0.01875] | unfavorable | 93.7547 | 0.0179 |
+| $74 | −0.02525 | [−0.02973, −0.02077] | unfavorable | [−0.03286, −0.01764] | unfavorable | 93.6963 | 0.0041 |
+| $75 | −0.02561 | [−0.03004, −0.02118] | unfavorable | [−0.03314, −0.01809] | unfavorable | 93.6963 | 0.0000 |
+| $76 | −0.03461 | [−0.04001, −0.02922] | unfavorable | [−0.04378, −0.02545] | unfavorable | 93.1536 | 0.0306 |
+| $77 | −0.03891 | [−0.04153, −0.03629] | unfavorable | [−0.04336, −0.03446] | unfavorable | 93.0091 | 0.0090 |
+| $78 | −0.03959 | [−0.04258, −0.03660] | unfavorable | [−0.04467, −0.03451] | unfavorable | 93.0091 | 0.0000 |
+| $79 | −0.04836 | [−0.05168, −0.04504] | unfavorable | [−0.05400, −0.04272] | unfavorable | 92.6551 | 0.0000 |
+
+Every solver gap is ≤ **0.0423**, inside the 0.10 bound, at every one of the
+fourteen prices. No invariant failed anywhere (§6.5).
+
+### 6.4 Two answers, and they are not the same answer
+
+The pointwise column is 14 separate 95% statements; the simultaneous column is a
+Bonferroni band with `alpha/14 = 0.00357` per statement, which on `k−1 = 10`
+degrees of freedom widens every interval by a factor of `3.7852 / 2.2281 = 1.70`.
+
+| | pointwise | simultaneous |
+|---|---|---|
+| highest favorable price | **$68** | **$67** |
+| first unfavorable price | **$69** | **$72** |
+| unresolved gap | ($68, $69) — none | **($67, $72) — four prices wide** |
+
+**The two readings disagree, and the disagreement is the point.** Read
+pointwise, the crossing is pinned between `$68` and `$69` and there is no
+unresolved region at all. Read simultaneously — which is the only honest way to
+read a table that was queried fourteen times — `$68` through `$71` are *not
+resolved*, and all that can be defended is: favorable at or below **$67**,
+unfavorable at or above **$72**.
+
+Quoting `$68` as "the" reservation price would be reporting the narrower of two
+numbers because it is narrower. The conditional maximum this run supports is
+**`$67`**, with `$68`–`$71` explicitly unresolved.
+
+### 6.5 Nonmonotonicity, and why the grid was exhaustive
+
+The delta is **not** monotone in price. Two reversals were detected and are
+recorded rather than smoothed:
+
+* `$69 → $70`: −0.00555 rises to −0.00307
+* `$73 → $74`: −0.02639 rises to −0.02525
+
+Both are small and both sit inside the region the simultaneous band already
+calls unresolved, so neither changes a conclusion. But they vindicate the
+method: a binary search on `$66`–`$79` would have assumed monotonicity, and at
+`$70` it would have been assuming something demonstrably false. The reversals
+are a real property of the surface — the certified completion set changes
+discretely as the budget crosses a player's price, so the best available roster
+does not degrade smoothly with `p`.
+
+**Invariants, all fourteen prices × 11 draws × 5 branches:**
+
+| invariant | result |
+|---|---|
+| solver proxy gap ≤ 0.10 | max 0.0423 |
+| frontier delta == decomposition total | ≤ 1.4e-17 |
+| league CE sums to 1 | within 1e-9 |
+| conservation (no duplicate ownership, no unpaid blocking) | ok |
+| legal budgets, reserves, rosters | ok |
+| same pass branch under fixed `q` | `FIXED_MARKET` throughout |
+| possession offer price-independent | ok |
+| nested certified opportunity sets | asserted |
+| **total invariant failures** | **none** |
+
+## 9. What this still does not settle
+
+* **The proxy is not value.** Everything certified here is certified against
+  `ProxyEvaluator.strength` — expected weekly starting-lineup points. The
+  solver proves it found the best roster *by that measure*. CE then ranks a set
+  of near-optimal rosters by championship equity, but the set handed to CE is
+  chosen by the proxy, so a roster the proxy ranks 100th and CE would love is
+  never seen. §5 shows the set is stable at `max_worlds=8`; it does not show
+  proxy rank and CE rank agree.
+* **The candidate pool depth is 40.** A player below that cut cannot be chosen
+  however cheap. This is a declared bound on the answer, not a detail.
+* **The comparison cast is fixed.** Eleven rival rosters are held constant; this
+  answers "which completion is best against *this* league", not against a league
+  that is also still drafting.
+* **`q` is fixed at $35.** Under `RIVAL_OUTBIDS` the pass branch is a different
+  problem and none of these numbers apply.
+* **The state is SIMULATED.** It was invented from the market prior. No league
+  sale has ever been recorded, and nothing here has been calibrated against one.
+* **`$68`–`$71` are genuinely unresolved** under the simultaneous band. Closing
+  that gap needs more allocation draws (K), not more seasons: the interval is a
+  cluster t-interval on `k = 11` draws, and the between-allocation SD is what
+  dominates it.
+* **Nothing here runs inside a bidding clock.** §8 gives the numbers; one
+  candidate is minutes, twenty-five is an overnight job.

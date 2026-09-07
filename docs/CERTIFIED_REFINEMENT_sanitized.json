@@ -1,0 +1,647 @@
+{
+ "provenance": "SIMULATED MID-AUCTION STATE -- invented from the market prior for frontier testing. NOT observed, NOT recorded, NOT historical, NOT calibrated. No league sale has ever been recorded.",
+ "simulated": true,
+ "label": "CERTIFIED CONDITIONAL RESERVATION PRICE",
+ "applies_to": {
+  "state": "SIMULATED balanced mid-auction",
+  "state_fingerprint": "44209a94d76fce67",
+  "candidate": "the recorded real QB",
+  "recipient": "Team07",
+  "q": 35,
+  "pass_semantics": "FIXED_MARKET",
+  "completion_set": {
+   "size": 12,
+   "max_worlds": 8,
+   "band": 0.5
+  },
+  "k": 11,
+  "selection_sims": 800,
+  "holdout_sims": 4000
+ },
+ "not_valid_as": [
+  "an opening max bid",
+  "a universal player value",
+  "applicable to the live room",
+  "valid under RIVAL_OUTBIDS",
+  "automatically valid after any sale changes the room"
+ ],
+ "solver": "highspy unknown",
+ "opportunity_fingerprint": "ce96f5a67b55719a",
+ "invariant_failures": [],
+ "points": [
+  {
+   "p": 66,
+   "pass_rule": "fixed_market",
+   "verdict": "favorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 95.569571,
+   "certified_gap": 0.0,
+   "worlds_compared": 8,
+   "runtime_s": 254.5,
+   "k": 11,
+   "mean_delta": 0.01640909,
+   "median_delta": 0.017,
+   "between_allocation_sd": 0.00519648,
+   "se_of_ensemble_mean": 0.0015668,
+   "t_interval_95": [
+    0.01291827,
+    0.01989992
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00726346,
+   "sign_frequency_positive": 1.0,
+   "sign_frequency_negative": 0.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 67,
+   "pass_rule": "fixed_market",
+   "verdict": "favorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 95.286206,
+   "certified_gap": 0.0,
+   "worlds_compared": 8,
+   "runtime_s": 221.2,
+   "k": 11,
+   "mean_delta": 0.00904545,
+   "median_delta": 0.0105,
+   "between_allocation_sd": 0.00560002,
+   "se_of_ensemble_mean": 0.00168847,
+   "t_interval_95": [
+    0.00528354,
+    0.01280736
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00721403,
+   "sign_frequency_positive": 1.0,
+   "sign_frequency_negative": 0.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 68,
+   "pass_rule": "fixed_market",
+   "verdict": "favorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 95.178598,
+   "certified_gap": 0.0,
+   "worlds_compared": 8,
+   "runtime_s": 217.7,
+   "k": 11,
+   "mean_delta": 0.00661364,
+   "median_delta": 0.004,
+   "between_allocation_sd": 0.00840786,
+   "se_of_ensemble_mean": 0.00253506,
+   "t_interval_95": [
+    0.00096551,
+    0.01226176
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00721998,
+   "sign_frequency_positive": 0.8182,
+   "sign_frequency_negative": 0.1818,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 69,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 94.686525,
+   "certified_gap": 0.0,
+   "worlds_compared": 8,
+   "runtime_s": 218.8,
+   "k": 11,
+   "mean_delta": -0.00554545,
+   "median_delta": -0.00575,
+   "between_allocation_sd": 0.00505695,
+   "se_of_ensemble_mean": 0.00152473,
+   "t_interval_95": [
+    -0.00894255,
+    -0.00214836
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00721422,
+   "sign_frequency_positive": 0.1818,
+   "sign_frequency_negative": 0.8182,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 70,
+   "pass_rule": "fixed_market",
+   "verdict": "unresolved",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 94.603353,
+   "certified_gap": 0.013265,
+   "worlds_compared": 8,
+   "runtime_s": 218.1,
+   "k": 11,
+   "mean_delta": -0.00306818,
+   "median_delta": -0.005,
+   "between_allocation_sd": 0.00825007,
+   "se_of_ensemble_mean": 0.00248749,
+   "t_interval_95": [
+    -0.00861031,
+    0.00247394
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00710557,
+   "sign_frequency_positive": 0.2727,
+   "sign_frequency_negative": 0.7273,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 71,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 94.485127,
+   "certified_gap": 0.001293,
+   "worlds_compared": 8,
+   "runtime_s": 217.1,
+   "k": 11,
+   "mean_delta": -0.00513636,
+   "median_delta": -0.00925,
+   "between_allocation_sd": 0.00720275,
+   "se_of_ensemble_mean": 0.00217171,
+   "t_interval_95": [
+    -0.00997493,
+    -0.00029779
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00713546,
+   "sign_frequency_positive": 0.2727,
+   "sign_frequency_negative": 0.7273,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 72,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 94.118751,
+   "certified_gap": 0.042297,
+   "worlds_compared": 8,
+   "runtime_s": 217.6,
+   "k": 11,
+   "mean_delta": -0.02095455,
+   "median_delta": -0.022,
+   "between_allocation_sd": 0.0075959,
+   "se_of_ensemble_mean": 0.00229025,
+   "t_interval_95": [
+    -0.02605722,
+    -0.01585187
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00700833,
+   "sign_frequency_positive": 0.0,
+   "sign_frequency_negative": 1.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 73,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 93.754665,
+   "certified_gap": 0.017921,
+   "worlds_compared": 8,
+   "runtime_s": 217.4,
+   "k": 11,
+   "mean_delta": -0.02638636,
+   "median_delta": -0.0275,
+   "between_allocation_sd": 0.00668895,
+   "se_of_ensemble_mean": 0.00201679,
+   "t_interval_95": [
+    -0.03087978,
+    -0.02189295
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00702785,
+   "sign_frequency_positive": 0.0,
+   "sign_frequency_negative": 1.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 74,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 93.69631,
+   "certified_gap": 0.004069,
+   "worlds_compared": 8,
+   "runtime_s": 217.6,
+   "k": 11,
+   "mean_delta": -0.02525,
+   "median_delta": -0.02475,
+   "between_allocation_sd": 0.00666521,
+   "se_of_ensemble_mean": 0.00200964,
+   "t_interval_95": [
+    -0.02972747,
+    -0.02077253
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00710129,
+   "sign_frequency_positive": 0.0,
+   "sign_frequency_negative": 1.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 75,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 0.0,
+   "all_draws_agree": true,
+   "certified_optimum": 93.69631,
+   "certified_gap": 0.0,
+   "worlds_compared": 8,
+   "runtime_s": 217.5,
+   "k": 11,
+   "mean_delta": -0.02561364,
+   "median_delta": -0.02475,
+   "between_allocation_sd": 0.00659485,
+   "se_of_ensemble_mean": 0.00198842,
+   "t_interval_95": [
+    -0.03004384,
+    -0.02118343
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00710258,
+   "sign_frequency_positive": 0.0,
+   "sign_frequency_negative": 1.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 76,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 1.3877787807814457e-17,
+   "all_draws_agree": true,
+   "certified_optimum": 93.153591,
+   "certified_gap": 0.030588,
+   "worlds_compared": 8,
+   "runtime_s": 217.3,
+   "k": 11,
+   "mean_delta": -0.03461364,
+   "median_delta": -0.03625,
+   "between_allocation_sd": 0.00802836,
+   "se_of_ensemble_mean": 0.00242064,
+   "t_interval_95": [
+    -0.04000683,
+    -0.02922045
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00692485,
+   "sign_frequency_positive": 0.0,
+   "sign_frequency_negative": 1.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 77,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 1.3877787807814457e-17,
+   "all_draws_agree": true,
+   "certified_optimum": 93.009142,
+   "certified_gap": 0.009037,
+   "worlds_compared": 8,
+   "runtime_s": 217.4,
+   "k": 11,
+   "mean_delta": -0.03890909,
+   "median_delta": -0.03975,
+   "between_allocation_sd": 0.00390076,
+   "se_of_ensemble_mean": 0.00117612,
+   "t_interval_95": [
+    -0.04152949,
+    -0.03628869
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00694332,
+   "sign_frequency_positive": 0.0,
+   "sign_frequency_negative": 1.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 78,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 1.3877787807814457e-17,
+   "all_draws_agree": true,
+   "certified_optimum": 93.009142,
+   "certified_gap": 0.0,
+   "worlds_compared": 8,
+   "runtime_s": 217.8,
+   "k": 11,
+   "mean_delta": -0.03959091,
+   "median_delta": -0.03925,
+   "between_allocation_sd": 0.00445431,
+   "se_of_ensemble_mean": 0.00134303,
+   "t_interval_95": [
+    -0.04258317,
+    -0.03659865
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00697087,
+   "sign_frequency_positive": 0.0,
+   "sign_frequency_negative": 1.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  },
+  {
+   "p": 79,
+   "pass_rule": "fixed_market",
+   "verdict": "unfavorable",
+   "max_per_draw_residual": 1.3877787807814457e-17,
+   "all_draws_agree": true,
+   "certified_optimum": 92.655074,
+   "certified_gap": 0.0,
+   "worlds_compared": 8,
+   "runtime_s": 217.6,
+   "k": 11,
+   "mean_delta": -0.04836364,
+   "median_delta": -0.04775,
+   "between_allocation_sd": 0.00494136,
+   "se_of_ensemble_mean": 0.00148988,
+   "t_interval_95": [
+    -0.05168308,
+    -0.04504419
+   ],
+   "t_df": 10,
+   "rms_within_allocation_se": 0.00683248,
+   "sign_frequency_positive": 0.0,
+   "sign_frequency_negative": 1.0,
+   "distinct_allocation_worlds": 11,
+   "redundant_draws": 0,
+   "effective_k": 11,
+   "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures"
+  }
+ ],
+ "reading": {
+  "m_statements": 14,
+  "alpha": 0.05,
+  "bonferroni_alpha_per_statement": 0.00357143,
+  "pointwise_highest_favorable": 68,
+  "pointwise_first_unfavorable": 69,
+  "simultaneous_highest_favorable": 67,
+  "simultaneous_first_unfavorable": 72,
+  "pointwise_unresolved_gap": [
+   68,
+   69
+  ],
+  "simultaneous_unresolved_gap": [
+   67,
+   72
+  ],
+  "nonmonotonicities": [
+   "delta rises from $69 to $70: -0.00555 -> -0.00307",
+   "delta rises from $73 to $74: -0.02639 -> -0.02525"
+  ],
+  "prices": [
+   {
+    "p": 66,
+    "mean_delta": 0.01640909,
+    "pointwise_ci": [
+     0.01291804,
+     0.01990014
+    ],
+    "pointwise_verdict": "favorable",
+    "simultaneous_ci": [
+     0.01047845,
+     0.02233973
+    ],
+    "simultaneous_verdict": "favorable"
+   },
+   {
+    "p": 67,
+    "mean_delta": 0.00904545,
+    "pointwise_ci": [
+     0.0052833,
+     0.0128076
+    ],
+    "pointwise_verdict": "favorable",
+    "simultaneous_ci": [
+     0.00265427,
+     0.01543663
+    ],
+    "simultaneous_verdict": "favorable"
+   },
+   {
+    "p": 68,
+    "mean_delta": 0.00661364,
+    "pointwise_ci": [
+     0.00096517,
+     0.01226211
+    ],
+    "pointwise_verdict": "favorable",
+    "simultaneous_ci": [
+     -0.00298205,
+     0.01620933
+    ],
+    "simultaneous_verdict": "unresolved"
+   },
+   {
+    "p": 69,
+    "mean_delta": -0.00554545,
+    "pointwise_ci": [
+     -0.00894276,
+     -0.00214814
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.01131684,
+     0.00022594
+    ],
+    "simultaneous_verdict": "unresolved"
+   },
+   {
+    "p": 70,
+    "mean_delta": -0.00306818,
+    "pointwise_ci": [
+     -0.00861065,
+     0.00247429
+    ],
+    "pointwise_verdict": "unresolved",
+    "simultaneous_ci": [
+     -0.0124838,
+     0.00634744
+    ],
+    "simultaneous_verdict": "unresolved"
+   },
+   {
+    "p": 71,
+    "mean_delta": -0.00513636,
+    "pointwise_ci": [
+     -0.00997523,
+     -0.00029749
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.0133567,
+     0.00308398
+    ],
+    "simultaneous_verdict": "unresolved"
+   },
+   {
+    "p": 72,
+    "mean_delta": -0.02095455,
+    "pointwise_ci": [
+     -0.02605755,
+     -0.01585155
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.02962358,
+     -0.01228552
+    ],
+    "simultaneous_verdict": "unfavorable"
+   },
+   {
+    "p": 73,
+    "mean_delta": -0.02638636,
+    "pointwise_ci": [
+     -0.03088005,
+     -0.02189267
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.0340203,
+     -0.01875242
+    ],
+    "simultaneous_verdict": "unfavorable"
+   },
+   {
+    "p": 74,
+    "mean_delta": -0.02525,
+    "pointwise_ci": [
+     -0.02972776,
+     -0.02077224
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.03285687,
+     -0.01764313
+    ],
+    "simultaneous_verdict": "unfavorable"
+   },
+   {
+    "p": 75,
+    "mean_delta": -0.02561364,
+    "pointwise_ci": [
+     -0.03004412,
+     -0.02118316
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.03314019,
+     -0.01808709
+    ],
+    "simultaneous_verdict": "unfavorable"
+   },
+   {
+    "p": 76,
+    "mean_delta": -0.03461364,
+    "pointwise_ci": [
+     -0.04000716,
+     -0.02922012
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.04377622,
+     -0.02545106
+    ],
+    "simultaneous_verdict": "unfavorable"
+   },
+   {
+    "p": 77,
+    "mean_delta": -0.03890909,
+    "pointwise_ci": [
+     -0.04152965,
+     -0.03628853
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.04336093,
+     -0.03445725
+    ],
+    "simultaneous_verdict": "unfavorable"
+   },
+   {
+    "p": 78,
+    "mean_delta": -0.03959091,
+    "pointwise_ci": [
+     -0.04258337,
+     -0.03659845
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.04467453,
+     -0.03450729
+    ],
+    "simultaneous_verdict": "unfavorable"
+   },
+   {
+    "p": 79,
+    "mean_delta": -0.04836364,
+    "pointwise_ci": [
+     -0.0516833,
+     -0.04504398
+    ],
+    "pointwise_verdict": "unfavorable",
+    "simultaneous_ci": [
+     -0.05400312,
+     -0.04272416
+    ],
+    "simultaneous_verdict": "unfavorable"
+   }
+  ],
+  "note": "the pointwise sequence is NOT a simultaneous 95% frontier; the Bonferroni band is conservative because it ignores the positive dependence between neighbouring prices"
+ },
+ "runtime_s": 4081.1,
+ "max_rss_mb": 480.0
+}
