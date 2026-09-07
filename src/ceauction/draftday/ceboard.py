@@ -71,6 +71,11 @@ ROUGH_DISCLOSURE = (
 FORBIDDEN_WORDS = ("CE AUDITED", "CERTIFIED MAX BID", "CERTIFIED", "OPTIMAL",
                    "GUARANTEED", "RESERVATION PRICE", "EXACT MAX")
 
+#: What a LOW row shows instead of a price.
+NOISY_MESSAGE = "CE SIGNAL NOISY — USE MARKET GUARDRAIL"
+LEANS_HIGHER = "CE LEANS HIGHER"
+LEANS_LOWER = "CE LEANS LOWER"
+
 CEBOARD_FILENAME = "ce_price_board.json"
 
 #: Seasons for the ranking. A ranking needs far less precision than a
@@ -78,6 +83,20 @@ CEBOARD_FILENAME = "ce_price_board.json"
 #: the season noise that would otherwise dominate a small sample.
 RANK_SEASONS = 1_000
 RANK_SEED = 917_324_011
+
+#: Five independent ranking samples, predeclared. One seed produced a board
+#: whose LOW rows were noise dressed as dollars -- rank-to-dollar mapping turns
+#: a rank that moved by chance into a $30 price move, and a single sample
+#: cannot tell that apart from a real ordering. Five seeds x three contexts
+#: gives fifteen observations per player, and the spread across them is the
+#: measurement that decides whether a number may be shown at all.
+RANK_SEEDS: Tuple[int, ...] = (917_324_011, 20260907, 480_192_611,
+                               77_345_209, 1_299_827)
+
+#: Gate thresholds. A row wider than this is not a price, it is a range of
+#: opinions, and the board says so instead of printing its midpoint.
+MEDIUM_MAX_SPREAD = 12
+MEDIUM_MIN_SEED_AGREEMENT = 4
 
 #: Three deterministic, legal 15-man shapes. Each fields all eight starters
 #: (1 QB, 2 RB, 3 WR/TE, 1 flex, 1 superflex) with real slack, and they differ
@@ -153,50 +172,148 @@ class PlayerCE:
                 "signs_agree": self.signs_agree}
 
 
+def _pct(values: Sequence[int], q: float) -> int:
+    """Nearest-rank percentile. Deterministic, and no interpolation invents a
+    dollar nobody observed."""
+    v = sorted(values)
+    if not v:
+        return 0
+    k = max(0, min(len(v) - 1, int(math.ceil(q * len(v))) - 1))
+    return int(v[k])
+
+
 @dataclass(frozen=True)
 class BoardEntry:
-    """One player's rough CE dollars, and how confident the three contexts are."""
+    """One player's fifteen dollar observations, and whether they agree.
+
+    Five independent ranking seeds x three roster contexts. The consensus is
+    their median; the range is the 20th to 80th percentile, which discards the
+    one-off extremes a single seed can produce without hiding genuine spread.
+    """
 
     player_id: int
     name: str
     position: str
     anchor: Optional[int]
+    market_base: int
     ce: PlayerCE
-    price_by_context: Dict[str, int]
+    observations: Tuple[Dict[str, object], ...]
+    """One per (seed, context): ``{seed, context, price, delta}``."""
+
+    conservation_ok: bool = True
+
+    @property
+    def prices(self) -> List[int]:
+        return [int(o["price"]) for o in self.observations]
 
     @property
     def center(self) -> int:
-        return int(statistics.median(self.price_by_context.values()))
+        return int(statistics.median(self.prices))
 
     @property
     def low(self) -> int:
-        return int(min(self.price_by_context.values()))
+        return _pct(self.prices, 0.20)
 
     @property
     def high(self) -> int:
-        return int(max(self.price_by_context.values()))
+        return _pct(self.prices, 0.80)
+
+    @property
+    def spread(self) -> int:
+        return self.high - self.low
+
+    @property
+    def seed_medians(self) -> Dict[int, int]:
+        by: Dict[int, List[int]] = {}
+        for o in self.observations:
+            by.setdefault(int(o["seed"]), []).append(int(o["price"]))
+        return {k: int(statistics.median(v)) for k, v in sorted(by.items())}
+
+    @property
+    def seed_directions(self) -> Dict[int, int]:
+        """Each seed's median against the market base: +1, -1 or 0."""
+        return {k: (1 if v > self.market_base
+                    else -1 if v < self.market_base else 0)
+                for k, v in self.seed_medians.items()}
+
+    @property
+    def seed_agreement(self) -> int:
+        """How many of the five seeds point the same way. The majority count."""
+        d = list(self.seed_directions.values())
+        return max((d.count(1), d.count(-1))) if d else 0
+
+    @property
+    def direction(self) -> int:
+        d = list(self.seed_directions.values())
+        if not d:
+            return 0
+        return 1 if d.count(1) >= d.count(-1) else -1
+
+    @property
+    def seed_rank_sd(self) -> float:
+        v = list(self.seed_medians.values())
+        return statistics.stdev(v) if len(v) > 1 else 0.0
+
+    @property
+    def context_rank_sd(self) -> float:
+        by: Dict[str, List[int]] = {}
+        for o in self.observations:
+            by.setdefault(str(o["context"]), []).append(int(o["price"]))
+        med = [statistics.median(v) for v in by.values()]
+        return statistics.stdev(med) if len(med) > 1 else 0.0
 
     @property
     def confidence(self) -> str:
-        """How much the three contexts disagree, in dollars.
+        """MEDIUM needs agreement AND tightness. There is no HIGH.
 
-        This measures context sensitivity and nothing else. It is not a
-        statement about how close the number is to a true maximum bid, because
-        this method does not compute one.
+        Four of five seeds must point the same way against the market, and the
+        20th-80th band must be no wider than $12. Either failure means the
+        fifteen observations do not agree on a price, and the board must not
+        print one.
         """
-        spread = self.high - self.low
-        tight = spread <= max(3, int(round(0.25 * max(1, self.center))))
-        if tight and self.ce.signs_agree:
-            return "MEDIUM"
-        return "LOW"
+        if not self.conservation_ok:
+            return "LOW"
+        if self.seed_agreement < MEDIUM_MIN_SEED_AGREEMENT:
+            return "LOW"
+        if self.spread > MEDIUM_MAX_SPREAD:
+            return "LOW"
+        return "MEDIUM"
+
+    @property
+    def lean(self) -> str:
+        """A direction for a LOW row, but only where the seeds actually agree."""
+        if self.seed_agreement < MEDIUM_MIN_SEED_AGREEMENT:
+            return ""
+        return LEANS_HIGHER if self.direction > 0 else LEANS_LOWER
 
     def to_dict(self) -> Dict[str, object]:
-        return {"player_id": self.player_id, "name": self.name,
-                "position": self.position, "anchor": self.anchor,
-                "rough_ce_max": self.center, "range_low": self.low,
-                "range_high": self.high, "confidence": self.confidence,
-                "price_by_context": dict(self.price_by_context),
-                "ce": self.ce.to_dict()}
+        low = self.confidence == "LOW"
+        return {
+            "player_id": self.player_id, "name": self.name,
+            "position": self.position, "anchor": self.anchor,
+            "market_base": self.market_base,
+            "confidence": self.confidence,
+            # A LOW row exposes no actionable maximum. The consensus stays in
+            # diagnostics for transparency, never in the price field.
+            "rough_ce_max": None if low else self.center,
+            "range_low": None if low else self.low,
+            "range_high": None if low else self.high,
+            "message": NOISY_MESSAGE if low else "",
+            "lean": self.lean if low else "",
+            "diagnostics": {
+                "consensus_median": self.center,
+                "p20": self.low, "p80": self.high, "spread": self.spread,
+                "n_observations": len(self.observations),
+                "seed_medians": self.seed_medians,
+                "seed_directions": self.seed_directions,
+                "seed_agreement": self.seed_agreement,
+                "seed_rank_sd": round(self.seed_rank_sd, 2),
+                "context_rank_sd": round(self.context_rank_sd, 2),
+                "conservation_ok": self.conservation_ok,
+                "observations": [dict(o) for o in self.observations],
+            },
+            "ce": self.ce.to_dict(),
+        }
 
 
 @dataclass
@@ -224,8 +341,7 @@ class OpeningCEBoard:
                 "label": ROUGH_LABEL, "disclosure": ROUGH_DISCLOSURE,
                 "entries": [e.to_dict()
                             for e in sorted(self.entries.values(),
-                                            key=lambda x: (-x.center,
-                                                           x.player_id))],
+                                            key=lambda x: (-x.center, x.player_id))],
                 "warning": "LOCAL ONLY -- gitignored draft-day board."}
 
     def save(self, path: Path) -> None:
@@ -256,11 +372,13 @@ class OpeningCEBoard:
         try:
             for e in blob["entries"]:
                 ce = e["ce"]
+                dg = e.get("diagnostics", {})
                 entries[int(e["player_id"])] = BoardEntry(
                     player_id=int(e["player_id"]), name=e["name"],
                     position=e["position"], anchor=e.get("anchor"),
-                    price_by_context={k: int(v) for k, v in
-                                      e["price_by_context"].items()},
+                    market_base=int(e.get("market_base", 0)),
+                    observations=tuple(dg.get("observations", ())),
+                    conservation_ok=bool(dg.get("conservation_ok", True)),
                     ce=PlayerCE(
                         player_id=int(e["player_id"]), name=e["name"],
                         position=e["position"], anchor=e.get("anchor"),
@@ -455,34 +573,59 @@ def assign_dollars(scores: Dict[int, PlayerCE], base_prices: Dict[int, int],
     return {p.player_id: int(max(1, d)) for p, d in zip(ranked, dollars)}
 
 
-def build_opening_board(state: AuctionState, cache: RoughWorldCache, *,
-                        players: Sequence[int], points_by_id, name_by_id,
+def build_opening_board(state: AuctionState, caches: Sequence[RoughWorldCache],
+                        *, players: Sequence[int], points_by_id, name_by_id,
                         anchor_by_id, base_prices: Dict[int, int],
                         fingerprint: str, legal_max_opening: int,
-                        contexts=None, progress=None) -> OpeningCEBoard:
+                        contexts=None, progress=None) -> "OpeningCEBoard":
+    """Score under every seed, then keep all fifteen dollar observations.
+
+    One board per seed would let a lucky ranking become a price. Keeping the
+    observations instead means the board can be asked how much its own answer
+    moved when only the random seed changed -- which is exactly the question
+    the confidence gate answers.
+    """
     t0 = time.perf_counter()
     focus, fieldrosters = build_contexts(state, points_by_id, contexts=contexts)
-    scores = score_players(state, cache, focus, fieldrosters, players,
-                           points_by_id=points_by_id, name_by_id=name_by_id,
-                           anchor_by_id=anchor_by_id, progress=progress)
-    per_context = {c: assign_dollars(scores, base_prices, c) for c in focus}
+    obs: Dict[int, List[Dict[str, object]]] = {}
+    last_scores: Dict[int, PlayerCE] = {}
+    for si, cache in enumerate(caches):
+        scores = score_players(state, cache, focus, fieldrosters, players,
+                               points_by_id=points_by_id, name_by_id=name_by_id,
+                               anchor_by_id=anchor_by_id, progress=None)
+        last_scores.update(scores)
+        for cname in focus:
+            mapping = assign_dollars(scores, base_prices, cname)
+            for pid_, price in mapping.items():
+                obs.setdefault(pid_, []).append({
+                    "seed": int(cache.seed), "context": cname,
+                    "price": int(min(legal_max_opening, price)),
+                    "delta": round(float(
+                        scores[pid_].delta_by_context.get(cname, 0.0)), 6)})
+        if progress is not None:
+            progress(si + 1, len(caches))
+
     entries: Dict[int, BoardEntry] = {}
-    for pid, pc in scores.items():
-        prices = {c: min(int(legal_max_opening), m[pid])
-                  for c, m in per_context.items() if pid in m}
-        if not prices:
+    for pid_, rows in obs.items():
+        pc = last_scores.get(pid_)
+        if pc is None or len(rows) < 2:
             continue
-        entries[pid] = BoardEntry(
-            player_id=pid, name=pc.name, position=pc.position,
-            anchor=pc.anchor, ce=pc, price_by_context=prices)
+        entries[pid_] = BoardEntry(
+            player_id=pid_, name=pc.name, position=pc.position,
+            anchor=pc.anchor, market_base=int(base_prices.get(pid_, 0)),
+            ce=pc, observations=tuple(rows), conservation_ok=True)
+
     coverage: Dict[str, int] = {}
     for e in entries.values():
         coverage[e.position] = coverage.get(e.position, 0) + 1
     coverage["TOTAL"] = len(entries)
+    coverage["MEDIUM"] = sum(1 for e in entries.values()
+                             if e.confidence == "MEDIUM")
+    coverage["LOW"] = sum(1 for e in entries.values() if e.confidence == "LOW")
     return OpeningCEBoard(
         entries=entries, fingerprint=fingerprint,
         contexts={k: list(v) for k, v in focus.items()},
-        seasons=cache.seasons, seed=cache.seed,
+        seasons=caches[0].seasons, seed=caches[0].seed,
         runtime_s=time.perf_counter() - t0, coverage=coverage,
         legal_max_opening=int(legal_max_opening))
 
@@ -509,6 +652,8 @@ class LiveValue:
     live_high: int
     clamped: bool
     confidence: str
+    working_number: int = 0
+    working_basis: str = ""
 
     def to_dict(self) -> Dict[str, object]:
         return {"player_id": self.player_id, "opening_rough_ce_max": self.opening,
@@ -521,20 +666,29 @@ class LiveValue:
                 "clamped": self.clamped,
                 "clamp_label": "EXACT LEGAL LIMIT" if self.clamped else "",
                 "confidence": self.confidence,
+                "working_number": self.working_number,
+                "working_basis": self.working_basis,
+                "live_rough_ce_shown": (self.live
+                                        if self.confidence == "MEDIUM" else None),
+                "message": ("" if self.confidence == "MEDIUM"
+                            else NOISY_MESSAGE),
                 "formula": ("live = opening x room_multiplier x "
                             "position_multiplier, reconciled to remaining "
                             "auction dollars, clamped to our exact legal max")}
 
 
 def live_value(entry: BoardEntry, *, market, position: str,
-               legal_max: int, reconcile_multiplier: float = 1.0) -> LiveValue:
-    """Opening rough CE carried through the market the room has revealed.
+               legal_max: int, guardrail: Optional[int] = None,
+               reconcile_multiplier: float = 1.0) -> LiveValue:
+    """Opening consensus carried through the market the room has revealed.
 
-    Every factor is one the project already computes. The room and position
-    multipliers come from :class:`MarketState`, which learned them from
-    completed sales; the reconciliation factor comes from the dollars actually
-    left in the room; the cap is the exact legal maximum. No new coefficient is
-    introduced, and none of these is a fresh CE simulation.
+    Only a MEDIUM row's CE result becomes a visible price. A LOW row's working
+    number stays the market guardrail, because fifteen observations that
+    disagree by more than $12, or five seeds that cannot agree on a direction,
+    have not measured a price. The CE consensus is still carried in
+    diagnostics -- available, but never presented as a maximum.
+
+    The two are never blended. ``basis`` says which one the working number is.
     """
     room = float(market.room_effect.multiplier) if market is not None else 1.0
     levels = market.position_levels if market is not None else {}
@@ -544,9 +698,16 @@ def live_value(entry: BoardEntry, *, market, position: str,
     def carry(v: int) -> int:
         return max(1, int(round(v * factor)))
 
+    medium = entry.confidence == "MEDIUM"
     live = carry(entry.center)
     lo, hi = carry(entry.low), carry(entry.high)
     clamped = live > legal_max or hi > legal_max
+    if medium:
+        working, basis = min(live, int(legal_max)), "CE RANGE (MEDIUM)"
+    else:
+        working = (min(int(guardrail), int(legal_max))
+                   if guardrail is not None else int(legal_max))
+        basis = "MARKET GUARDRAIL (CE NOISY)"
     return LiveValue(
         player_id=entry.player_id, opening=entry.center,
         opening_low=entry.low, opening_high=entry.high,
@@ -555,7 +716,8 @@ def live_value(entry: BoardEntry, *, market, position: str,
         legal_max=int(legal_max),
         live=min(live, int(legal_max)), live_low=min(lo, int(legal_max)),
         live_high=min(hi, int(legal_max)), clamped=clamped,
-        confidence=entry.confidence)
+        confidence=entry.confidence, working_number=int(working),
+        working_basis=basis)
 
 
 def board_fingerprint(state: AuctionState, pool_digest: str, *,
@@ -568,6 +730,9 @@ def board_fingerprint(state: AuctionState, pool_digest: str, *,
     h.update(pool_digest.encode())
     h.update(repr(state.settings).encode())
     h.update(f"{scenario}|{seasons}|{seed}".encode())
+    # Every ranking seed, so adding or changing one invalidates the board.
+    h.update(("seeds=" + ",".join(str(x) for x in RANK_SEEDS)).encode())
+    h.update(f"gate={MEDIUM_MIN_SEED_AGREEMENT}/{MEDIUM_MAX_SPREAD}".encode())
     for name in sorted(contexts):
         h.update(name.encode())
         for pos in sorted(contexts[name], key=int):

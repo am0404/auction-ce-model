@@ -174,13 +174,43 @@ class DraftDayServer:
             return {"status": "MARKET ONLY"}
         state = self.session.state
         legal = self._candidate_legal_max(player_id)
+        guard = None
+        for r in self.rows():
+            if r.get("player_id") == str(player_id) or r.get("player_id") == player_id:
+                guard = r.get("guardrail")
+                break
         lv = live_value(entry, market=self.session.market,
                         position=entry.position, legal_max=legal,
+                        guardrail=guard,
                         reconcile_multiplier=self._reconcile_multiplier())
         out = {"status": "OK", "label": ROUGH_LABEL}
         out.update(entry.to_dict())
         out.update(lv.to_dict())
         return out
+
+    def _ce_row(self, player_id: int) -> Dict[str, object]:
+        """The CE columns for one board row.
+
+        A LOW row carries no ``rough_ce_max``: the field is absent, not zero
+        and not the raw consensus, so nothing downstream can render a noisy
+        number as an actionable maximum.
+        """
+        from .ceboard import NOISY_MESSAGE
+        if self.ceboard is None:
+            return {"rough_ce_status": "CE PRECOMPUTE REQUIRED"}
+        e = self.ceboard.get(player_id)
+        if e is None:
+            return {"rough_ce_status": "MARKET ONLY"}
+        low = e.confidence == "LOW"
+        return {
+            "rough_ce_status": "OK",
+            "rough_ce_confidence": e.confidence,
+            "rough_ce_max": None if low else e.center,
+            "rough_ce_low": None if low else e.low,
+            "rough_ce_high": None if low else e.high,
+            "rough_ce_message": NOISY_MESSAGE if low else "",
+            "rough_ce_lean": e.lean if low else "",
+        }
 
     def _candidate_legal_max(self, player_id: int) -> int:
         """Our exact legal maximum for this player, from the auction state."""
@@ -229,13 +259,8 @@ class DraftDayServer:
             d["player_id"] = pid(r.player_id)
             d["owner_team"] = (self.session.team_name(r.owner)
                                if r.owner else "")
-            ce = self.ce_for(r.player_id)
-            d["rough_ce_status"] = ce.get("status")
-            d["rough_ce_max"] = ce.get("rough_ce_max")
-            d["rough_ce_low"] = ce.get("range_low")
-            d["rough_ce_high"] = ce.get("range_high")
-            d["live_rough_ce"] = ce.get("live_rough_ce")
-            d["rough_ce_confidence"] = ce.get("confidence")
+            ce = self._ce_row(r.player_id)
+            d.update(ce)
             out.append(d)
         self._rows_cache = (fp, out)
         self._last_rows_ms = round((time.perf_counter() - t0) * 1000, 1)
