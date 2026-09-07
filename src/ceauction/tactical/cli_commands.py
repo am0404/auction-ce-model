@@ -888,6 +888,73 @@ def cmd_decompose(args) -> int:
     return 0
 
 
+def cmd_repaired_search(args) -> int:
+    """Evaluated-price generation + local repair, under the unchanged gate."""
+    from pathlib import Path as _P
+    from .repaired_experiment import run
+    from .midauction import SIMULATED_WATERMARK, STATE_SPECS
+    from .realpilot import PilotInputs
+
+    inputs = PilotInputs(
+        contract=_P(args.contract), sleeper_csv=_P(args.sleeper_csv),
+        out_dir=_P(args.out_dir), pool_limit=args.pool_limit,
+        market_scenario=args.market_scenario,
+        performance_scenario=args.performance_scenario)
+    missing = inputs.missing()
+    if missing:
+        raise UsageError(
+            "real inputs are missing: " + ", ".join(missing) + ". See "
+            "`ce-lab tactical real-pilot` for setup; both live under "
+            "local_data/, which is gitignored.")
+    if "local_data" not in _P(args.out_dir).parts:
+        raise UsageError(
+            f"--out-dir must sit under local_data/ (got {args.out_dir!r})")
+    if args.state not in STATE_SPECS:
+        raise UsageError(
+            f"unknown state {args.state!r}; known: "
+            f"{', '.join(sorted(STATE_SPECS))}")
+    if args.draws < 2:
+        raise UsageError("--draws must be at least 2")
+    if args.sims < 100:
+        raise UsageError("--sims must be at least 100")
+    if args.increment < 1:
+        raise UsageError("--increment must be at least 1")
+    if args.repair_top_k < 1:
+        raise UsageError("--repair-top-k must be at least 1")
+    reuse = _P(args.reuse_candidates) if args.reuse_candidates else None
+    if reuse is not None and "local_data" not in reuse.parts:
+        raise UsageError(
+            f"--reuse-candidates must sit under local_data/ (got "
+            f"{args.reuse_candidates!r})")
+
+    print("=" * 78)
+    print(SIMULATED_WATERMARK)
+    print("=" * 78)
+    print()
+    blob, local = run(inputs, frontier_state=args.state, k=args.draws,
+                      holdout_sims=args.sims,
+                      selection_sims=args.selection_sims,
+                      increment=args.increment, reuse_candidates=reuse,
+                      repair_top_k=args.repair_top_k)
+    d = _P(args.out_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "repaired_search.json").write_text(
+        json.dumps(local, indent=2, default=str), encoding="utf-8")
+    if args.json_out:
+        _write_json(args.json_out, blob)
+    print()
+    print(f"  control ladder {blob['control_ladder_fingerprint']} (unchanged)")
+    print(f"  repair settings {blob['repaired']['repair_settings_fingerprint']}")
+    print(f"  verdict: {blob['repaired']['status']}")
+    print(f"  frontier: {blob['frontier']['classification']}")
+    print(f"  player-level output -> {d / 'repaired_search.json'} (IGNORED)")
+    print(f"  runtime {blob['performance']['total_candidate_runtime_s']:.0f}s")
+    print()
+    print("  REMINDER: the auction history above is SIMULATED. No league sale "
+          "has ever been recorded.")
+    return 0
+
+
 def cmd_qb_convergence(args) -> int:
     """Push the QB union to a convergence stopping rule; gate the frontier."""
     from pathlib import Path as _P
@@ -1102,6 +1169,7 @@ def cmd_midauction_frontier(args) -> int:
 
 _COMMANDS = {
     "validate": cmd_validate,
+    "repaired-search": cmd_repaired_search,
     "qb-convergence": cmd_qb_convergence,
     "full-budget-union": cmd_full_budget_union,
     "midauction-frontier": cmd_midauction_frontier,
@@ -1346,6 +1414,31 @@ def add_tactical_parser(sub) -> None:
     s.add_argument("--performance-scenario",
                    default="median_target/full_health/week_sd/exclude")
     s.add_argument("--runtime-budget", type=float, default=3600.0)
+
+    s = inner.add_parser(
+        "repaired-search",
+        help="evaluated-price generation plus deterministic local repair, "
+             "judged by the unchanged convergence gate")
+    s.add_argument("--contract",
+                   default="local_data/real_player_contract_v1.json")
+    s.add_argument("--sleeper-csv",
+                   default="local_data/sleeper_2qb_values_2026_clean.csv")
+    s.add_argument("--out-dir", default="local_data/tactical")
+    s.add_argument("--json-out", default=None)
+    s.add_argument("--reuse-candidates", default=None,
+                   help="a prior run's local_data JSON to take the QB "
+                        "candidate from, skipping re-selection")
+    s.add_argument("--repair-top-k", type=int, default=12)
+    s.add_argument("--pool-limit", type=int, default=260)
+    s.add_argument("--state", default="balanced")
+    s.add_argument("--increment", type=int, default=1)
+    s.add_argument("--draws", type=int, default=11)
+    s.add_argument("--sims", type=int, default=4000)
+    s.add_argument("--selection-sims", type=int, default=800)
+    s.add_argument("--market-scenario", default="base",
+                   choices=["low", "base", "high"])
+    s.add_argument("--performance-scenario",
+                   default="median_target/full_health/week_sd/exclude")
 
     s = inner.add_parser(
         "qb-convergence",

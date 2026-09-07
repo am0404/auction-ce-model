@@ -1,0 +1,638 @@
+{
+  "provenance": "SIMULATED MID-AUCTION STATE -- invented from the market prior for frontier testing. NOT observed, NOT recorded, NOT historical, NOT calibrated. No league sale has ever been recorded.",
+  "simulated": true,
+  "state": {
+    "name": "balanced",
+    "fingerprint": "44209a94d76fce67"
+  },
+  "recipient": "Team07",
+  "standing_pass_price": 35,
+  "next_legal_bid": 36,
+  "legal_max": 128,
+  "evaluated_bid_prices": [
+    36,
+    40,
+    65,
+    80,
+    100,
+    128
+  ],
+  "control_ladder_fingerprint": "0fddb000228e1276",
+  "repaired": {
+    "repair_settings_fingerprint": "146040efb7b0b8c7",
+    "repair_settings_declared_at": "2026-09-07, before any rung of the repaired experiment was run",
+    "swap_pool_depth": 120,
+    "repair_top_k": 12,
+    "repair_top_k_per_price": 6,
+    "effort_rule": "linear 1x (cheapest) to 3x (dearest evaluated price)",
+    "control_ladder_unchanged": true,
+    "price_generation": {
+      "1x": [
+        {
+          "evaluated_bid_price": 36,
+          "remaining_budget_after_purchase": 103,
+          "effort_multiplier": 1.0,
+          "generated": 244,
+          "newly_unique": 244,
+          "affordable_accumulated": 215,
+          "best_proxy_before_repair": 96.6785,
+          "selected_before_repair": "ac299f86a32de6ba"
+        },
+        {
+          "evaluated_bid_price": 40,
+          "remaining_budget_after_purchase": 99,
+          "effort_multiplier": 1.4,
+          "generated": 244,
+          "newly_unique": 244,
+          "affordable_accumulated": 210,
+          "best_proxy_before_repair": 96.6475,
+          "selected_before_repair": "3cbc4740ee38d924"
+        },
+        {
+          "evaluated_bid_price": 65,
+          "remaining_budget_after_purchase": 74,
+          "effort_multiplier": 1.8,
+          "generated": 244,
+          "newly_unique": 244,
+          "affordable_accumulated": 180,
+          "best_proxy_before_repair": 93.6894,
+          "selected_before_repair": "26e7089dc5f4772c"
+        },
+        {
+          "evaluated_bid_price": 80,
+          "remaining_budget_after_purchase": 59,
+          "effort_multiplier": 2.2,
+          "generated": 244,
+          "newly_unique": 244,
+          "affordable_accumulated": 156,
+          "best_proxy_before_repair": 90.1545,
+          "selected_before_repair": "18c1144d84c34b63"
+        },
+        {
+          "evaluated_bid_price": 100,
+          "remaining_budget_after_purchase": 39,
+          "effort_multiplier": 2.6,
+          "generated": 244,
+          "newly_unique": 244,
+          "affordable_accumulated": 111,
+          "best_proxy_before_repair": 84.0119,
+          "selected_before_repair": "16e384e0548e1b63"
+        },
+        {
+          "evaluated_bid_price": 128,
+          "remaining_budget_after_purchase": 11,
+          "effort_multiplier": 3.0,
+          "generated": 244,
+          "newly_unique": 244,
+          "affordable_accumulated": 48,
+          "best_proxy_before_repair": 74.1053,
+          "selected_before_repair": "caadc2fdbf67de3b"
+        }
+      ],
+      "2x": [
+        {
+          "evaluated_bid_price": 36,
+          "remaining_budget_after_purchase": 103,
+          "effort_multiplier": 1.0,
+          "generated": 510,
+          "newly_unique": 510,
+          "affordable_accumulated": 655,
+          "best_proxy_before_repair": 98.0019,
+          "selected_before_repair": "2899fc8bd995d541"
+        },
+        {
+          "evaluated_bid_price": 40,
+          "remaining_budget_after_purchase": 99,
+          "effort_multiplier": 1.4,
+          "generated": 510,
+          "newly_unique": 510,
+          "affordable_accumulated": 644,
+          "best_proxy_before_repair": 97.8101,
+          "selected_before_repair": "d26b495f706cd31b"
+        },
+        {
+          "evaluated_bid_price": 65,
+          "remaining_budget_after_purchase": 74,
+          "effort_multiplier": 1.8,
+          "generated": 510,
+          "newly_unique": 510,
+          "affordable_accumulated": 522,
+          "best_proxy_before_repair": 95.9615,
+          "selected_before_repair": "d3c80e5dd55d3fec"
+        },
+        {
+          "evaluated_bid_price": 80,
+          "remaining_budget_after_purchase": 59,
+          "effort_multiplier": 2.2,
+          "generated": 510,
+          "newly_unique": 510,
+          "affordable_accumulated": 445,
+          "best_proxy_before_repair": 90.6,
+          "selected_before_repair": "52c1513fba21490d"
+        },
+        {
+          "evaluated_bid_price": 100,
+          "remaining_budget_after_purchase": 39,
+          "effort_multiplier": 2.6,
+          "generated": 510,
+          "newly_unique": 510,
+          "affordable_accumulated": 313,
+          "best_proxy_before_repair": 85.8558,
+          "selected_before_repair": "3ef3f74ed0d96cab"
+        },
+        {
+          "evaluated_bid_price": 128,
+          "remaining_budget_after_purchase": 11,
+          "effort_multiplier": 3.0,
+          "generated": 510,
+          "newly_unique": 510,
+          "affordable_accumulated": 133,
+          "best_proxy_before_repair": 74.4857,
+          "selected_before_repair": "9e4d75864f9bb02b"
+        }
+      ],
+      "4x": [
+        {
+          "evaluated_bid_price": 36,
+          "remaining_budget_after_purchase": 103,
+          "effort_multiplier": 1.0,
+          "generated": 882,
+          "newly_unique": 882,
+          "affordable_accumulated": 1363,
+          "best_proxy_before_repair": 98.0019,
+          "selected_before_repair": "2899fc8bd995d541"
+        },
+        {
+          "evaluated_bid_price": 40,
+          "remaining_budget_after_purchase": 99,
+          "effort_multiplier": 1.4,
+          "generated": 882,
+          "newly_unique": 882,
+          "affordable_accumulated": 1336,
+          "best_proxy_before_repair": 97.871,
+          "selected_before_repair": "6733bcd92b96b618"
+        },
+        {
+          "evaluated_bid_price": 65,
+          "remaining_budget_after_purchase": 74,
+          "effort_multiplier": 1.8,
+          "generated": 882,
+          "newly_unique": 882,
+          "affordable_accumulated": 1107,
+          "best_proxy_before_repair": 95.9615,
+          "selected_before_repair": "d3c80e5dd55d3fec"
+        },
+        {
+          "evaluated_bid_price": 80,
+          "remaining_budget_after_purchase": 59,
+          "effort_multiplier": 2.2,
+          "generated": 882,
+          "newly_unique": 882,
+          "affordable_accumulated": 968,
+          "best_proxy_before_repair": 91.8738,
+          "selected_before_repair": "afcd477156d6e06b"
+        },
+        {
+          "evaluated_bid_price": 100,
+          "remaining_budget_after_purchase": 39,
+          "effort_multiplier": 2.6,
+          "generated": 882,
+          "newly_unique": 882,
+          "affordable_accumulated": 702,
+          "best_proxy_before_repair": 88.3153,
+          "selected_before_repair": "da8239a92b3008d3"
+        },
+        {
+          "evaluated_bid_price": 128,
+          "remaining_budget_after_purchase": 11,
+          "effort_multiplier": 3.0,
+          "generated": 882,
+          "newly_unique": 882,
+          "affordable_accumulated": 236,
+          "best_proxy_before_repair": 74.4857,
+          "selected_before_repair": "9e4d75864f9bb02b"
+        }
+      ],
+      "8x": [
+        {
+          "evaluated_bid_price": 36,
+          "remaining_budget_after_purchase": 103,
+          "effort_multiplier": 1.0,
+          "generated": 1153,
+          "newly_unique": 1153,
+          "affordable_accumulated": 2309,
+          "best_proxy_before_repair": 98.0019,
+          "selected_before_repair": "2899fc8bd995d541"
+        },
+        {
+          "evaluated_bid_price": 40,
+          "remaining_budget_after_purchase": 99,
+          "effort_multiplier": 1.4,
+          "generated": 1153,
+          "newly_unique": 1153,
+          "affordable_accumulated": 2265,
+          "best_proxy_before_repair": 97.871,
+          "selected_before_repair": "6733bcd92b96b618"
+        },
+        {
+          "evaluated_bid_price": 65,
+          "remaining_budget_after_purchase": 74,
+          "effort_multiplier": 1.8,
+          "generated": 1153,
+          "newly_unique": 1153,
+          "affordable_accumulated": 1890,
+          "best_proxy_before_repair": 95.9615,
+          "selected_before_repair": "d3c80e5dd55d3fec"
+        },
+        {
+          "evaluated_bid_price": 80,
+          "remaining_budget_after_purchase": 59,
+          "effort_multiplier": 2.2,
+          "generated": 1153,
+          "newly_unique": 1153,
+          "affordable_accumulated": 1653,
+          "best_proxy_before_repair": 91.8738,
+          "selected_before_repair": "afcd477156d6e06b"
+        },
+        {
+          "evaluated_bid_price": 100,
+          "remaining_budget_after_purchase": 39,
+          "effort_multiplier": 2.6,
+          "generated": 1153,
+          "newly_unique": 1153,
+          "affordable_accumulated": 1144,
+          "best_proxy_before_repair": 88.3153,
+          "selected_before_repair": "da8239a92b3008d3"
+        },
+        {
+          "evaluated_bid_price": 128,
+          "remaining_budget_after_purchase": 11,
+          "effort_multiplier": 3.0,
+          "generated": 1153,
+          "newly_unique": 1153,
+          "affordable_accumulated": 290,
+          "best_proxy_before_repair": 74.4857,
+          "selected_before_repair": "9e4d75864f9bb02b"
+        }
+      ]
+    },
+    "repair": {
+      "1x": {
+        "completions_examined": 48,
+        "completions_improved": 48,
+        "already_locally_optimal": 0,
+        "mean_improvement": 1.3114,
+        "max_improvement": 2.8367,
+        "mean_swaps_per_repaired": 4.33,
+        "max_swaps": 8,
+        "union_size_before": 244,
+        "union_size_after": 258,
+        "union_growth": 14,
+        "runtime_s": 102.3,
+        "note": "repaired completions are ADDED to the union, never substituted for their originals, so the union stays monotone"
+      },
+      "2x": {
+        "completions_examined": 48,
+        "completions_improved": 36,
+        "already_locally_optimal": 12,
+        "mean_improvement": 1.1639,
+        "max_improvement": 3.05,
+        "mean_swaps_per_repaired": 4.56,
+        "max_swaps": 8,
+        "union_size_before": 768,
+        "union_size_after": 773,
+        "union_growth": 5,
+        "runtime_s": 79.9,
+        "note": "repaired completions are ADDED to the union, never substituted for their originals, so the union stays monotone"
+      },
+      "4x": {
+        "completions_examined": 48,
+        "completions_improved": 33,
+        "already_locally_optimal": 15,
+        "mean_improvement": 0.5452,
+        "max_improvement": 2.187,
+        "mean_swaps_per_repaired": 3.48,
+        "max_swaps": 6,
+        "union_size_before": 1655,
+        "union_size_after": 1663,
+        "union_growth": 8,
+        "runtime_s": 62.0,
+        "note": "repaired completions are ADDED to the union, never substituted for their originals, so the union stays monotone"
+      },
+      "8x": {
+        "completions_examined": 48,
+        "completions_improved": 25,
+        "already_locally_optimal": 23,
+        "mean_improvement": 0.4172,
+        "max_improvement": 1.1332,
+        "mean_swaps_per_repaired": 2.64,
+        "max_swaps": 5,
+        "union_size_before": 2816,
+        "union_size_after": 2818,
+        "union_growth": 2,
+        "runtime_s": 46.7,
+        "note": "repaired completions are ADDED to the union, never substituted for their originals, so the union stays monotone"
+      }
+    },
+    "generation_s": 105.3,
+    "repair_s": 297.2,
+    "status": "QB_UNION_UNDERCONVERGED",
+    "ladder_declared_at": "2026-09-07, before any rung of this experiment was run",
+    "ladder_fingerprint": "0fddb000228e1276",
+    "tolerance_weekly_points": 0.25,
+    "n_rungs_completed": 4,
+    "rungs": [
+      {
+        "name": "1x",
+        "effort_multiple": 1,
+        "generation_paths": [
+          [
+            32,
+            8
+          ],
+          [
+            32,
+            16
+          ]
+        ],
+        "n_paths": 2,
+        "finalists": 8,
+        "max_candidates": 400,
+        "union_size": 258,
+        "newly_unique": 258,
+        "best_proxy": 98.2648,
+        "uf_fingerprint": "30eaa85e47490e92",
+        "up_fingerprints": {
+          "36": "2899fc8bd995d541",
+          "40": "d26b495f706cd31b",
+          "65": "d3c80e5dd55d3fec",
+          "80": "09f157b50433e8a5",
+          "100": "3ef3f74ed0d96cab",
+          "128": "9e4d75864f9bb02b"
+        },
+        "up_best_proxy": {
+          "36": 98.0019,
+          "40": 97.8101,
+          "65": 95.9615,
+          "80": 90.5316,
+          "100": 85.8558,
+          "128": 74.4857
+        },
+        "affordable_counts": {
+          "36": 227,
+          "40": 219,
+          "65": 186,
+          "80": 161,
+          "100": 114,
+          "128": 50
+        },
+        "per_path_best": {
+          "beam32_buckets8": 97.3028,
+          "beam32_buckets16": 97.9738
+        },
+        "per_path_new": {
+          "beam32_buckets8": 127,
+          "beam32_buckets16": 117
+        },
+        "generation_path_disagreement": 0.6711,
+        "runtime_s": 105.7
+      },
+      {
+        "name": "2x",
+        "effort_multiple": 2,
+        "generation_paths": [
+          [
+            64,
+            8
+          ],
+          [
+            64,
+            16
+          ],
+          [
+            96,
+            8
+          ]
+        ],
+        "n_paths": 3,
+        "finalists": 16,
+        "max_candidates": 800,
+        "union_size": 773,
+        "newly_unique": 515,
+        "best_proxy": 98.2648,
+        "uf_fingerprint": "30eaa85e47490e92",
+        "up_fingerprints": {
+          "36": "2899fc8bd995d541",
+          "40": "6733bcd92b96b618",
+          "65": "d3c80e5dd55d3fec",
+          "80": "afcd477156d6e06b",
+          "100": "da8239a92b3008d3",
+          "128": "9e4d75864f9bb02b"
+        },
+        "up_best_proxy": {
+          "36": 98.0019,
+          "40": 97.871,
+          "65": 95.9615,
+          "80": 91.8738,
+          "100": 88.3153,
+          "128": 74.4857
+        },
+        "affordable_counts": {
+          "36": 660,
+          "40": 649,
+          "65": 525,
+          "80": 448,
+          "100": 315,
+          "128": 133
+        },
+        "per_path_best": {
+          "beam64_buckets8": 97.7647,
+          "beam64_buckets16": 98.1305,
+          "beam96_buckets8": 98.0924
+        },
+        "per_path_new": {
+          "beam64_buckets8": 192,
+          "beam64_buckets16": 166,
+          "beam96_buckets8": 152
+        },
+        "generation_path_disagreement": 0.3658,
+        "runtime_s": 90.9
+      },
+      {
+        "name": "4x",
+        "effort_multiple": 4,
+        "generation_paths": [
+          [
+            128,
+            8
+          ],
+          [
+            128,
+            16
+          ],
+          [
+            192,
+            8
+          ],
+          [
+            192,
+            16
+          ]
+        ],
+        "n_paths": 4,
+        "finalists": 24,
+        "max_candidates": 1600,
+        "union_size": 1663,
+        "newly_unique": 890,
+        "best_proxy": 98.2648,
+        "uf_fingerprint": "30eaa85e47490e92",
+        "up_fingerprints": {
+          "36": "2899fc8bd995d541",
+          "40": "6733bcd92b96b618",
+          "65": "d3c80e5dd55d3fec",
+          "80": "afcd477156d6e06b",
+          "100": "da8239a92b3008d3",
+          "128": "9e4d75864f9bb02b"
+        },
+        "up_best_proxy": {
+          "36": 98.0019,
+          "40": 97.871,
+          "65": 95.9615,
+          "80": 91.8738,
+          "100": 88.3153,
+          "128": 74.4857
+        },
+        "affordable_counts": {
+          "36": 1371,
+          "40": 1344,
+          "65": 1114,
+          "80": 974,
+          "100": 708,
+          "128": 240
+        },
+        "per_path_best": {
+          "beam128_buckets8": 98.1125,
+          "beam128_buckets16": 98.0499,
+          "beam192_buckets8": 97.9588,
+          "beam192_buckets16": 98.1399
+        },
+        "per_path_new": {
+          "beam128_buckets8": 226,
+          "beam128_buckets16": 245,
+          "beam192_buckets8": 222,
+          "beam192_buckets16": 189
+        },
+        "generation_path_disagreement": 0.1811,
+        "runtime_s": 90.5
+      },
+      {
+        "name": "8x",
+        "effort_multiple": 8,
+        "generation_paths": [
+          [
+            256,
+            8
+          ],
+          [
+            256,
+            16
+          ],
+          [
+            384,
+            16
+          ],
+          [
+            512,
+            16
+          ],
+          [
+            768,
+            32
+          ]
+        ],
+        "n_paths": 5,
+        "finalists": 32,
+        "max_candidates": 3200,
+        "union_size": 2818,
+        "newly_unique": 1155,
+        "best_proxy": 98.2648,
+        "uf_fingerprint": "30eaa85e47490e92",
+        "up_fingerprints": {
+          "36": "2899fc8bd995d541",
+          "40": "6733bcd92b96b618",
+          "65": "d3c80e5dd55d3fec",
+          "80": "8aec78f5e81b1a39",
+          "100": "da8239a92b3008d3",
+          "128": "9e4d75864f9bb02b"
+        },
+        "up_best_proxy": {
+          "36": 98.0019,
+          "40": 97.871,
+          "65": 95.9615,
+          "80": 92.477,
+          "100": 88.3153,
+          "128": 74.4857
+        },
+        "affordable_counts": {
+          "36": 2311,
+          "40": 2267,
+          "65": 1892,
+          "80": 1654,
+          "100": 1144,
+          "128": 290
+        },
+        "per_path_best": {
+          "beam256_buckets8": 97.6124,
+          "beam256_buckets16": 98.1399,
+          "beam384_buckets16": 98.0164,
+          "beam512_buckets16": 97.9884,
+          "beam768_buckets32": 98.0439
+        },
+        "per_path_new": {
+          "beam256_buckets8": 228,
+          "beam256_buckets16": 199,
+          "beam384_buckets16": 273,
+          "beam512_buckets16": 176,
+          "beam768_buckets32": 277
+        },
+        "generation_path_disagreement": 0.5276,
+        "runtime_s": 128.7
+      }
+    ],
+    "stopping_rule_checks": {
+      "uf_selection_stable": true,
+      "uf_objective_within_tolerance": true,
+      "no_evaluated_price_improved_beyond_tolerance": false,
+      "up_selection_stable": false,
+      "affordability_unchanged_at_tested_prices": true,
+      "generation_paths_agree": false
+    },
+    "failures": [
+      "the objective at evaluated price(s) [80] improved by more than 0.25; a better buy-side roster was still being found",
+      "the selected UP completion changed at evaluated price(s) [80]",
+      "the final rung's generation paths disagree by 0.5276, beyond 0.25; independent paths are still finding materially different constructions"
+    ],
+    "may_evaluate_ce": false,
+    "may_quote_bid": false,
+    "convergence_scope": "convergence is over the accumulated union under the predeclared effort ladder: more search effort no longer finds a better construction. It is NOT a claim that no better roster exists in the full combinatorial space, which exact enumeration refuses to visit (1.5e11 combinations)."
+  },
+  "frontier": {
+    "classification": "QB_UNION_UNDERCONVERGED",
+    "reason": "the repaired search still fails the unchanged convergence gate; the CE frontier is not run after a failed gate",
+    "failures": [
+      "the objective at evaluated price(s) [80] improved by more than 0.25; a better buy-side roster was still being found",
+      "the selected UP completion changed at evaluated price(s) [80]",
+      "the final rung's generation paths disagree by 0.5276, beyond 0.25; independent paths are still finding materially different constructions"
+    ]
+  },
+  "performance": {
+    "board_load_s": 20.6,
+    "candidate_selection_s": 0.0,
+    "cache_hit_candidate_selection": true,
+    "evaluated_price_generation_s": 105.3,
+    "local_improvement_s": 297.2,
+    "convergence_ladder_s": 415.8,
+    "frontier_ce_s": 0.0,
+    "total_candidate_runtime_s": 436.5
+  }
+}
