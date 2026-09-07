@@ -352,24 +352,39 @@ def test_board_rows_carry_a_guardrail_and_a_recommendation(session):  # noqa: F8
 # ---------------------------------------------------------------------------
 
 
-def test_the_state_payload_declares_manual_tracking(app):
+def test_the_state_payload_declares_its_sync_scope(app):
     payload = app.state_payload()
     assert payload["manual_tracking"] is True
-    assert payload["live_sync_implemented"] is False
+    assert payload["live_sync_implemented"] is True
     assert payload["manual_tracking_badge"] == MANUAL_TRACKING_BADGE
-    assert "not implemented" in payload["manual_tracking_note"].lower()
+    note = payload["manual_tracking_note"].lower()
+    assert "completed sales only" in note
+    assert "never sees a live bid" in note
+    # Off until the operator says otherwise, and silent until then.
+    assert payload["sleeper"]["enabled"] is False
+    assert payload["sleeper"]["status"] == "OFF"
+    assert payload["sleeper"]["n_requests"] == 0
 
 
-def test_the_page_carries_the_badge_and_never_claims_live_sync():
-    assert "MANUAL TRACKING &mdash; NOT CONNECTED TO SLEEPER" in PAGE
-    assert "Live synchronisation is not implemented" in PAGE
+def test_the_page_states_the_scope_and_never_claims_live_bidding():
+    assert "SLEEPER SYNC: OFF &mdash; MANUAL TRACKING" in PAGE
+    assert "completed sales only" in PAGE.lower()
     lowered = PAGE.lower()
-    for lie in ("live sync enabled", "syncing with sleeper", "auto-import",
-                "synced with sleeper", "connected to the sleeper api"):
+    # The one thing this must never imply: that it can see the bidding.
+    for lie in ("live bid tracking", "see every bid", "real-time bids",
+                "live bidding", "bid clock sync", "mirrors the auction live"):
         assert lie not in lowered
-    # every mention of Sleeper connectivity is a denial of it
-    assert lowered.count("not connected to sleeper") >= 1
-    assert "not implemented" in MANUAL_TRACKING_NOTE.lower()
+    assert "never live bids" in lowered or "not live bids" in lowered
+    assert "completed sales only" in MANUAL_TRACKING_NOTE.lower()
+    assert "no credentials" in PAGE.lower()
+
+
+def test_the_page_keeps_the_manual_fallback_controls():
+    # Sync is a convenience over the manual tally, never a replacement.
+    for control in ('id="undo"', 'id="saleOwner"', 'id="rst"', 'id="imp"'):
+        assert control in PAGE
+    assert "Manual sale entry and undo" in MANUAL_TRACKING_NOTE or \
+           "manual sale entry and undo" in MANUAL_TRACKING_NOTE.lower()
 
 
 # ---------------------------------------------------------------------------
