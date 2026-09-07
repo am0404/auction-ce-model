@@ -308,9 +308,33 @@ class AuctionState:
             raise AuctionRuleError(
                 f"focus owner {self.focus_owner_id!r} is not in the room")
 
+    def _memo(self) -> Dict[str, object]:
+        """Per-instance cache for quantities derived from immutable fields.
+
+        Every state is frozen and every transition returns a new one, so a
+        derived value can never go stale: the fields it reads cannot change
+        under it. Caching them is therefore a pure speed-up with no semantic
+        content, which matters because the completion search asks
+        ``available_by_position`` tens of thousands of times per candidate and
+        rebuilding it each time dominated the whole tactical path.
+
+        Not a dataclass field, so it takes no part in equality, hashing or
+        serialization.
+        """
+        memo = self.__dict__.get("_derived_cache")
+        if memo is None:
+            memo = {}
+            object.__setattr__(self, "_derived_cache", memo)
+        return memo
+
     @property
     def spec_by_id(self) -> Dict[int, PlayerSpec]:
-        return {s.player_id: s for s in self.pool}
+        memo = self._memo()
+        out = memo.get("spec_by_id")
+        if out is None:
+            out = {s.player_id: s for s in self.pool}
+            memo["spec_by_id"] = out
+        return out
 
     @property
     def owner_by_id(self) -> Dict[str, OwnerAuctionState]:
@@ -335,31 +359,65 @@ class AuctionState:
 
     @property
     def rostered_ids(self) -> FrozenSet[int]:
-        return frozenset(pid for o in self.owners for pid in o.player_ids)
+        memo = self._memo()
+        out = memo.get("rostered_ids")
+        if out is None:
+            out = frozenset(pid for o in self.owners for pid in o.player_ids)
+            memo["rostered_ids"] = out
+        return out
 
     @property
     def owner_of(self) -> Dict[int, str]:
-        return {pid: o.owner_id for o in self.owners for pid in o.player_ids}
+        memo = self._memo()
+        out = memo.get("owner_of")
+        if out is None:
+            out = {pid: o.owner_id for o in self.owners for pid in o.player_ids}
+            memo["owner_of"] = out
+        return out
 
     @property
     def available_ids(self) -> Tuple[int, ...]:
         """Pool order, minus everyone rostered or withdrawn."""
-        gone = self.rostered_ids | self.withdrawn
-        return tuple(s.player_id for s in self.pool if s.player_id not in gone)
+        memo = self._memo()
+        out = memo.get("available_ids")
+        if out is None:
+            out = tuple(s.player_id for s in self.available_specs)
+            memo["available_ids"] = out
+        return out
 
     @property
     def available_specs(self) -> Tuple[PlayerSpec, ...]:
-        gone = self.rostered_ids | self.withdrawn
-        return tuple(s for s in self.pool if s.player_id not in gone)
+        memo = self._memo()
+        out = memo.get("available_specs")
+        if out is None:
+            gone = self.rostered_ids | self.withdrawn
+            out = tuple(s for s in self.pool if s.player_id not in gone)
+            memo["available_specs"] = out
+        return out
 
     def available_by_position(self) -> Dict[Position, int]:
-        out: Dict[Position, int] = {p: 0 for p in Position}
-        for s in self.available_specs:
-            out[Position(int(s.position))] += 1
+        """How many of each position are still on the board.
+
+        The returned dict is cached and therefore **shared**. Callers that
+        adjust it -- the purchase tests remove the candidate before asking
+        whether a completion survives -- must copy it first.
+        """
+        memo = self._memo()
+        out = memo.get("available_by_position")
+        if out is None:
+            out = {p: 0 for p in Position}
+            for s in self.available_specs:
+                out[Position(int(s.position))] += 1
+            memo["available_by_position"] = out
         return out
 
     def is_available(self, player_id: int) -> bool:
-        return player_id in set(self.available_ids)
+        memo = self._memo()
+        avail = memo.get("available_id_set")
+        if avail is None:
+            avail = set(self.available_ids)
+            memo["available_id_set"] = avail
+        return player_id in avail
 
     # --- money and legality ------------------------------------------------
 
@@ -469,7 +527,8 @@ class AuctionState:
                     f"{o.open_slots - 1} other slot(s) to reserve for)")
         after = o.with_player(player_id, spec.position, price)
         # Pool-aware: what would still be on the board once this player is gone.
-        remaining = self.available_by_position()
+        # The cached map is shared, so this takes its own copy before adjusting.
+        remaining = dict(self.available_by_position())
         remaining[Position(int(spec.position))] -= 1
         short = after.lineup_shortfall(remaining)
         if short is not None:
@@ -493,7 +552,7 @@ class AuctionState:
         if o.open_slots <= 0:
             return False
         after = o.with_player(player_id, spec.position, max(price, 0))
-        remaining = self.available_by_position()
+        remaining = dict(self.available_by_position())
         remaining[Position(int(spec.position))] -= 1
         return after.can_still_field_lineup(remaining)
 

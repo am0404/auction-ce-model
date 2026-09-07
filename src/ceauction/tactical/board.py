@@ -260,7 +260,9 @@ def _pool_prices(state: AuctionState, costs: Optional[CostBook],
 def _remaining_after(state: AuctionState,
                      taken: Position) -> Dict[Position, int]:
     """Board positions left once one player of ``taken`` is gone."""
-    remaining = state.available_by_position()
+    # ``available_by_position`` returns a cached, shared dict; copy before
+    # adjusting it.
+    remaining = dict(state.available_by_position())
     remaining[taken] = remaining.get(taken, 0) - 1
     return remaining
 
