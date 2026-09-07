@@ -34,6 +34,9 @@ from .proxycache import ProxyCeilingCache
 from .session import CONTINGENCY_TAGS, DraftSession, open_session
 from ..tactical.realpilot import OWNER_IDS
 
+from .board import DRAFTDAY_DIR
+from .ceboard import (CEBOARD_FILENAME, ROUGH_DISCLOSURE, ROUGH_LABEL,
+                       OpeningCEBoard, board_fingerprint, live_value)
 from .sleepersync import (
     NEEDS_ATTENTION_BADGE,
     POLL_SECONDS,
@@ -88,6 +91,11 @@ class DraftDayServer:
                                 owner_ids=OWNER_IDS)
         self._sync_thread: Optional[threading.Thread] = None
         self._sync_stop = threading.Event()
+        # The rough CE board, or None. Loaded once, only if its fingerprint
+        # matches this room; a stale board is never shown, the dashboard says
+        # CE PRECOMPUTE REQUIRED instead.
+        self.ceboard: Optional[OpeningCEBoard] = None
+        self.ceboard_status = "CE PRECOMPUTE REQUIRED"
 
     # --- the sync poll loop ------------------------------------------------
 
@@ -118,6 +126,91 @@ class DraftDayServer:
             self.sync.disable()
             return self.sync.snapshot_status()
 
+    # --- the rough CE board ------------------------------------------------
+
+    def load_ceboard(self) -> str:
+        """Load the precomputed board, but only for THIS room.
+
+        The fingerprint covers the opening state, the pool, the league
+        settings, the contexts, the seeds and the base-price distribution. A
+        mismatch is not repaired and not partially used: the board is dropped
+        and the dashboard reports that a precompute is required, because a
+        price computed for a different pool is worse than no price at all.
+        """
+        from .board import market_band
+        from .roughce import DEFAULT_WORLD_SEED
+        from .ceboard import RANK_SEASONS, RANK_SEED
+        board = self.session.board
+        opening = board.state
+        anchors = {p: (board.display_anchor_by_id.get(p)
+                       or board.raw_anchor_by_id.get(p))
+                   for p in board.key_by_id}
+        covered = [p for p in board.key_by_id if (anchors.get(p) or 0) > 0]
+        base = {p: market_band(board, p).base for p in covered}
+        try:
+            from .roughce import _pool_digest
+            digest = _pool_digest(opening.pool, opening.settings)
+        except Exception:
+            digest = ""
+        fp = board_fingerprint(opening, digest, base_prices=base,
+                               seasons=RANK_SEASONS, seed=RANK_SEED)
+        path = DRAFTDAY_DIR / CEBOARD_FILENAME
+        loaded = OpeningCEBoard.load(path, fp)
+        self.ceboard = loaded
+        self.ceboard_status = ("LOADED" if loaded is not None
+                               else "CE PRECOMPUTE REQUIRED")
+        return self.ceboard_status
+
+    def ce_for(self, player_id: int) -> Dict[str, object]:
+        """Opening and live rough CE for one player, or MARKET ONLY.
+
+        A player with no computed score gets no number invented for him: the
+        status says MARKET ONLY and every CE field is absent.
+        """
+        if self.ceboard is None:
+            return {"status": "CE PRECOMPUTE REQUIRED"}
+        entry = self.ceboard.get(player_id)
+        if entry is None:
+            return {"status": "MARKET ONLY"}
+        state = self.session.state
+        legal = self._candidate_legal_max(player_id)
+        lv = live_value(entry, market=self.session.market,
+                        position=entry.position, legal_max=legal,
+                        reconcile_multiplier=self._reconcile_multiplier())
+        out = {"status": "OK", "label": ROUGH_LABEL}
+        out.update(entry.to_dict())
+        out.update(lv.to_dict())
+        return out
+
+    def _candidate_legal_max(self, player_id: int) -> int:
+        """Our exact legal maximum for this player, from the auction state."""
+        state = self.session.state
+        owner = state.owner(state.focus_owner_id)
+        try:
+            return int(owner.max_bid)
+        except Exception:
+            return int(max(1, owner.budget_remaining - owner.open_slots + 1))
+
+    def _reconcile_multiplier(self) -> float:
+        """Dollars still unspent, against dollars still needed to fill rosters.
+
+        One ratio, computed from the room -- not a tuned coefficient. If the
+        room has spent ahead of schedule the remaining players are chasing
+        fewer dollars and this falls below one; if the room is holding money
+        it rises above one.
+        """
+        state = self.session.state
+        remaining = sum(o.budget_remaining for o in state.owners)
+        slots = sum(o.open_slots for o in state.owners)
+        if slots <= 0:
+            return 1.0
+        started = state.settings.budget * state.settings.n_teams
+        total_slots = state.settings.roster_size * state.settings.n_teams
+        expected = (started / total_slots) * slots
+        if expected <= 0:
+            return 1.0
+        return max(0.25, min(4.0, remaining / expected))
+
     # --- board rows, cached per state --------------------------------------
 
     def rows(self) -> List[Dict[str, object]]:
@@ -136,6 +229,13 @@ class DraftDayServer:
             d["player_id"] = pid(r.player_id)
             d["owner_team"] = (self.session.team_name(r.owner)
                                if r.owner else "")
+            ce = self.ce_for(r.player_id)
+            d["rough_ce_status"] = ce.get("status")
+            d["rough_ce_max"] = ce.get("rough_ce_max")
+            d["rough_ce_low"] = ce.get("range_low")
+            d["rough_ce_high"] = ce.get("range_high")
+            d["live_rough_ce"] = ce.get("live_rough_ce")
+            d["rough_ce_confidence"] = ce.get("confidence")
             out.append(d)
         self._rows_cache = (fp, out)
         self._last_rows_ms = round((time.perf_counter() - t0) * 1000, 1)
@@ -154,6 +254,7 @@ class DraftDayServer:
         # be built is the sale path -- which is exactly where it landed before
         # this line existed.
         self.session.board.proxy
+        self.load_ceboard()
         self._opening_rows = []
         for r in rows:
             d = r.to_dict()
@@ -222,6 +323,23 @@ class DraftDayServer:
                 status = self.proxy.request(
                     player_id, current_price=_int_or_none(body.get("bid")))
                 return 200, {"status": status}
+
+            if path == "/api/ceboard" and method == "GET":
+                who = one("player_id")
+                if who:
+                    resolved = self._resolve(who)
+                    if resolved is None:
+                        return 400, {"error": "unknown player_id"}
+                    return 200, self.ce_for(resolved)
+                return 200, {
+                    "status": self.ceboard_status,
+                    "label": ROUGH_LABEL, "disclosure": ROUGH_DISCLOSURE,
+                    "coverage": (self.ceboard.coverage if self.ceboard else {}),
+                    "fingerprint": (self.ceboard.fingerprint
+                                    if self.ceboard else ""),
+                    "seasons": (self.ceboard.seasons if self.ceboard else 0),
+                    "reconcile_multiplier": round(self._reconcile_multiplier(), 4),
+                }
 
             if path == "/api/sleeper" and method == "GET":
                 return 200, self.sync.snapshot_status()
