@@ -776,3 +776,63 @@ def test_forget_clears_the_ledger_for_a_room_reset(sync, session, fake, board):
     sync.clear_attention()
     sync.poll_once()
     assert len(session.sales) == 1
+
+
+# ---------------------------------------------------------------------------
+# Owner-name import: the names must reach the visible room, not just the map
+# ---------------------------------------------------------------------------
+
+
+def test_connect_imports_real_names_into_the_visible_room(sync, session):
+    # connect() ran in the fixture; the room must already show Sleeper's names.
+    for r in range(1, N + 1):
+        owner_id = OWNER_IDS[r - 1]
+        assert session.team_names[owner_id] == f"Team Name {r}"
+
+
+def test_import_preserves_stable_owner_ids_and_the_focus_seat(sync, session):
+    assert sorted(session.state.owner_by_id) == sorted(OWNER_IDS)
+    assert session.focus_owner_id == OWNER_IDS[0]
+    assert sync.owners.owner_for(1) == OWNER_IDS[0], "roster 1 is still our seat"
+
+
+def test_import_is_idempotent_and_does_not_relog_on_reconnect(sync, session,
+                                                              fake):
+    renames = [e for e in session.log if e.get("kind") == "rename"]
+    again = sync.import_owner_names()
+    assert again == [], "a second import must rename nothing"
+    assert [e for e in session.log if e.get("kind") == "rename"] == renames
+
+
+def test_display_name_is_used_when_no_team_name_published(session, fake,
+                                                          tmp_path):
+    fake.users[2] = {"user_id": "user3", "display_name": "owner3",
+                     "metadata": {}}
+    client = SleeperClient("d", fetch=fake.fetch)
+    s = SleeperSync(session, client, owner_ids=OWNER_IDS,
+                    state_path=tmp_path / "s.json")
+    s.connect(sleeper_players=fake.players)
+    assert session.team_names[OWNER_IDS[2]] == "owner3"
+
+
+def test_a_blank_name_is_never_invented(session, fake, tmp_path):
+    fake.users[3] = {"user_id": "user4", "display_name": "  ",
+                     "metadata": {"team_name": ""}}
+    client = SleeperClient("d", fetch=fake.fetch)
+    s = SleeperSync(session, client, owner_ids=OWNER_IDS,
+                    state_path=tmp_path / "s.json")
+    before = session.team_names.get(OWNER_IDS[3])
+    s.connect(sleeper_players=fake.players)
+    assert session.team_names.get(OWNER_IDS[3]) == before
+
+
+def test_imported_names_survive_a_reset(sync, session):
+    session.reset()
+    for r in range(1, N + 1):
+        assert session.team_names[OWNER_IDS[r - 1]] == f"Team Name {r}"
+
+
+def test_status_exposes_both_stable_ids_and_visible_names(sync, session):
+    out = sync.snapshot_status()
+    assert out["owner_map"]["1"] == OWNER_IDS[0], "stable id, not the name"
+    assert out["owner_names"]["1"] == "Team Name 1"

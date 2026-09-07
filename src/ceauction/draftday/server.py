@@ -572,8 +572,8 @@ PAGE = r"""<!doctype html>
    letter-spacing:.03em;white-space:nowrap}
  .badge .dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}
 
- .badge.live{background:#0d2a1a;border-color:var(--good);color:#9fe7bd}
- .badge.live .dot{background:var(--good)}
+ .badge.live{background:#0d2a1a;border-color:var(--ok);color:#9fe7bd}
+ .badge.live .dot{background:var(--ok)}
  .badge.att{background:#3a1414;border-color:var(--stop);color:#ffb3ae}
  .badge.att .dot{background:var(--stop)}
  .badge.offb{background:var(--panel2);border-color:var(--line);color:var(--dim)}
