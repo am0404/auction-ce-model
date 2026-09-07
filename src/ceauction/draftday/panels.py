@@ -23,10 +23,14 @@ from .board import BoardRow, DraftDayBoard, market_band
 from .caps import (
     DISAGREEMENT_LABEL,
     EXACT,
+    GUARDRAIL_LABEL,
+    NO_CE_NOTE,
     CapRails,
     ProvisionalCap,
-    advice,
+    has_tactical_support,
+    market_anchor_guardrail,
     provisional_cap,
+    recommend,
 )
 from .session import DraftSession
 
@@ -99,8 +103,22 @@ def nomination_panel(session: DraftSession, player_id: int, *,
         proxy_ceiling=proxy_ceiling,
         proxy_status=proxy_status,
         manual_adjustment=ov.dollar_adjustment if ov else 0,
-        manual_note=ov.reasoning if ov else "")
+        manual_note=ov.reasoning if ov else "",
+        sleeper_display_anchor=board.display_anchor_by_id.get(player_id))
     cap: ProvisionalCap = provisional_cap(rails)
+
+    # Two separate references, never blended. The Sleeper number is what the
+    # room is anchored on; the adjusted range is what this league's format says
+    # the player is worth. Where no converged tactical result exists, the
+    # guardrail is the user's stated policy over both -- and is labelled as a
+    # policy rather than as a model output.
+    tactical = has_tactical_support(rails)
+    if tactical:
+        guardrail, guardrail_bound = cap.cap, cap.bound_by
+        guardrail_label, guardrail_basis = cap.label, cap.basis
+    else:
+        guardrail, guardrail_bound = market_anchor_guardrail(rails)
+        guardrail_label, guardrail_basis = GUARDRAIL_LABEL, cap.basis
 
     # Who may legally bid the next dollar on THIS player. The candidate is
     # named, so this is the full purchase test and not the weaker money-only
@@ -150,7 +168,7 @@ def nomination_panel(session: DraftSession, player_id: int, *,
         except Exception:
             fit = improvement = None
 
-    verdict = advice(cap, next_bid) if our_legal_max > 0 else "STOP"
+    rec = recommend(cap, next_bid, guardrail=guardrail)
 
     return {
         "player_id": pid(player_id),
@@ -171,7 +189,19 @@ def nomination_panel(session: DraftSession, player_id: int, *,
         "our_legal_max": our_legal_max,
         "our_legal_max_basis": EXACT,
         "provisional_cap": cap.cap,
-        "verdict": verdict,
+        "verdict": rec.decision,
+        "recommendation": rec.to_dict(),
+        "ce_audited": rec.ce_audited,
+        "ce_note": "" if rec.ce_audited else NO_CE_NOTE,
+        "guardrail": guardrail,
+        "guardrail_label": guardrail_label,
+        "guardrail_basis": guardrail_basis,
+        "guardrail_bound_by": guardrail_bound,
+        "has_tactical_support": tactical,
+        # The raw Sleeper number, exactly as supplied. Never adjusted, never
+        # relabelled, and absent rather than invented for an unanchored player.
+        "sleeper_display_anchor": board.display_anchor_by_id.get(player_id),
+        "sleeper_raw_value": board.raw_anchor_by_id.get(player_id),
         "cap": cap.to_dict(),
         "market": band.to_dict(),
         "opening_cap": session.opening_caps.get(player_id),

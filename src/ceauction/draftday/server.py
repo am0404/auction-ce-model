@@ -33,10 +33,23 @@ from .panels import RECIPIENT_WARNING, nomination_panel, owner_table, pid, qb_pa
 from .proxycache import ProxyCeilingCache
 from .session import CONTINGENCY_TAGS, DraftSession, open_session
 
-__all__ = ["DraftDayServer", "serve", "PAGE"]
+__all__ = ["DraftDayServer", "serve", "PAGE", "MANUAL_TRACKING_BADGE",
+           "MANUAL_TRACKING_NOTE"]
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+
+#: The dashboard is a manual tally. It holds no Sleeper credentials, opens no
+#: outbound connection and polls nothing: the board reflects exactly what has
+#: been typed into it and nothing else. This string is on the header of every
+#: page, in the JSON state and on the console, because a tool that silently
+#: lagged the real draft would be worse than no tool.
+MANUAL_TRACKING_BADGE = "MANUAL TRACKING -- NOT CONNECTED TO SLEEPER"
+MANUAL_TRACKING_NOTE = (
+    "Live synchronisation with Sleeper is NOT implemented. There is no API "
+    "integration, no credentials and no polling anywhere in this dashboard. "
+    "Every nomination, bid and sale must be entered by hand on this page, and "
+    "the board will not notice a sale you did not record.")
 
 
 class DraftDayServer:
@@ -315,6 +328,10 @@ class DraftDayServer:
             "contingency_tags": list(CONTINGENCY_TAGS),
             "bases": list(BASES),
             "recipient_warning": RECIPIENT_WARNING,
+            "manual_tracking": True,
+            "manual_tracking_badge": MANUAL_TRACKING_BADGE,
+            "manual_tracking_note": MANUAL_TRACKING_NOTE,
+            "live_sync_implemented": False,
             "disagreement_label": DISAGREEMENT_LABEL,
             "proxy": self.proxy.stats(),
             "board_rows_ms": getattr(self, "_last_rows_ms", None),
@@ -420,7 +437,9 @@ def serve(*, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
           f"{sum(1 for r in app.rows() if not r['anchored'])} unanchored)")
     print(f"  saved to:  {session.state_path}")
     print(f"  restored:  {len(session.sales)} sale(s)")
-    print("  caps are MARKET/PROXY provisional unless a row says CE AUDITED.")
+    print(f"  {MANUAL_TRACKING_BADGE}")
+    print("             every sale is entered by hand; nothing here polls Sleeper.")
+    print("  guardrails are MARKET/PROXY provisional unless a row says CE AUDITED.")
     print("  stop with Ctrl-C; the draft is saved after every accepted change.")
     print("=" * 72)
     if open_browser:
@@ -438,151 +457,309 @@ PAGE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Draft Day</title>
 <style>
- :root{--bg:#11141a;--panel:#1a1f29;--line:#2b3444;--ink:#e6ebf2;--dim:#8d9bb0;
-   --ok:#3fb950;--warn:#d29922;--stop:#f85149;--acc:#58a6ff;}
+ :root{
+   --bg:#0f1216; --panel:#171b22; --panel2:#1e242e; --line:#2c3542;
+   --ink:#e9eef5; --dim:#94a3b8; --dimmer:#64748b;
+   --ok:#3fb950; --warn:#d9a441; --stop:#f0554b; --acc:#5aa2f0;
+   --gray:#5b6675;
+   --pad:14px;
+ }
  *{box-sizing:border-box}
+ html,body{height:100%}
  body{margin:0;background:var(--bg);color:var(--ink);
-   font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+   font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+     "Helvetica Neue",Arial,sans-serif;
+   -webkit-font-smoothing:antialiased}
+ .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+ /* ---- header ---------------------------------------------------------- */
  header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;
-   padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);
-   position:sticky;top:0;z-index:20}
- h1{font-size:14px;margin:0;letter-spacing:.06em}
- .grow{flex:1}
- button{background:#222b38;color:var(--ink);border:1px solid var(--line);
-   border-radius:4px;padding:4px 9px;cursor:pointer;font:inherit}
- button:hover{border-color:var(--acc)} button:disabled{opacity:.4;cursor:default}
- button.on{background:var(--acc);color:#08111f;border-color:var(--acc)}
- input,select,textarea{background:#0e1218;color:var(--ink);border:1px solid var(--line);
-   border-radius:4px;padding:4px 6px;font:inherit}
- main{padding:10px;display:grid;gap:10px;grid-template-columns:1fr}
- .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px}
- .panel h2{margin:0 0 8px;font-size:12px;letter-spacing:.08em;color:var(--dim);
-   text-transform:uppercase}
- .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
- table{border-collapse:collapse;width:100%;font-size:12px}
- th,td{padding:3px 6px;text-align:right;border-bottom:1px solid #222a36;white-space:nowrap}
- th{color:var(--dim);font-weight:600;position:sticky;top:0;background:var(--panel);
-   cursor:pointer;user-select:none}
+   padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+   position:sticky;top:0;z-index:40}
+ h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.01em;white-space:nowrap}
+ .grow{flex:1 1 auto}
+ .badge{display:inline-flex;align-items:center;gap:7px;
+   background:#3a2a10;border:1px solid var(--warn);color:#f5cf85;
+   padding:5px 11px;border-radius:999px;font-size:12.5px;font-weight:650;
+   letter-spacing:.03em;white-space:nowrap}
+ .badge .dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+
+ /* ---- controls -------------------------------------------------------- */
+ button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+   border-radius:7px;padding:7px 13px;cursor:pointer;font:inherit;font-size:14px}
+ button:hover{border-color:var(--acc)}
+ button:disabled{opacity:.38;cursor:default}
+ button.on{background:var(--acc);color:#08111f;border-color:var(--acc);font-weight:600}
+ button.primary{background:var(--acc);color:#08111f;border-color:var(--acc);
+   font-weight:650;font-size:15px;padding:9px 18px}
+ button.primary:hover{filter:brightness(1.08)}
+ button.quiet{background:transparent;color:var(--dim);border-color:transparent;
+   padding:6px 9px;font-size:13px}
+ button.quiet:hover{color:var(--ink);border-color:var(--line)}
+ button.danger:hover{border-color:var(--stop);color:#ffb3ae}
+ input,select,textarea{background:#0c1016;color:var(--ink);
+   border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:inherit;
+   font-size:14px}
+ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)}
+ input.big{font-size:20px;font-weight:650;padding:8px 11px;width:110px;
+   text-align:right}
+ label{display:block;font-size:12px;color:var(--dim);margin:0 0 4px;
+   letter-spacing:.02em}
+ .field{display:flex;flex-direction:column}
+
+ /* ---- layout ---------------------------------------------------------- */
+ main{padding:var(--pad);display:grid;gap:var(--pad);
+   grid-template-columns:1fr;align-items:start}
+ .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+   padding:var(--pad);min-width:0}
+ .panel h2{margin:0 0 10px;font-size:12px;letter-spacing:.09em;color:var(--dim);
+   text-transform:uppercase;font-weight:650}
+ .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+ .span{grid-column:1/-1}
+ @media(min-width:1240px){
+   main{grid-template-columns:minmax(0,2.7fr) minmax(280px,.9fr)}
+ }
+
+ /* ---- tables ---------------------------------------------------------- */
+ .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:8px;
+   max-height:calc(100vh - 300px);min-height:220px}
+ table{border-collapse:separate;border-spacing:0;width:100%;font-size:13.5px}
+ th,td{padding:7px 7px;text-align:right;white-space:nowrap;
+   border-bottom:1px solid #232b36}
+ th{color:var(--dim);font-weight:600;font-size:11.5px;letter-spacing:.05em;
+   text-transform:uppercase;position:sticky;top:0;z-index:2;
+   background:var(--panel2);cursor:pointer;user-select:none;
+   border-bottom:1px solid var(--line)}
+ th:hover{color:var(--ink)}
  td.l,th.l{text-align:left}
- tbody tr:hover{background:#20283a;cursor:pointer}
- tr.sold{opacity:.42}
- .scroll{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:4px}
- .wide{overflow-x:auto}
- .pill{display:inline-block;padding:1px 6px;border-radius:9px;font-size:11px;
-   border:1px solid var(--line);color:var(--dim)}
- .big{font-size:26px;font-weight:700;letter-spacing:.02em}
+ tbody tr{cursor:pointer}
+ tbody tr:hover{background:#212a37}
+ tbody tr.sel{background:#1d3350;box-shadow:inset 3px 0 0 var(--acc)}
+ tbody tr.sel:hover{background:#22406a}
+ tr.sold{opacity:.45}
+ tr.us td{background:#152436}
+ tr.us:hover td{background:#1b2e45}
+ .name{font-weight:600}
+ .num{font-variant-numeric:tabular-nums}
+
+ /* ---- semantic colour ------------------------------------------------- */
+ .c-below{color:var(--ok)} .c-in{color:var(--warn)} .c-above{color:var(--stop)}
+ .c-none{color:var(--gray)}
  .BID{color:var(--ok)} .CAUTION{color:var(--warn)} .STOP{color:var(--stop)}
- .muted{color:var(--dim)} .warn{color:var(--warn)} .bad{color:var(--stop)}
- .grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
- .card{background:#141922;border:1px solid var(--line);border-radius:5px;padding:7px 9px}
- .card .k{color:var(--dim);font-size:11px} .card .v{font-size:17px;font-weight:600}
- .banner{background:#2a1f10;border:1px solid var(--warn);color:#f0c674;
-   padding:6px 9px;border-radius:4px;margin-bottom:8px}
- .err{background:#2b1416;border:1px solid var(--stop);color:#ffb3ae;
-   padding:6px 9px;border-radius:4px;margin-bottom:8px}
- .ok{background:#12240f;border:1px solid var(--ok);color:#8ee79a;
-   padding:6px 9px;border-radius:4px;margin-bottom:8px}
+ .muted{color:var(--dim)} .dimmer{color:var(--dimmer)}
+ .warn{color:var(--warn)} .bad{color:var(--stop)} .good{color:var(--ok)}
+ .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;
+   border:1px solid var(--line);color:var(--dim);vertical-align:middle}
+ .pill.gray{color:var(--gray);border-color:#333c48}
+
+ /* ---- cards ----------------------------------------------------------- */
+ .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+   gap:10px}
+ .card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+   padding:10px 12px;min-width:0}
+ .card .k{color:var(--dim);font-size:11.5px;letter-spacing:.03em;
+   text-transform:uppercase}
+ .card .v{font-size:22px;font-weight:650;margin-top:2px;
+   font-variant-numeric:tabular-nums}
+ .card .s{color:var(--dimmer);font-size:11.5px;margin-top:2px;
+   white-space:normal;line-height:1.35}
+ .card.hero .v{font-size:30px}
+
+ .verdict{font-size:30px;font-weight:750;letter-spacing:.01em;line-height:1.15}
+ .selname{font-size:24px;font-weight:700;line-height:1.2}
+
+ .banner{background:#332510;border:1px solid var(--warn);color:#f2cf8b;
+   padding:9px 12px;border-radius:8px;margin-bottom:10px;font-size:13.5px}
+ .err{background:#331618;border:1px solid var(--stop);color:#ffb3ae;
+   padding:9px 12px;border-radius:8px;margin-bottom:10px;font-size:13.5px}
+ .ok{background:#14280f;border:1px solid var(--ok);color:#95e8a1;
+   padding:9px 12px;border-radius:8px;font-size:13.5px}
+ .note{color:var(--dim);font-size:12.5px;line-height:1.5}
+
+ details.diag{background:var(--panel);border:1px solid var(--line);
+   border-radius:10px;padding:10px var(--pad)}
+ details.diag>summary{cursor:pointer;color:var(--dim);font-size:12px;
+   letter-spacing:.09em;text-transform:uppercase;font-weight:650;
+   list-style:none;padding:2px 0}
+ details.diag>summary::-webkit-details-marker{display:none}
+ details.diag>summary:before{content:"\25B8 ";color:var(--dimmer)}
+ details.diag[open]>summary:before{content:"\25BE "}
+ details.diag .body{margin-top:10px}
+
  dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);
-   border-radius:8px;max-width:560px;width:92%}
- label{display:block;font-size:11px;color:var(--dim);margin:6px 0 2px}
- @media(min-width:1200px){main{grid-template-columns:1.15fr .85fr}
-   .span{grid-column:1/-1}}
+   border-radius:12px;max-width:560px;width:92%;padding:0}
+ dialog::backdrop{background:rgba(0,0,0,.55)}
+ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
 </style></head><body>
+
 <header>
- <h1>DRAFT DAY</h1>
- <button id="mLive" class="on">LIVE VIEW</button>
- <button id="mOpen">OPENING VIEW</button>
+ <h1>Draft Day</h1>
+ <span class="badge" title="Nothing on this page talks to Sleeper. Every sale is typed in by hand.">
+   <span class="dot"></span>MANUAL TRACKING &mdash; NOT CONNECTED TO SLEEPER</span>
  <span class="grow"></span>
- <span id="hdr" class="muted"></span>
- <button id="undo">UNDO LAST SALE</button>
- <button id="exp">EXPORT</button>
- <button id="imp">IMPORT</button>
- <button id="rst">RESET</button>
+ <button id="mLive" class="on">Live</button>
+ <button id="mOpen">Opening</button>
+ <button id="undo">Undo last sale</button>
+ <button id="exp" class="quiet">Export</button>
+ <button id="imp" class="quiet">Import</button>
+ <button id="rst" class="quiet danger">Reset</button>
 </header>
+
 <main>
- <section class="panel span" id="nomPanel"><h2>Current nomination</h2>
-  <div class="row">
-   <input id="nomSearch" placeholder="type a player name..." style="min-width:230px">
-   <select id="nomPick" style="min-width:230px"></select>
-   <label style="margin:0">bid <input id="nomBid" type="number" min="0" style="width:74px"></label>
-   <select id="nomLeader"><option value="">(high bidder)</option></select>
-   <select id="nomBy"><option value="">(nominated by)</option></select>
-   <button id="nomGo">SHOW</button>
-   <button id="nomProxy">RUN PROXY CEILING</button>
+
+ <!-- ======================= nomination + sale ======================= -->
+ <section class="panel span" id="nomPanel">
+  <h2>Current nomination &amp; sale</h2>
+  <div class="row" style="gap:14px;align-items:flex-end;margin-bottom:12px">
+   <div class="field" style="flex:1 1 260px;min-width:220px">
+    <label for="nomSearch">Find a player (or click a row on the board)</label>
+    <input id="nomSearch" placeholder="type a name..." autocomplete="off">
+   </div>
+   <div class="field" style="flex:0 1 260px">
+    <label for="nomPick">Matches</label>
+    <select id="nomPick"><option value="">(no search yet)</option></select>
+   </div>
+   <div class="field">
+    <label for="nomBid">Current bid</label>
+    <input id="nomBid" class="big" type="number" min="0" placeholder="0">
+   </div>
+   <div class="field" style="flex:0 1 180px">
+    <label for="nomLeader">High bidder</label>
+    <select id="nomLeader"><option value="">(nobody yet)</option></select>
+   </div>
+   <div class="field" style="flex:0 1 180px">
+    <label for="nomBy">Nominated by</label>
+    <select id="nomBy"><option value="">(not recorded)</option></select>
+   </div>
+   <button id="nomProxy">Run proxy ceiling</button>
   </div>
-  <div id="nomOut" class="muted" style="margin-top:9px">Pick a player.</div>
+
+  <div id="nomOut" class="note">Click a player on the board to nominate him.</div>
+
+  <hr>
+
+  <div class="row" style="gap:14px;align-items:flex-end">
+   <div style="flex:1 1 240px;min-width:200px">
+    <div class="k muted" style="font-size:11.5px;letter-spacing:.03em;
+      text-transform:uppercase">Recording a sale for</div>
+    <div id="saleWho" class="selname c-none">no player selected</div>
+   </div>
+   <div class="field" style="flex:0 1 220px">
+    <label for="saleOwner">Winning team</label>
+    <select id="saleOwner"></select>
+   </div>
+   <div class="field">
+    <label for="salePrice">Final price</label>
+    <input id="salePrice" class="big" type="number" min="1" placeholder="$">
+   </div>
+   <button id="saleGo" class="primary">Record sale</button>
+   <div id="saleMsg" class="note" style="flex:1 1 200px"></div>
+  </div>
  </section>
 
- <section class="panel span" id="salePanel"><h2>Record sale</h2>
-  <div class="row">
-   <select id="saleOwner" style="min-width:200px"></select>
-   <label style="margin:0">price <input id="salePrice" type="number" min="1" style="width:80px"></label>
-   <button id="saleGo">RECORD SALE</button>
-   <span id="saleMsg" class="muted"></span>
-  </div>
- </section>
-
- <section class="panel"><h2>Player board</h2>
-  <div class="row" style="margin-bottom:7px">
-   <input id="q" placeholder="search" style="min-width:170px">
-   <select id="fpos"><option value="">all positions</option>
+ <!-- ============================ board ============================= -->
+ <section class="panel" id="boardPanel">
+  <h2>Player board</h2>
+  <div class="row" style="margin-bottom:10px">
+   <input id="q" placeholder="search the board" style="flex:1 1 180px;min-width:150px">
+   <select id="fpos"><option value="">All positions</option>
      <option>QB</option><option>RB</option><option>WR</option><option>TE</option></select>
-   <select id="fstat"><option value="available">available</option>
-     <option value="sold">sold</option><option value="">all</option></select>
-   <select id="fanch"><option value="">anchored + unanchored</option>
-     <option value="1">anchored only</option><option value="0">unanchored only</option></select>
-   <span id="bcount" class="muted"></span>
+   <select id="fstat"><option value="available">Available</option>
+     <option value="sold">Sold</option><option value="">All</option></select>
+   <select id="fanch"><option value="">Priced + unpriced</option>
+     <option value="1">Priced only</option><option value="0">Unpriced only</option></select>
+   <span id="bcount" class="note"></span>
   </div>
-  <div class="scroll wide"><table id="board">
+  <div class="tablewrap"><table id="board">
    <thead><tr>
-    <th class="l" data-s="name">player</th><th data-s="position">pos</th>
-    <th data-s="nfl_team">tm</th><th data-s="bye_week">bye</th>
-    <th data-s="ppg">ppg</th><th data-s="live_base">mkt</th>
-    <th data-s="live_low">band</th><th data-s="roster_fit">fit</th>
-    <th data-s="lineup_improvement">+lineup</th><th data-s="legal_max">legal</th>
-    <th data-s="provisional_cap">cap</th><th class="l" data-s="basis">basis</th>
-    <th class="l" data-s="status">status</th>
+    <th class="l" data-s="name" title="Player name. Click any row to nominate him.">Player</th>
+    <th class="l" data-s="position" title="Position">Pos</th>
+    <th class="l" data-s="nfl_team" title="NFL team">Team</th>
+    <th data-s="bye_week" title="Bye week">Bye</th>
+    <th data-s="ppg" title="Projected points per game">PPG</th>
+    <th data-s="sleeper_display_value"
+        title="The price Sleeper displays, exactly as supplied. Not adjusted by this tool. This is the number the room is anchored on.">Sleeper</th>
+    <th data-s="live_base"
+        title="This model's format-adjusted expected clearing range (low-high) for THIS league. A different number from the Sleeper price, and never blended with it.">Model Range</th>
+    <th data-s="lineup_improvement" style="max-width:90px"
+        title="Weekly Lineup Gain: the increase in our mean weekly starting-lineup projection if he joins our roster. A proxy, not championship equity.">Lineup Gain</th>
+    <th data-s="guardrail"
+        title="Draft Guardrail: the working dollar figure to bid against. Where no converged tactical result exists this is max(Sleeper price, adjusted model high), clamped to our legal maximum -- the USER MARKET-ANCHOR POLICY. It is not a max bid.">Guardrail</th>
+    <th class="l" data-s="guardrail_basis"
+        title="Guardrail Basis: what evidence stands behind that number.">Basis</th>
+    <th class="l" data-s="status" title="Availability, or who bought him and for how much.">Status</th>
    </tr></thead><tbody></tbody></table></div>
+  <div class="note" style="margin-top:8px">
+   <b>Sleeper</b> is the raw displayed price, untouched. <b>Model Range</b> is this
+   league's format-adjusted range. They are different numbers and are never combined
+   except by the guardrail policy, which says so where it applies.</div>
  </section>
 
- <section class="panel"><h2>Owners</h2>
-  <div class="wide"><table id="owners"><thead><tr>
-   <th class="l">team</th><th>budget</th><th>spent</th><th>ros</th><th>open</th>
-   <th>gen max</th><th>cand max</th><th>QB</th><th>RB</th><th>WR</th><th>TE</th>
-   <th class="l">can bid?</th></tr></thead><tbody></tbody></table></div>
+ <!-- ======================= our money + QB ========================= -->
+ <div style="display:grid;gap:var(--pad);align-content:start;min-width:0">
+  <section class="panel">
+   <h2>Our team</h2>
+   <div class="cards" id="usCards"></div>
+  </section>
+  <section class="panel">
+   <h2>QB scarcity (superflex, skill fallback permitted)</h2>
+   <div id="qbOut" class="note">Select a player to see candidate-specific figures.</div>
+  </section>
+ </div>
+
+ <!-- =========================== owners ============================= -->
+ <section class="panel span">
+  <h2>All twelve owners</h2>
+  <div class="tablewrap" style="max-height:420px"><table id="owners"><thead><tr>
+   <th class="l" title="Owner name. Click edit to rename; the underlying id never changes.">Team</th>
+   <th title="Budget remaining">Budget</th>
+   <th title="Dollars already spent">Spent</th>
+   <th title="Players rostered">Rostered</th>
+   <th title="Roster slots still open">Open slots</th>
+   <th title="General legal maximum: the most this owner can bid on ANY player.">General max</th>
+   <th title="Nominated-player legal maximum: the most this owner can bid on the player currently selected.">Max on this player</th>
+   <th>QB</th><th>RB</th><th>WR</th><th>TE</th>
+   <th class="l" title="Whether this owner can legally make the next bid on the selected player.">Can bid next?</th>
+  </tr></thead><tbody></tbody></table></div>
  </section>
 
- <section class="panel span"><h2>QB scarcity (superflex, skill-position fallback permitted)</h2>
-  <div id="qbOut" class="muted">Select a nomination to see candidate-specific figures.</div>
- </section>
+ <!-- ========================= diagnostics ========================== -->
+ <details class="diag span" id="diag"><summary>Diagnostics &amp; transaction log</summary>
+  <div class="body">
+   <div class="banner" style="margin-bottom:12px">
+    <b>Live synchronisation is not implemented.</b> This dashboard has no connection to
+    Sleeper, no API credentials and no polling. Every nomination, bid and sale is entered
+    by hand on this page, and the board only reflects what has been typed in. Nothing here
+    will notice a sale you did not record.</div>
+   <div class="cards" style="margin-bottom:12px" id="diagCards"></div>
+   <div class="tablewrap" style="max-height:260px"><table id="log"><tbody></tbody></table></div>
+  </div>
+ </details>
 
- <section class="panel span"><h2>Transaction log</h2>
-  <div class="scroll" style="max-height:200px"><table id="log"><tbody></tbody></table></div>
- </section>
 </main>
 
-<dialog id="ovDlg"><form method="dialog" id="ovForm" style="padding:14px">
- <h3 style="margin:0 0 4px" id="ovName"></h3>
- <div class="muted" style="font-size:11px">A manual override is your own note. It is
+<dialog id="ovDlg"><form method="dialog" id="ovForm" style="padding:18px">
+ <h3 style="margin:0 0 6px" id="ovName"></h3>
+ <div class="note" style="margin-bottom:8px">A manual override is your own note. It is
   labelled MANUAL OVERRIDE wherever it changes a number, and is never a model output.</div>
- <label>dollar adjustment (signed, applied to the provisional cap)</label>
+ <label>Dollar adjustment (signed, applied to the guardrail)</label>
  <input id="ovAdj" type="number" style="width:100%">
- <label>contingency tag</label><select id="ovTag" style="width:100%"></select>
- <label>linked starter</label><input id="ovStarter" style="width:100%">
- <label>estimated takeover share (0-1, blank if unknown)</label>
+ <label style="margin-top:8px">Contingency tag</label><select id="ovTag" style="width:100%"></select>
+ <label style="margin-top:8px">Linked starter</label><input id="ovStarter" style="width:100%">
+ <label style="margin-top:8px">Estimated takeover share (0-1, blank if unknown)</label>
  <input id="ovShare" type="number" step="0.05" min="0" max="1" style="width:100%">
- <label>confidence note</label><input id="ovConf" style="width:100%">
- <label>reasoning</label><textarea id="ovWhy" rows="3" style="width:100%"></textarea>
- <div class="row" style="margin-top:10px">
-  <button value="save" id="ovSave">SAVE</button>
-  <button value="cancel">CANCEL</button>
-  <span class="grow"></span><span id="ovMsg" class="muted"></span>
+ <label style="margin-top:8px">Confidence note</label><input id="ovConf" style="width:100%">
+ <label style="margin-top:8px">Reasoning</label><textarea id="ovWhy" rows="3" style="width:100%"></textarea>
+ <div class="row" style="margin-top:14px">
+  <button value="save" id="ovSave" class="primary">Save</button>
+  <button value="cancel">Cancel</button>
+  <span class="grow"></span><span id="ovMsg" class="note"></span>
  </div>
 </form></dialog>
 
 <script>
 const $=s=>document.querySelector(s), fmt=v=>(v===null||v===undefined||v==='')?'-':v;
-let S={}, ROWS=[], MODE='live', SEL=null, NOM=null, sortKey='live_base', sortDir=-1;
+let S={}, ROWS=[], MODE='live', SEL=null, NOM=null, sortKey='guardrail', sortDir=-1;
 
 async function api(path,opts){const r=await fetch(path,opts||{});
   let j={}; try{j=await r.json()}catch(e){j={error:'unreadable response'}}
@@ -590,22 +767,58 @@ async function api(path,opts){const r=await fetch(path,opts||{});
 const post=(p,b)=>api(p,{method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify(b||{})});
 
-function money(v){return (v===null||v===undefined)?'-':'$'+v;}
-function basisClass(b){return b&&b.indexOf('CE AUDITED')===0?'ok':'muted';}
+const esc=t=>String(t===null||t===undefined?'':t).replace(/[&<>"]/g,
+  c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function money(v){return (v===null||v===undefined)
+  ?'<span class="c-none">&mdash;</span>':'$'+v;}
+const BASIS_SHORT={
+  'EXACT FINANCIAL/ROSTER ARITHMETIC':'Legal max',
+  'MARKET PRIOR':'Market prior',
+  'MARKET + LIVE SALES':'Market + sales',
+  'PROXY/HEURISTIC':'Proxy',
+  'CE AUDITED':'CE audited',
+  'CE UNDERPOWERED':'CE underpowered',
+  'SEARCH UNDERCONVERGED':'Search unconverged',
+  'MANUAL OVERRIDE':'Manual'};
+const shortBasis=b=>BASIS_SHORT[b]||b;
+
+// The four states the colour vocabulary is allowed to express.
+function decisionClass(d){
+  if(d==='BELOW MARKET'||d==='BID') return 'c-below';
+  if(d==='IN MARKET RANGE'||d==='CAUTION') return 'c-in';
+  if(d==='ABOVE MARKET'||d==='STOP'||d==='OVER LEGAL MAXIMUM') return 'c-above';
+  return 'c-none';
+}
 
 async function refresh(){
   S=await api('/api/state');
   const b=await api('/api/board?mode='+MODE); ROWS=b.rows||[];
-  $('#hdr').textContent=`${S.n_sales} sold | fp ${S.fingerprint} | mkt obs ${S.market_observations} | board ${S.board_rows_ms||0}ms`;
   $('#undo').disabled=!S.can_undo;
-  drawOwners(S.owners,null); drawBoard(); drawLog();
+  drawOwners(S.owners,null); drawBoard(); drawUs(); drawLog(); drawDiag();
   const sel=$('#saleOwner'), keep=sel.value;
-  sel.innerHTML=S.owners.map(o=>`<option value="${o.owner_id}">${o.team_name}</option>`).join('');
+  sel.innerHTML=S.owners.map(o=>`<option value="${o.owner_id}">${esc(o.team_name)}</option>`).join('');
   sel.value=keep||S.focus_owner_id;
   for(const id of ['#nomLeader','#nomBy']){const e=$(id),k=e.value;
-    e.innerHTML='<option value="">'+(id==='#nomLeader'?'(high bidder)':'(nominated by)')+'</option>'
-      +S.owners.map(o=>`<option value="${o.owner_id}">${o.team_name}</option>`).join(''); e.value=k;}
-  $('#ovTag').innerHTML=(S.contingency_tags||[]).map(t=>`<option>${t}</option>`).join('');
+    e.innerHTML='<option value="">'+(id==='#nomLeader'?'(nobody yet)':'(not recorded)')+'</option>'
+      +S.owners.map(o=>`<option value="${o.owner_id}">${esc(o.team_name)}</option>`).join(''); e.value=k;}
+  $('#ovTag').innerHTML=(S.contingency_tags||[]).map(t=>`<option>${esc(t)}</option>`).join('');
+}
+
+function drawUs(){
+  const us=(S.owners||[]).find(o=>o.is_us); if(!us) return;
+  $('#usCards').innerHTML=`
+   <div class="card hero"><div class="k">Our budget</div>
+     <div class="v good">$${us.budget_remaining}</div>
+     <div class="s">$${us.spent} spent</div></div>
+   <div class="card hero"><div class="k">Open slots</div>
+     <div class="v">${us.open_slots}</div>
+     <div class="s">${us.roster_size} rostered</div></div>
+   <div class="card"><div class="k">Our general max</div>
+     <div class="v">$${us.general_max}</div>
+     <div class="s">most we may bid on any player</div></div>
+   <div class="card"><div class="k">Our roster</div>
+     <div class="v" style="font-size:16px">QB ${us.QB} &middot; RB ${us.RB} &middot; WR ${us.WR} &middot; TE ${us.TE}</div>
+     <div class="s">${S.counts.sold} of ${S.counts.players} players sold</div></div>`;
 }
 
 function drawBoard(){
@@ -622,50 +835,89 @@ function drawBoard(){
   rows.sort((a,b)=>{const x=a[sortKey],y=b[sortKey];
     if(x===y)return 0; if(x===null||x===undefined)return 1; if(y===null||y===undefined)return -1;
     return (x>y?1:-1)*sortDir;});
-  $('#bcount').textContent=`${rows.length} shown / ${ROWS.length} total`;
-  $('#board tbody').innerHTML=rows.slice(0,400).map(r=>`
-   <tr class="${r.sold?'sold':''}" data-id="${r.player_id}">
-    <td class="l">${r.name}${r.anchored?'':' <span class="pill">unanchored</span>'}</td>
-    <td>${r.position}</td><td>${r.nfl_team}</td><td>${r.bye_week||'-'}</td>
-    <td>${r.ppg}</td><td>${money(r.live_base)}</td>
-    <td class="muted">${r.anchored?money(r.live_low)+'-'+money(r.live_high):'-'}</td>
-    <td>${fmt(r.roster_fit)}</td><td>${fmt(r.lineup_improvement)}</td>
-    <td>${money(r.legal_max)}</td><td><b>${money(r.provisional_cap)}</b></td>
-    <td class="l ${basisClass(r.basis)}" style="font-size:11px">${r.basis}</td>
-    <td class="l">${r.sold?('SOLD '+r.owner_team+' $'+r.sale_price):r.status}</td>
-   </tr>`).join('');
+  $('#bcount').textContent=`${rows.length} shown of ${ROWS.length}`;
+  $('#board tbody').innerHTML=rows.slice(0,400).map(r=>{
+    // An unpriced player gets no Sleeper number and no invented $1 band.
+    const sleeper = r.sleeper_display_value===null||r.sleeper_display_value===undefined
+      ? '<span class="c-none">&mdash;</span>'
+      : '<b class="num">$'+r.sleeper_display_value+'</b>';
+    const range = r.anchored
+      ? `<span class="num">$${r.live_low}&ndash;$${r.live_high}</span>`
+      : '<span class="pill gray">unpriced</span>';
+    return `
+   <tr class="${r.sold?'sold':''}${SEL===r.player_id?' sel':''}" data-id="${r.player_id}">
+    <td class="l name">${esc(r.name)}</td>
+    <td class="l">${r.position}</td><td class="l">${esc(r.nfl_team)||'-'}</td>
+    <td class="num">${r.bye_week||'-'}</td>
+    <td class="num">${r.ppg}</td>
+    <td>${sleeper}</td>
+    <td class="muted">${range}</td>
+    <td class="num">${r.lineup_improvement===null||r.lineup_improvement===undefined
+      ?'-':r.lineup_improvement.toFixed(1)}</td>
+    <td><b class="num ${decisionClass(r.recommendation)}">${money(r.guardrail)}</b></td>
+    <td class="l muted" style="font-size:12px" title="${esc(r.guardrail_basis)}${
+      r.ce_audited?'':' -- CE NOT AUDITED'}">${esc(shortBasis(r.guardrail_basis))}${
+      r.ce_audited?'':' <span class="pill gray">no CE</span>'}</td>
+    <td class="l" style="font-size:12.5px">${r.sold
+      ?('SOLD &middot; '+esc(r.owner_team)+' $'+r.sale_price)
+      :(r.status==='AVAILABLE'?'<span class="muted">available</span>'
+        :'<span class="c-none">'+r.status.toLowerCase()+'</span>')}</td>
+   </tr>`;}).join('');
   document.querySelectorAll('#board tbody tr').forEach(tr=>{
     tr.onclick=()=>{selectPlayer(tr.dataset.id);};
     tr.ondblclick=e=>{e.preventDefault();openOverride(tr.dataset.id);};});
 }
 
 function drawOwners(owners,cand){
-  $('#owners tbody').innerHTML=owners.map(o=>`<tr>
-   <td class="l">${o.is_us?'<b>'+o.team_name+'</b>':o.team_name}
-     <button data-ren="${o.owner_id}" style="padding:0 4px;font-size:10px">edit</button></td>
-   <td>$${o.budget_remaining}</td><td>$${o.spent}</td><td>${o.roster_size}</td>
-   <td>${o.open_slots}</td><td>$${o.general_max}</td>
-   <td>${cand===null?'-':'$'+o.candidate_max}</td>
-   <td>${o.QB}</td><td>${o.RB}</td><td>${o.WR}</td><td>${o.TE}</td>
-   <td class="l ${o.can_bid_candidate?'':'muted'}" style="font-size:11px">${
-     cand===null?'-':(o.can_bid_candidate?'yes':(o.blocked_reason||'no'))}</td></tr>`).join('');
+  $('#owners tbody').innerHTML=owners.map(o=>`<tr class="${o.is_us?'us':''}">
+   <td class="l">${o.is_us?'<b>'+esc(o.team_name)+'</b> <span class="pill">us</span>'
+     :esc(o.team_name)}
+     <button class="quiet" data-ren="${o.owner_id}" style="padding:1px 6px;font-size:11px">edit</button></td>
+   <td class="num">$${o.budget_remaining}</td><td class="num">$${o.spent}</td>
+   <td class="num">${o.roster_size}</td>
+   <td class="num">${o.open_slots}</td><td class="num">$${o.general_max}</td>
+   <td class="num">${cand===null?'<span class="c-none">-</span>':'$'+o.candidate_max}</td>
+   <td class="num">${o.QB}</td><td class="num">${o.RB}</td><td class="num">${o.WR}</td>
+   <td class="num">${o.TE}</td>
+   <td class="l" style="font-size:12.5px">${
+     cand===null?'<span class="c-none">no player selected</span>'
+     :(o.can_bid_candidate?'<span class="good">yes</span>'
+       :'<span class="c-none">'+esc(o.blocked_reason||'no')+'</span>')}</td></tr>`).join('');
   document.querySelectorAll('[data-ren]').forEach(b=>b.onclick=async e=>{
     e.stopPropagation();
     const cur=S.owners.find(o=>o.owner_id===b.dataset.ren);
     const name=prompt('Team name for '+b.dataset.ren, cur?cur.team_name:'');
-    if(name){await post('/api/rename',{owner_id:b.dataset.ren,name});refresh();}});
+    if(name){await post('/api/rename',{owner_id:b.dataset.ren,name});
+      await refresh(); if(SEL) selectPlayer(SEL);}});
+}
+
+function drawDiag(){
+  $('#diagCards').innerHTML=`
+   <div class="card"><div class="k">Session fingerprint</div>
+     <div class="v mono" style="font-size:13px">${esc(S.fingerprint)}</div></div>
+   <div class="card"><div class="k">Board recompute</div>
+     <div class="v" style="font-size:16px">${S.board_rows_ms||0} ms</div></div>
+   <div class="card"><div class="k">Market observations</div>
+     <div class="v">${S.market_observations}</div>
+     <div class="s">manually entered sales that moved a price level</div></div>
+   <div class="card"><div class="k">Sales recorded</div>
+     <div class="v">${S.n_sales}</div></div>
+   <div class="card"><div class="k">Priced / unpriced</div>
+     <div class="v" style="font-size:16px">${S.counts.anchored} / ${S.counts.unanchored}</div></div>
+   <div class="card"><div class="k">Saved to</div>
+     <div class="v mono" style="font-size:11px;word-break:break-all">${esc(S.state_path)}</div></div>`;
 }
 
 function drawLog(){
   api('/api/log').then(j=>{$('#log tbody').innerHTML=(j.log||[]).map(e=>{
     const t=new Date(e.at*1000).toLocaleTimeString();
     let d=e.kind.toUpperCase()+' ';
-    if(e.kind==='sale') d+=`${e.player} -> ${e.team} $${e.price}`+(e.market_updated?'':' (market NOT moved: unanchored)');
-    else if(e.kind==='undo') d+=`${e.player} $${e.price} reversed`;
-    else if(e.kind==='rename') d+=`${e.owner_id} = ${e.name}`;
-    else if(e.kind==='override') d+=`${e.player_key} adj ${e.dollar_adjustment}`;
-    else d+=JSON.stringify(e);
-    return `<tr><td class="l muted" style="width:90px">${t}</td><td class="l">${d}</td></tr>`;}).join('');});
+    if(e.kind==='sale') d+=`${esc(e.player)} -> ${esc(e.team)} $${e.price}`+(e.market_updated?'':' (market NOT moved: unpriced)');
+    else if(e.kind==='undo') d+=`${esc(e.player)} $${e.price} reversed`;
+    else if(e.kind==='rename') d+=`${esc(e.owner_id)} = ${esc(e.name)}`;
+    else if(e.kind==='override') d+=`${esc(e.player_key)} adj ${e.dollar_adjustment}`;
+    else d+=esc(JSON.stringify(e));
+    return `<tr><td class="l muted" style="width:100px">${t}</td><td class="l">${d}</td></tr>`;}).join('');});
 }
 
 async function selectPlayer(id){
@@ -673,55 +925,72 @@ async function selectPlayer(id){
   const bid=$('#nomBid').value, leader=$('#nomLeader').value, by=$('#nomBy').value;
   const u=`/api/nomination?player_id=${id}`+(bid!==''?`&bid=${bid}`:'')
     +(leader?`&leader=${leader}`:'')+(by?`&by=${by}`:'');
-  const n=await api(u); if(n.__err){$('#nomOut').innerHTML=`<div class="err">${n.__err}</div>`;return;}
-  NOM=n; drawNom(n); drawOwners(n.owners,id); drawQB(n.qb);
+  const n=await api(u);
+  if(n.__err){$('#nomOut').innerHTML=`<div class="err">${esc(n.__err)}</div>`;return;}
+  NOM=n; drawNom(n); drawOwners(n.owners,id); drawQB(n.qb); drawBoard();
+  $('#saleWho').innerHTML=`${esc(n.name)} <span class="pill">${n.position} ${esc(n.nfl_team)}</span>`;
+  $('#saleWho').classList.remove('c-none');
   const opt=[...$('#nomPick').options].find(o=>o.value===id);
   if(!opt){const o=document.createElement('option');o.value=id;o.textContent=n.name;
     $('#nomPick').prepend(o);} $('#nomPick').value=id;
   if(!$('#salePrice').value) $('#salePrice').value=n.next_legal_bid;
+  const tr=document.querySelector(`#board tbody tr[data-id="${id}"]`);
+  if(tr) tr.scrollIntoView({block:'nearest'});
 }
 
 function drawNom(n){
-  const c=n.cap, r=c.rails, m=n.market;
+  const c=n.cap, r=c.rails, m=n.market, rec=n.recommendation||{};
+  const sleeper = n.sleeper_display_anchor===null||n.sleeper_display_anchor===undefined
+    ? '<span class="c-none">none</span>' : '$'+n.sleeper_display_anchor;
   const rails=[
-   ['exact legal maximum', money(r.legal_max), 'EXACT FINANCIAL/ROSTER ARITHMETIC'],
-   ['market low / base / high', m.anchored?`${money(m.low)} / ${money(m.base)} / ${money(m.high)}`:'UNANCHORED', m.basis],
-   ['proxy permissive ceiling', r.proxy_status==='cached'?money(r.proxy_ceiling):r.proxy_status.toUpperCase(),'PROXY/HEURISTIC'],
-   ['cached CE bracket', r.ce_bracket?r.ce_bracket.join('-'):'none', r.ce_status==='none'?'no CE result for this state':r.ce_status],
-   ['manual adjustment', r.manual_adjustment?(r.manual_adjustment>0?'+':'')+r.manual_adjustment:'none','MANUAL OVERRIDE'],
+   ['Our exact legal maximum', money(r.legal_max), 'EXACT FINANCIAL/ROSTER ARITHMETIC'],
+   ['Sleeper psychological anchor', sleeper, 'RAW SLEEPER DISPLAYED PRICE -- UNADJUSTED'],
+   ['Format-adjusted market range', m.anchored?`${money(m.low)} / ${money(m.base)} / ${money(m.high)}`:'UNPRICED', m.basis],
+   ['Proxy permissive ceiling', r.proxy_status==='cached'?money(r.proxy_ceiling):r.proxy_status.toUpperCase(),'PROXY/HEURISTIC'],
+   ['Cached CE bracket', r.ce_bracket?r.ce_bracket.join('-'):'none', r.ce_status==='none'?'no CE result for this state':r.ce_status],
+   ['Manual adjustment', r.manual_adjustment?(r.manual_adjustment>0?'+':'')+r.manual_adjustment:'none','MANUAL OVERRIDE'],
   ];
   $('#nomOut').innerHTML=`
-   ${n.disagreement?`<div class="banner">${n.disagreement_label} -- market base ${money(m.base)} vs proxy ceiling ${money(r.proxy_ceiling)}</div>`:''}
-   <div class="row" style="gap:18px;align-items:flex-end">
-    <div><div class="muted">${n.name} &middot; ${n.position} ${n.nfl_team} &middot; bye ${n.bye_week||'-'} &middot; ${n.ppg} ppg</div>
-     <div class="big ${n.verdict}">${n.verdict}</div></div>
-    <div class="card"><div class="k">next legal bid</div><div class="v">${money(n.next_legal_bid)}</div></div>
-    <div class="card"><div class="k">our exact legal max</div><div class="v">${money(n.our_legal_max)}</div></div>
-    <div class="card"><div class="k">provisional cap</div><div class="v">${money(n.provisional_cap)}</div>
-      <div class="k">${c.label}</div></div>
-    <div class="card"><div class="k">opening cap</div><div class="v">${money(n.opening_cap)}</div>
-      <div class="k">frozen at open</div></div>
-    <div class="card"><div class="k">basis</div><div class="v" style="font-size:12px">${c.basis}</div>
-      <div class="k">bound by ${c.bound_by}</div></div>
-    <div class="card"><div class="k">roster fit / +lineup</div>
-      <div class="v">${fmt(n.roster_fit)} / ${fmt(n.lineup_improvement)}</div>
-      <div class="k">PROXY/HEURISTIC</div></div>
+   ${n.disagreement?`<div class="banner">${esc(n.disagreement_label)} &mdash; adjusted market base ${money(m.base)} vs proxy ceiling ${money(r.proxy_ceiling)}</div>`:''}
+   <div class="row" style="gap:14px;align-items:stretch">
+    <div class="card" style="flex:1 1 260px">
+     <div class="selname">${esc(n.name)}</div>
+     <div class="s">${n.position} &middot; ${esc(n.nfl_team)} &middot; bye ${n.bye_week||'-'} &middot; ${n.ppg} ppg</div>
+     <div class="verdict ${decisionClass(rec.decision)}" style="margin-top:8px">${esc(rec.decision)}</div>
+     <div class="s">${esc(rec.detail||'')}</div>
+     ${rec.ce_audited?'':'<div class="s warn" style="margin-top:5px"><b>CE NOT AUDITED</b> &mdash; no championship-equity result stands behind this. It is a market position, not advice to bid or stop.</div>'}
+    </div>
+    <div class="card"><div class="k">Next legal bid</div><div class="v">${money(n.next_legal_bid)}</div></div>
+    <div class="card"><div class="k">Sleeper anchor</div><div class="v">${sleeper}</div>
+      <div class="s">what the room sees. Untouched.</div></div>
+    <div class="card"><div class="k">Model range</div>
+      <div class="v" style="font-size:18px">${m.anchored?money(m.low)+'&ndash;'+money(m.high):'unpriced'}</div>
+      <div class="s">format-adjusted for this league</div></div>
+    <div class="card"><div class="k">${esc(rec.number_label||'Draft guardrail')}</div>
+      <div class="v ${decisionClass(rec.decision)}">${money(rec.number)}</div>
+      <div class="s">${esc(n.guardrail_label)}</div></div>
+    <div class="card"><div class="k">Our legal max</div><div class="v">${money(n.our_legal_max)}</div>
+      <div class="s">exact auction arithmetic</div></div>
+    <div class="card"><div class="k">Weekly lineup gain / roster fit</div>
+      <div class="v" style="font-size:17px">${fmt(n.lineup_improvement)} / ${fmt(n.roster_fit)}</div>
+      <div class="s">PROXY/HEURISTIC</div></div>
    </div>
-   ${c.notes.length?`<div class="banner" style="margin-top:8px">${c.notes.join(' &middot; ')}</div>`:''}
-   <div class="grid4" style="margin-top:9px">
-    <div class="card"><div class="k">rails behind the cap</div>
-     <table style="margin-top:4px">${rails.map(x=>`<tr><td class="l muted">${x[0]}</td>
-      <td><b>${x[1]}</b></td><td class="l muted" style="font-size:10px">${x[2]}</td></tr>`).join('')}</table></div>
-    <div class="card"><div class="k">opponents legally able to bid ${money(n.next_legal_bid)}</div>
+   ${(c.notes||[]).length?`<div class="banner" style="margin-top:10px">${c.notes.map(esc).join(' &middot; ')}</div>`:''}
+   <div class="cards" style="margin-top:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+    <div class="card"><div class="k">Guardrail basis</div>
+     <table style="margin-top:6px;font-size:12.5px">${rails.map(x=>`<tr>
+      <td class="l muted" style="white-space:normal">${x[0]}</td>
+      <td><b>${x[1]}</b></td>
+      <td class="l dimmer" style="font-size:11px;white-space:normal">${esc(x[2])}</td></tr>`).join('')}</table></div>
+    <div class="card"><div class="k">Opponents able to bid ${money(n.next_legal_bid)}</div>
      <div class="v">${n.n_capable_at_next_bid}</div>
-     <div class="k">at the cap ${money(n.provisional_cap)}: ${n.n_capable_at_cap}</div>
-     <div class="muted" style="font-size:11px;margin-top:4px">${
-       n.capable_now.map(o=>o.team).join(', ')||'nobody'}</div></div>
-    <div class="card"><div class="k">most plausible recipients</div>
-     <table style="margin-top:4px">${(n.recipients||[]).map(b=>`<tr>
-       <td class="l">${b.team}</td><td>${money(b.price)}</td>
+     <div class="s">at the guardrail ${money(rec.number)}: ${n.n_capable_at_cap}</div>
+     <div class="s">${esc(n.capable_now.map(o=>o.team).join(', ')||'nobody')}</div></div>
+    <div class="card"><div class="k">Most plausible recipients</div>
+     <table style="margin-top:6px;font-size:12.5px">${(n.recipients||[]).map(b=>`<tr>
+       <td class="l">${esc(b.team)}</td><td>${money(b.price)}</td>
        <td class="muted">w ${b.weight}</td></tr>`).join('')||'<tr><td class="muted">none</td></tr>'}</table>
-     <div class="warn" style="font-size:10px;margin-top:5px">${S.recipient_warning}</div></div>
+     <div class="s warn" style="margin-top:6px">${esc(S.recipient_warning||'')}</div></div>
    </div>`;
 }
 
@@ -729,34 +998,27 @@ function drawQB(q){
   if(!q){return;}
   const f=q.superflex_fallback;
   $('#qbOut').innerHTML=`
-   ${q.replacement_warning?`<div class="banner">${q.replacement_warning}</div>`:''}
-   <div class="grid4">
-    <div class="card"><div class="k">startable QBs remaining</div>
+   ${q.replacement_warning?`<div class="banner">${esc(q.replacement_warning)}</div>`:''}
+   <div class="cards">
+    <div class="card"><div class="k">Startable QBs left</div>
       <div class="v">${q.startable_remaining}</div>
-      <div class="k">of ${q.total_qbs_remaining} QBs left</div></div>
-    <div class="card"><div class="k">teams by QB count</div>
-      <div class="v" style="font-size:14px">0:${q.counts_by_bucket['0']} &nbsp;1:${q.counts_by_bucket['1']}
+      <div class="s">of ${q.total_qbs_remaining} QBs remaining</div></div>
+    <div class="card"><div class="k">Teams by QB count</div>
+      <div class="v" style="font-size:15px">0:${q.counts_by_bucket['0']} &nbsp;1:${q.counts_by_bucket['1']}
         &nbsp;2:${q.counts_by_bucket['2']} &nbsp;3+:${q.counts_by_bucket['3+']}</div></div>
-    <div class="card"><div class="k">highest opposing candidate max</div>
+    <div class="card"><div class="k">Highest opposing max</div>
       <div class="v">${money(q.highest_opposing_candidate_max)}</div></div>
-    <div class="card"><div class="k">opponents able at next bid / at cap</div>
-      <div class="v">${q.n_capable_at_next_bid} / ${q.n_capable_at_provisional_cap}</div></div>
-    <div class="card"><div class="k">superflex skill fallback</div>
-      ${f?`<div class="v" style="font-size:13px">QB +${f.best_available_qb.improvement}
+    <div class="card"><div class="k">Superflex skill fallback</div>
+      ${f?`<div class="v" style="font-size:14px">QB +${f.best_available_qb.improvement}
         vs skill +${f.best_available_skill.improvement}</div>
-        <div class="k">gap ${f.qb_minus_skill_improvement} &middot; PROXY/HEURISTIC</div>`:'<div class="v">-</div>'}</div>
-    <div class="card"><div class="k">QB3 insurance</div>
-      <div class="muted" style="font-size:11px">${q.qb3_insurance}</div></div>
+        <div class="s">gap ${f.qb_minus_skill_improvement} &middot; PROXY/HEURISTIC</div>`:'<div class="v">-</div>'}</div>
    </div>
-   <div class="muted" style="font-size:11px;margin-top:6px">${q.startable_definition}</div>
-   <div class="muted" style="font-size:11px">teams with money and room for this QB:
-     ${(q.capable_opponents||[]).map(o=>o.team+' ($'+o.candidate_max+')').join(', ')||'none'}</div>`;
+   <div class="note" style="margin-top:8px">${esc(q.startable_definition)}</div>`;
 }
 
 function openOverride(id){
   const r=ROWS.find(x=>x.player_id===id); if(!r) return;
   $('#ovName').textContent=r.name; $('#ovMsg').textContent='';
-  const ov=(S.overrides||{})[r.notes&&''] || null;
   $('#ovAdj').value=r.manual_adjustment||0; $('#ovDlg').dataset.id=id;
   $('#ovDlg').showModal();
 }
@@ -771,23 +1033,30 @@ $('#ovForm').onsubmit=async e=>{
   await refresh(); if(SEL) selectPlayer(SEL);
 };
 
+// Record Sale always uses the player currently selected on the board. There is
+// no second, unlabelled player dropdown to get out of step with it.
 $('#saleGo').onclick=async()=>{
-  if(!SEL){$('#saleMsg').innerHTML='<span class="bad">pick a player first</span>';return;}
-  const t0=performance.now();
-  const j=await post('/api/sale',{player_id:SEL,owner_id:$('#saleOwner').value,
-    price:parseInt($('#salePrice').value,10)});
-  if(j.__err){$('#saleMsg').innerHTML=`<span class="bad">REJECTED: ${j.__err}</span>`;return;}
-  $('#saleMsg').innerHTML=`<span class="ok">recorded in ${Math.round(performance.now()-t0)}ms (server ${j.total_ms}ms)</span>`;
+  if(!SEL){$('#saleMsg').innerHTML='<span class="bad">Click a player on the board first.</span>';return;}
+  const price=parseInt($('#salePrice').value,10);
+  if(!(price>=0)){$('#saleMsg').innerHTML='<span class="bad">Enter a final price.</span>';return;}
+  const j=await post('/api/sale',{player_id:SEL,owner_id:$('#saleOwner').value,price});
+  if(j.__err){$('#saleMsg').innerHTML=`<span class="bad">REJECTED: ${esc(j.__err)}</span>`;return;}
+  $('#saleMsg').innerHTML='<span class="ok">Sale recorded. Board and all twelve owners updated.</span>';
   $('#nomBid').value=''; $('#salePrice').value=''; SEL=null; NOM=null;
-  $('#nomOut').textContent='Pick a player.'; await refresh();};
+  $('#nomOut').innerHTML='<span class="note">Click a player on the board to nominate him.</span>';
+  $('#saleWho').textContent='no player selected'; $('#saleWho').classList.add('c-none');
+  await refresh();};
 
 $('#undo').onclick=async()=>{const j=await post('/api/undo');
-  $('#saleMsg').innerHTML=j.__err?`<span class="bad">${j.__err}</span>`:'<span class="ok">undone</span>';
-  await refresh();};
+  $('#saleMsg').innerHTML=j.__err?`<span class="bad">${esc(j.__err)}</span>`
+    :'<span class="ok">Last sale undone.</span>';
+  await refresh(); if(SEL) selectPlayer(SEL);};
 $('#rst').onclick=async()=>{
   if(!confirm('Reset the room to the OPENING state? Every recorded sale is cleared. '
     +'A backup of the current file is kept. Manual overrides are preserved.')) return;
-  await post('/api/reset',{confirm:true}); SEL=null; $('#nomOut').textContent='Pick a player.';
+  await post('/api/reset',{confirm:true}); SEL=null;
+  $('#nomOut').innerHTML='<span class="note">Click a player on the board to nominate him.</span>';
+  $('#saleWho').textContent='no player selected'; $('#saleWho').classList.add('c-none');
   await refresh();};
 $('#exp').onclick=async()=>{const j=await api('/api/export');
   alert(j.__err?j.__err:('snapshot written to\n'+j.path));};
@@ -802,14 +1071,16 @@ $('#nomProxy').onclick=async()=>{
       NOM=n;drawNom(n);drawQB(n.qb);} },1500);
   if(NOM){NOM.cap.rails.proxy_status='calculating';drawNom(NOM);}};
 
-$('#nomGo').onclick=()=>{if($('#nomPick').value) selectPlayer($('#nomPick').value);};
-$('#nomPick').onchange=()=>selectPlayer($('#nomPick').value);
-$('#nomBid').onchange=()=>{if(SEL)selectPlayer(SEL);};
+$('#nomPick').onchange=()=>{if($('#nomPick').value) selectPlayer($('#nomPick').value);};
+$('#nomBid').oninput=()=>{if(SEL)selectPlayer(SEL);};
 $('#nomLeader').onchange=()=>{if(SEL)selectPlayer(SEL);};
+$('#nomBy').onchange=()=>{if(SEL)selectPlayer(SEL);};
 $('#nomSearch').oninput=()=>{
   const q=$('#nomSearch').value.toLowerCase();
   const hits=q.length<2?[]:ROWS.filter(r=>!r.sold&&r.name.toLowerCase().indexOf(q)>=0).slice(0,40);
-  $('#nomPick').innerHTML=hits.map(r=>`<option value="${r.player_id}">${r.name} (${r.position} ${r.nfl_team}) $${fmt(r.live_base)}</option>`).join('');
+  $('#nomPick').innerHTML=hits.length
+    ?hits.map(r=>`<option value="${r.player_id}">${esc(r.name)} (${r.position} ${esc(r.nfl_team)})</option>`).join('')
+    :'<option value="">(no match)</option>';
   if(hits.length===1) selectPlayer(hits[0].player_id);};
 ['#q','#fpos','#fstat','#fanch'].forEach(s=>{$(s).oninput=drawBoard;$(s).onchange=drawBoard;});
 document.querySelectorAll('#board th').forEach(th=>th.onclick=()=>{

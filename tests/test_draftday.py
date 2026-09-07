@@ -562,20 +562,24 @@ def test_nomination_panel_reports_exact_arithmetic_and_a_basis(session):
     assert panel["our_legal_max"] == session.state.owner("Team01").max_bid
     assert panel["our_legal_max_basis"] == C.EXACT
     assert panel["cap"]["basis"] in C.BASES
-    assert panel["verdict"] in ("BID", "CAUTION", "STOP")
+    assert panel["verdict"] in ("BID", "CAUTION", "STOP", C.BELOW_MARKET,
+                               C.IN_MARKET_RANGE, C.ABOVE_MARKET,
+                               C.OVER_LEGAL_MAX, C.CANNOT_BID, "UNPRICED")
     assert panel["provisional_cap"] <= panel["our_legal_max"]
     assert isinstance(panel["player_id"], str), "ids must survive JavaScript"
     assert panel["recipient_warning"]
     assert "not fitted" in panel["recipient_warning"]
 
 
-def test_advice_never_recommends_bidding_past_the_cap():
-    band = C.MarketBand(low=5, base=8, high=11, anchored=True)
-    cap = C.provisional_cap(C.CapRails(legal_max=40, market=band))
-    assert C.advice(cap, 6) == "BID"
-    assert C.advice(cap, 10) == "CAUTION"
-    assert C.advice(cap, 12) == "STOP"
-    assert C.advice(cap, 999) == "STOP"
+def test_a_converged_proxy_may_recommend_bidding_and_stopping():
+    band = C.MarketBand(low=5, base=10, high=11, anchored=True)
+    rails = C.CapRails(legal_max=40, market=band, proxy_ceiling=11,
+                       proxy_status="cached")
+    cap = C.provisional_cap(rails)
+    assert C.recommend(cap, 6).decision == "BID"
+    assert C.recommend(cap, 11).decision == "CAUTION"
+    assert C.recommend(cap, 12).decision == "STOP"
+    assert C.recommend(cap, 999).decision == C.OVER_LEGAL_MAX
 
 
 def test_opponent_specific_money_is_visible(session):

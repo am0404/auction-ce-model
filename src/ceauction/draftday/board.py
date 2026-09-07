@@ -33,12 +33,16 @@ from ..market.prior import MarketPrior
 from ..players import PlayerSpec
 from . import DRAFTDAY_DIR
 from .caps import (
+    GUARDRAIL_LABEL,
     MARKET_LIVE,
     MARKET_PRIOR,
     CapRails,
     MarketBand,
     ProvisionalCap,
+    has_tactical_support,
+    market_anchor_guardrail,
     provisional_cap,
+    recommend,
 )
 
 __all__ = [
@@ -275,6 +279,24 @@ class BoardRow:
     basis: str
     cap_label: str
     bound_by: str
+    guardrail: Optional[int]
+    """The draft guardrail actually shown in the ``Guardrail`` column.
+
+    Equal to the provisional cap wherever a converged tactical result stands
+    behind the player, and to :func:`~.caps.market_anchor_guardrail` otherwise.
+    ``None`` for a player nobody has priced -- he gets no number invented for
+    him, in the column or anywhere else.
+    """
+
+    guardrail_label: str
+    guardrail_basis: str
+    guardrail_bound_by: str
+    recommendation: str
+    """:data:`~.caps.BELOW_MARKET` / :data:`~.caps.IN_MARKET_RANGE` /
+    :data:`~.caps.ABOVE_MARKET` for a market-only row; BID/CAUTION/STOP only
+    where a converged tactical result supports one."""
+
+    ce_audited: bool
     status: str
     sold: bool = False
     owner: str = ""
@@ -292,8 +314,9 @@ CSV_COLUMNS: Tuple[str, ...] = (
     "anchored", "opening_low", "opening_base", "opening_high",
     "live_low", "live_base", "live_high", "roster_fit", "lineup_improvement",
     "legal_max", "opening_cap", "provisional_cap", "basis", "cap_label",
-    "bound_by", "status", "sold", "owner", "sale_price", "manual_adjustment",
-    "notes",
+    "bound_by", "guardrail", "guardrail_label", "guardrail_basis",
+    "guardrail_bound_by", "recommendation", "ce_audited", "status", "sold",
+    "owner", "sale_price", "manual_adjustment", "notes",
 )
 
 
@@ -393,8 +416,21 @@ def opening_rows(board: DraftDayBoard, *,
             proxy_ceiling=proxy_ceilings.get(pid),
             proxy_status="cached" if pid in proxy_ceilings else "absent",
             manual_adjustment=adjustment,
-            manual_note=str(ov.get("reasoning") or ""))
+            manual_note=str(ov.get("reasoning") or ""),
+            sleeper_display_anchor=board.display_anchor_by_id.get(pid))
         cap: ProvisionalCap = provisional_cap(rails)
+
+        # With a converged tactical result the cap is the number to show. With
+        # only a market prior it is not a ceiling on anything, so the board
+        # shows the stated user policy instead and says so in the basis column.
+        tactical = has_tactical_support(rails)
+        if tactical:
+            guardrail, guardrail_bound = cap.cap, cap.bound_by
+            guardrail_label, guardrail_basis = cap.label, cap.basis
+        else:
+            guardrail, guardrail_bound = market_anchor_guardrail(rails)
+            guardrail_label, guardrail_basis = GUARDRAIL_LABEL, cap.basis
+        rec = recommend(cap, 1, guardrail=guardrail)
 
         notes = list(cap.notes)
         if ov.get("contingency_tag") and ov["contingency_tag"] != "none":
@@ -420,11 +456,20 @@ def opening_rows(board: DraftDayBoard, *,
             opening_cap=int(opening_caps.get(pid, cap.cap))
             if opening_caps else cap.cap,
             provisional_cap=cap.cap, basis=cap.basis, cap_label=cap.label,
-            bound_by=cap.bound_by, status=status, sold=sold,
+            bound_by=cap.bound_by,
+            guardrail=guardrail, guardrail_label=guardrail_label,
+            guardrail_basis=guardrail_basis, guardrail_bound_by=guardrail_bound,
+            recommendation=rec.decision, ce_audited=rec.ce_audited,
+            status=status, sold=sold,
             owner=owner_of.get(pid, ""), sale_price=price_of.get(pid),
             manual_adjustment=adjustment, notes="; ".join(notes)))
 
-    rows.sort(key=lambda r: (-(r.opening_base or 0), -(r.season_points or 0.0)))
+    # Priced players first. Ordering by the guardrail alone floated every
+    # unpriced player to the top, because their only rail was our own legal
+    # maximum -- identical for all of them and meaningless as a ranking.
+    rows.sort(key=lambda r: (0 if r.anchored else 1,
+                             -(r.opening_base or r.live_base or 0),
+                             -(r.season_points or 0.0)))
     return rows
 
 

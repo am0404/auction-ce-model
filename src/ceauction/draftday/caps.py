@@ -51,6 +51,20 @@ __all__ = [
     "ProvisionalCap",
     "ce_is_usable",
     "provisional_cap",
+    "MARKET_ONLY_BASES",
+    "NO_CE_NOTE",
+    "GUARDRAIL_LABEL",
+    "GUARDRAIL_NUMBER_LABEL",
+    "MAX_BID_NUMBER_LABEL",
+    "BELOW_MARKET",
+    "IN_MARKET_RANGE",
+    "ABOVE_MARKET",
+    "OVER_LEGAL_MAX",
+    "CANNOT_BID",
+    "Recommendation",
+    "has_tactical_support",
+    "market_anchor_guardrail",
+    "recommend",
 ]
 
 # --- the only recommendation bases this product may print -------------------
@@ -78,6 +92,37 @@ DISAGREEMENT_LABEL = "MANUAL REVIEW -- MODEL DISAGREEMENT"
 #: Market and proxy disagree materially past either of these.
 DISAGREEMENT_DOLLARS = 10
 DISAGREEMENT_FRACTION = 0.30
+
+#: Bases that rest on the market prior alone. A number carrying one of these
+#: describes *what the room is likely to pay*. It is not a statement about what
+#: winning this player is worth to us, so it can neither authorise a bid nor
+#: forbid one -- see :func:`recommend`.
+MARKET_ONLY_BASES: Tuple[str, ...] = (MARKET_PRIOR, MARKET_LIVE)
+
+#: Bases that positively record a *failed* championship-equity computation.
+#: These must never reach a BID/STOP word: a search that did not converge is
+#: not evidence in either direction.
+REFUSED_CE_BASES: Tuple[str, ...] = (SEARCH_UNDERCONVERGED, CE_UNDERPOWERED)
+
+#: Printed beside every market-led recommendation, every time.
+NO_CE_NOTE = "CE NOT AUDITED"
+
+#: What the market-led dollar figure is called. Deliberately not "max bid":
+#: nothing here has computed a maximum worth paying.
+GUARDRAIL_NUMBER_LABEL = "MARKET GUARDRAIL"
+MAX_BID_NUMBER_LABEL = "MAX BID"
+
+#: The user's stated market-anchor policy (see :func:`market_anchor_guardrail`).
+GUARDRAIL_LABEL = "USER MARKET-ANCHOR POLICY"
+
+# The three words a market-only basis may print. None of them is advice.
+BELOW_MARKET = "BELOW MARKET"
+IN_MARKET_RANGE = "IN MARKET RANGE"
+ABOVE_MARKET = "ABOVE MARKET"
+
+#: Not a judgement at all -- auction arithmetic says this bid cannot be made.
+OVER_LEGAL_MAX = "OVER LEGAL MAXIMUM"
+CANNOT_BID = "CANNOT BID"
 
 
 @dataclass(frozen=True)
@@ -133,6 +178,17 @@ class CapRails:
 
     manual_note: str = ""
 
+    sleeper_display_anchor: Optional[int] = None
+    """The whole-dollar number Sleeper itself shows, carried through untouched.
+
+    This is **not** a model output and nothing in this module may alter it. It
+    is here because the room reads it: the user's stated premise is that
+    managers treat the Sleeper figure as a psychological anchor, are reluctant
+    to bid far above it and see prices far below it as bargains. That makes it
+    a fact about the bidders, which is exactly the sort of thing a guardrail
+    may use -- see :func:`market_anchor_guardrail`.
+    """
+
     def to_dict(self) -> Dict[str, object]:
         return {"legal_max": self.legal_max, "market": self.market.to_dict(),
                 "proxy_ceiling": self.proxy_ceiling,
@@ -140,7 +196,8 @@ class CapRails:
                 "ce_bracket": list(self.ce_bracket) if self.ce_bracket else None,
                 "ce_status": self.ce_status,
                 "manual_adjustment": self.manual_adjustment,
-                "manual_note": self.manual_note}
+                "manual_note": self.manual_note,
+                "sleeper_display_anchor": self.sleeper_display_anchor}
 
 
 @dataclass(frozen=True)
@@ -293,19 +350,200 @@ def provisional_cap(rails: CapRails) -> ProvisionalCap:
                           notes=tuple(notes))
 
 
-def advice(cap: ProvisionalCap, next_bid: int) -> str:
-    """BID / CAUTION / STOP against the next legal bid.
+# ---------------------------------------------------------------------------
+# What the screen is allowed to say
+# ---------------------------------------------------------------------------
 
-    Thresholds are the cap itself and the market base -- both already on the
-    screen. Nothing new is estimated to produce this word.
+
+def has_tactical_support(rails: CapRails) -> bool:
+    """Is there a converged tactical or CE result behind this player at all?
+
+    A market prior is a forecast of what *the room* will pay. It contains no
+    statement about what winning the player is worth to us, so it cannot
+    authorise a bid and it cannot forbid one. Only two things in this
+    repository can: an audited CE bracket, or the immediate tactical proxy when
+    it actually ran and returned a ceiling.
+
+    ``proxy_status == "cached"`` with a ``None`` ceiling is a *converged*
+    result that found no favourable price -- it is real evidence, and it
+    supports a STOP. ``calculating``, ``failed`` and ``absent`` are not.
     """
-    if next_bid > cap.rails.legal_max:
-        return "STOP"
-    if next_bid > cap.cap:
-        return "STOP"
-    base = cap.rails.market.base
-    if base is not None and next_bid > int(base):
-        return "CAUTION"
+    if rails.ce_status == "usable" and rails.ce_bracket is not None:
+        return True
+    return rails.proxy_status == "cached"
+
+
+def market_anchor_guardrail(rails: CapRails) -> Tuple[Optional[int], str]:
+    """The USER MARKET-ANCHOR POLICY number, and the rail that bound it.
+
+    The user's premise about this league is explicit: managers see Sleeper's
+    projected price, are reluctant to go far above it, read prices far below it
+    as bargains, and disregard it where the format is obviously wrong -- most
+    of all at tight end, where a number computed for another lineup shape is
+    simply about a different game.
+
+    Both of those are true at once, and they disagree. This repository's
+    format-adjusted range says what the price *should* be under this league's
+    rules; the Sleeper number says what the room is *anchored on*. Taking the
+    smaller would have us walk away from players the room will genuinely bid
+    up, so the policy takes the larger::
+
+        guardrail = max(raw Sleeper displayed price, adjusted market high)
+
+    clamped only by the exact legal maximum, with the user's manual adjustment
+    applied explicitly on top.
+
+    This is a **bidding-behaviour guardrail and nothing more**. It is not
+    championship equity, it is not a maximum worth paying, and it must never be
+    described as either.
+
+    An unpriced player returns ``None``, not a number. Falling back to the legal
+    maximum there would put "$186" beside a player nobody has valued at all,
+    which reads as permission to spend it -- the same kind of invented signal
+    this policy exists to remove.
+    """
+    legal = max(0, int(rails.legal_max))
+    market_high = int(rails.market.high) if rails.market.is_priced else None
+    sleeper = (int(rails.sleeper_display_anchor)
+               if rails.sleeper_display_anchor is not None else None)
+
+    if market_high is None and sleeper is None:
+        return None, "unpriced"
+    if sleeper is None:
+        value, bound = market_high, "market_high"
+    elif market_high is None:
+        value, bound = sleeper, "sleeper_anchor"
+    elif sleeper >= market_high:
+        value, bound = sleeper, "sleeper_anchor"
+    else:
+        value, bound = market_high, "market_high"
+
+    if value > legal:
+        value, bound = legal, "legal_max"
+    if rails.manual_adjustment:
+        value = max(0, min(legal, value + int(rails.manual_adjustment)))
+        bound = "manual"
+    return int(value), bound
+
+
+@dataclass(frozen=True)
+class Recommendation:
+    """What the screen prints, and every claim it is entitled to make.
+
+    ``decision`` is the one word the user reads on a ten-second clock.
+    ``ce_audited`` says whether any championship-equity result stands behind
+    it. When it is false, ``decision`` is a market-position statement --
+    :data:`BELOW_MARKET` / :data:`IN_MARKET_RANGE` / :data:`ABOVE_MARKET` --
+    and never :data:`BID` or :data:`STOP`.
+    """
+
+    decision: str
+    number: Optional[int]
+    number_label: str
+    basis: str
+    ce_audited: bool
+    detail: str = ""
+    notes: Tuple[str, ...] = ()
+
+    @property
+    def is_advice(self) -> bool:
+        """True only when the word is an instruction rather than a position."""
+        return self.decision in ("BID", "CAUTION", "STOP")
+
+    def to_dict(self) -> Dict[str, object]:
+        return {"decision": self.decision, "number": self.number,
+                "number_label": self.number_label, "basis": self.basis,
+                "ce_audited": self.ce_audited, "detail": self.detail,
+                "notes": list(self.notes), "is_advice": self.is_advice}
+
+
+def recommend(cap: ProvisionalCap, next_bid: int, *,
+              guardrail: Optional[int] = None) -> Recommendation:
+    """The only function permitted to produce the word on the screen.
+
+    The rule this hotfix exists to enforce: **a market prior alone can neither
+    authorise a bid nor forbid one.** Josh Allen at $30 against an adjusted
+    market high of $29 is a player going ABOVE MARKET -- a fact about where the
+    price sits in a forecast band. Printing STOP there claims we computed that
+    $30 costs us championship equity, and we did not.
+
+    So a market-only basis prints a *position*, and the dollar figure beside it
+    is a :data:`GUARDRAIL_NUMBER_LABEL`, never a :data:`MAX_BID_NUMBER_LABEL`.
+    BID/STOP is reserved for a converged tactical proxy or an audited CE
+    bracket, and :data:`SEARCH_UNDERCONVERGED` / :data:`CE_UNDERPOWERED` --
+    failed computations, not evidence -- can never reach it.
+    """
+    rails = cap.rails
+    legal = max(0, int(rails.legal_max))
+    tactical = has_tactical_support(rails)
+    number = guardrail if guardrail is not None else int(cap.cap)
+    notes: list = []
+
+    # Auction arithmetic, which owes nobody a model. These are facts about the
+    # rules, so they are stated as such rather than dressed as advice.
+    if legal <= 0:
+        return Recommendation(
+            decision=CANNOT_BID, number=0, number_label="LEGAL MAXIMUM",
+            basis=EXACT, ce_audited=False,
+            detail=("we cannot legally buy this player at any price in the "
+                    "current room"))
+    if next_bid > legal:
+        return Recommendation(
+            decision=OVER_LEGAL_MAX, number=legal,
+            number_label="LEGAL MAXIMUM", basis=EXACT, ce_audited=False,
+            detail=f"${next_bid} exceeds our exact legal maximum of ${legal}")
+
+    if cap.basis in REFUSED_CE_BASES or rails.ce_status in REFUSED_CE_BASES:
+        notes.append(f"CE result refused: {rails.ce_status}")
+
+    # --- the audited path: the only place BID/STOP may be printed ----------
+    if tactical and cap.basis not in REFUSED_CE_BASES:
+        audited = cap.basis == CE_AUDITED
+        label = MAX_BID_NUMBER_LABEL if audited else "PROXY CEILING"
+        if not audited:
+            notes.append(NO_CE_NOTE)
+        if next_bid > cap.cap:
+            decision = "STOP"
+        elif cap.disagreement:
+            decision = "CAUTION"
+        else:
+            base = rails.market.base
+            decision = ("CAUTION" if base is not None and next_bid > int(base)
+                        else "BID")
+        return Recommendation(
+            decision=decision, number=int(cap.cap), number_label=label,
+            basis=cap.basis, ce_audited=audited,
+            detail=(f"next bid ${next_bid} against a {label.lower()} of "
+                    f"${cap.cap}"),
+            notes=tuple(notes))
+
+    # --- the market-only path: a position, not an instruction --------------
+    notes.append(NO_CE_NOTE)
+    band = rails.market
+    if not band.is_priced:
+        # No number, not even our legal maximum: "nobody priced him" and "you
+        # may spend up to $186 on him" are different claims.
+        return Recommendation(
+            decision="UNPRICED", number=None,
+            number_label=GUARDRAIL_NUMBER_LABEL, basis=cap.basis,
+            ce_audited=False,
+            detail=("the market list never priced this player. That is not an "
+                    "observed $1 sale and no price is shown for him."),
+            notes=tuple(notes))
+
+    low, high = int(band.low), int(band.high)
+    if next_bid < low:
+        decision, detail = BELOW_MARKET, (
+            f"${next_bid} is under the adjusted range ${low}-${high}")
+    elif next_bid <= high:
+        decision, detail = IN_MARKET_RANGE, (
+            f"${next_bid} sits inside the adjusted range ${low}-${high}")
+    else:
+        decision, detail = ABOVE_MARKET, (
+            f"${next_bid} is over the adjusted range ${low}-${high}")
     if cap.disagreement:
-        return "CAUTION"
-    return "BID"
+        notes.append(DISAGREEMENT_LABEL)
+    return Recommendation(
+        decision=decision, number=number,
+        number_label=GUARDRAIL_NUMBER_LABEL, basis=cap.basis,
+        ce_audited=False, detail=detail, notes=tuple(notes))
