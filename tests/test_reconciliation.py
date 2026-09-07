@@ -334,6 +334,48 @@ def test_paying_more_never_widens_the_offer(ctxs, board, sim, px):
     assert dear <= cheap, "a dearer price offered something a cheaper one did not"
 
 
+def test_the_possession_offer_must_not_be_pre_filtered_by_price(ctxs):
+    """UF pays nothing, so its offer cannot depend on p.
+
+    Handing the context a price-p slice instead of the ladder union made the
+    possession effect move with price (-0.0948 at $65 to -0.1226 at $100) for a
+    quantity that is price-independent by definition. The guard is structural.
+    """
+    ctx = ctxs[0]
+    assert ctx.possession_offer_is_price_independent()
+    assert ctx.to_dict()["possession_offer_price_independent"] is True
+
+
+def test_a_price_filtered_offer_is_detected(ctxs, board, sim, px):
+    """A member the no-payment budget cannot cover means the offer was cut."""
+    ctx = ctxs[0]
+    st = ctx.state
+    focus = st.focus_owner_id
+    budget = st.owner(focus).budget_remaining
+    owned = set(st.owner(focus).player_ids)
+    # The most expensive players still on the board, priced from the same cost
+    # book the guard reads. Enough of them to exceed our whole remaining budget.
+    dear = sorted((s_ for s_ in st.available_specs
+                   if s_.player_id not in owned and s_.player_id != ctx.candidate_id),
+                  key=lambda s_: -ctx.costs.cost_of(s_.player_id, 1))
+    picked, total = [], 0
+    for s_ in dear:
+        picked.append(s_.player_id)
+        total += ctx.costs.cost_of(s_.player_id, 1)
+        if total > budget:
+            break
+    if total <= budget:
+        pytest.skip("this fabricated board is too cheap to exceed the budget")
+    roster = tuple(sorted(owned)) + (ctx.candidate_id,) + tuple(picked)
+    too_dear = Completion(added=tuple(picked), roster=roster,
+                          added_cost=total, proxy=0.0)
+    bad = dataclasses.replace(ctx,
+                              with_candidate=ctx.with_candidate + (too_dear,))
+    assert not bad.possession_offer_is_price_independent(), (
+        "an offer containing a construction our no-payment budget cannot cover "
+        "means the set was narrowed by something other than that budget")
+
+
 def test_an_unaffordable_branch_refuses_rather_than_researching(ctxs):
     """The failure mode must be a refusal, never a silent new beam."""
     ctx = dataclasses.replace(ctxs[0], p=10_000)

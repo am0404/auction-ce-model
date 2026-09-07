@@ -2742,3 +2742,112 @@ max bid would be quoted from.
 No simulated history is labelled observed. No real player-level data committed
 (`git ls-files local_data` empty; sanitized artifacts verified free of player
 names and ids). Nothing merged; `main` untouched.
+
+---
+
+## Phase: frontier / decomposition reconciliation — PARTIAL GO
+
+Branch `frontier-completion-reconciliation`, from
+`549e819a9c06893168787542a765ceb7b2001220`. Detail in `docs/RECONCILIATION.md`.
+
+### Original cause
+
+Three completion searches for one world:
+
+```
+frontier buy arm    completions=<nested pre-pass set>
+frontier pass arm   (none) -> independent beam
+decompose, all 5    (none) -> independent beam
+```
+
+The ladder's own buy and pass arms already disagreed with each other. Never a
+modelling dispute to adjudicate — three answers to three different questions.
+
+### Structural correction
+
+`EvalContext` (new `tactical/evalcontext.py`) carries state, cast, board,
+candidate, `p`, `q`, pass rule, recipient, cost book, market, scenario,
+completion settings, allocation rotation, both sample seeds and the accumulated
+opportunity set. `UF`/`UP` draw from `with_candidate`; `W`/`RF`/`RP` from
+`without_candidate`; each filtered only by that branch's actual budget —
+filtering, never re-searching, which preserves cross-price nesting.
+`IndependentSearchRefused` when a context-holder searches anyway;
+`ContextMismatch` when contexts differ or a branch cannot afford anything.
+`tactical/reconciled.py` evaluates all five branches per draw, so the ladder
+delta and decomposition total are two readings of the same five CEs.
+
+**A second bug this exposed:** feeding the price-`p` slice made `UF` (which pays
+nothing) inherit `UP`'s cut, so possession moved with price (−0.0948 → −0.1226).
+Fixed to the ladder union, guarded by
+`possession_offer_is_price_independent()` with a test that plants a
+too-expensive construction and checks the guard fires.
+
+### Per-draw agreement
+
+```
+cand  p    q   frontier delta  decomposition total  max per-draw residual  agree
+RB   $65  $30     -0.08161          -0.08161              1.4e-17          True
+RB   $80  $30     -0.10118          -0.10118              1.4e-17          True
+RB  $100  $30     -0.10939          -0.10939              1.4e-17          True
+QB   $40  $35     -0.01839          -0.01839              0.0e+00          True
+QB   $65  $35     -0.08182          -0.08182              1.4e-17          True
+```
+
+Tolerance 1e-12; observed max 1.4e-17. Checked per draw, never after averaging.
+
+### Corrected results (FIXED_MARKET, q from the standing bid)
+
+```
+RB  p     pay        poss       deny       rpay       total      95% CI                verdict
+   $65  +0.00000   -0.09480   +0.01341   -0.00023   -0.08161  [-0.08596,-0.07727]  unfavorable
+   $80  -0.01957   -0.09480   +0.01341   -0.00023   -0.10118  [-0.10614,-0.09623]  unfavorable
+  $100  -0.02777   -0.09480   +0.01341   -0.00023   -0.10939  [-0.11460,-0.10417]  unfavorable
+
+QB  $40  +0.00000   -0.03277   +0.01723   -0.00284   -0.01839  [-0.02241,-0.01436]  unfavorable
+    $65  -0.06343   -0.03277   +0.01723   -0.00284   -0.08182  [-0.08542,-0.07821]  unfavorable
+```
+
+Possession is now correctly constant across price; payment scales.
+
+### BOTH BRACKETS WITHDRAWN
+
+The RB bracket **(80, 100) does not survive** — unfavorable at $65, $80 and
+$100. The old $80 lower edge was an artifact of the ladder's buy arm searching
+a different set from its own pass arm. The QB's old favorable $40 is likewise
+unfavorable reconciled. **No bracket is quoted**; both crossings lie below the
+prices tested, and finding them needs a ladder that starts low.
+
+### Caveat bounding the absolute values
+
+Possession is negative for both candidates where the pre-reconciliation
+decomposition had it positive. Defensible (a forced roster spot can cost you)
+but the `with_candidate` union was generated over the tested prices only
+(`$65..$100` for the RB), so it lacks constructions affordable only at low
+prices. **Union width is a caller-side choice, not an `EvalContext` defect**,
+and it bounds how negative possession can look.
+
+### Tests and runtime
+
+`test_reconciliation.py` 41 passed (~55s) — refusal of independent search, of
+mismatched offer/seed/recipient/rule/q/price/draw, order-insensitive offer
+fingerprint, per-draw agreement, exact telescoping, conservation, league CE = 1,
+no duplicate ownership, budget/reserve legality, cross-price nesting, planted
+altered-completion detection, price-independence guard. No existing test was
+weakened and no tolerance loosened. Reconciliation run: 732s for 5 prices at
+K=11 × 4,000 holdout seasons (~130s/price, 5 branches each).
+
+### VERDICT: PARTIAL GO
+
+Structural objective met — the paths cannot diverge, agreement is exact per
+draw, invariants hold, hostile tests pass. Not a full GO: the reconciled numbers
+moved far enough to withdraw both brackets, and the possession sign depends on a
+union width this run did not vary. Nothing is quotable as a maximum bid.
+
+### Exact next step
+
+**Re-run both candidates with a `with_candidate` union built from `$1` upward**
+(ladder `1, 5, 10, 20, 40, 65, 80, 100, legal_max`), so `UF` sees every
+construction our full budget can reach. Confirm whether possession turns
+positive and where the total actually crosses. That crossing, under a declared
+pass rule and with per-draw agreement, is the first defensible reservation
+price.

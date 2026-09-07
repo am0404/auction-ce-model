@@ -24,8 +24,15 @@ searches anyway raises :class:`IndependentSearchRefused`.
 Two opportunity sets, not one, because the branches differ in who holds the
 candidate:
 
-``with_candidate``     every completion containing him. Serves ``UF`` and ``UP``,
-                       filtered by that branch's focus budget.
+``with_candidate``     every completion containing him, at the WIDEST budget
+                       any branch could have -- i.e. the union across the whole
+                       price ladder, not the set already narrowed to price
+                       ``p``. Serves ``UF`` and ``UP``, each filtered by the
+                       budget that branch actually has. Handing in a
+                       price-filtered set instead makes ``UF`` (which pays
+                       nothing) inherit ``UP``'s affordability cut, and the
+                       possession effect then moves with a price it does not
+                       depend on -- a bug this module hit and now guards.
 ``without_candidate``  every completion not containing him. Serves ``W``,
                        ``RF`` and ``RP`` -- our budget is untouched in all three,
                        so one set covers them.
@@ -101,6 +108,8 @@ class EvalContext:
     holdout_sims: int
     holdout_seed: int
     with_candidate: Tuple[Completion, ...]
+    """The UNION over the price ladder, never a price-``p`` slice. See the
+    module docstring: ``UF`` pays nothing and must not inherit ``UP``'s cut."""
     without_candidate: Tuple[Completion, ...]
     default_cost: int = 1
     max_worlds: int = 2
@@ -226,9 +235,26 @@ class EvalContext:
                 f"prevent; widen the ladder or lower the price instead.")
         return tuple(out)
 
+    def possession_offer_is_price_independent(self) -> bool:
+        """``UF``'s offer must not change with ``p``. Cheap structural check.
+
+        ``UF`` and ``W`` are the two branches whose CE difference is the
+        possession effect, and neither pays anything, so a possession effect
+        that moves with ``p`` means the offer was pre-filtered by price.
+        """
+        focus = self.state.focus_owner_id
+        owned = frozenset(self.state.owner(focus).player_ids)
+        extra = frozenset({self.candidate_id})
+        budget = self.state.owner(focus).budget_remaining
+        return all(_cost_of(self.costs, c.roster, owned | extra,
+                            self.default_cost) <= budget
+                   for c in self.with_candidate)
+
     def to_dict(self) -> Dict[str, object]:
         return {
             "fingerprint": self.fingerprint(),
+            "possession_offer_price_independent":
+                self.possession_offer_is_price_independent(),
             "opportunity_fingerprint": self.opportunity_fingerprint(),
             "candidate_price_p": self.p, "pass_price_q": self.q,
             "pass_rule": self.pass_price.mode.value,

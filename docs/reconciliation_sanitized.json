@@ -1,0 +1,426 @@
+{
+  "simulated": true,
+  "state_fingerprint": "44209a94d76fce67",
+  "cases": {
+    "RB": {
+      "recipient": "Team11",
+      "q": 30,
+      "pass_rule": "fixed_market",
+      "prices": {
+        "65": {
+          "p": 65,
+          "q": 30,
+          "pass_rule": "fixed_market",
+          "recipient": "Team11",
+          "k": 11,
+          "frontier_mean_delta": -0.08161364,
+          "decomposition_total_mean": -0.08161364,
+          "components": {
+            "our_payment": 0.0,
+            "our_possession": -0.09479545,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "between_allocation_sd": 0.00646758,
+          "ci95": [
+            -0.08595834,
+            -0.07726893
+          ],
+          "verdict": "unfavorable",
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "agreement_tolerance": 1e-12,
+          "all_draws_agree": true,
+          "note": "frontier delta and decomposition total are two readings of the same five branch CEs; agreement is checked per draw, never only after averaging",
+          "draw0_evidence": {
+            "residual": 0.0,
+            "agrees": true,
+            "branch_fingerprints": {
+              "W": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "0542c19de2a31b95",
+                "alloc": "55190881b76a31ad",
+                "dollars": 2160,
+                "pool": 79,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UF": {
+                "focus": "a964238a90b34496",
+                "joint": "614ccd79dae52693",
+                "alloc": "ebe30d89622fa170",
+                "dollars": 2153,
+                "pool": 80,
+                "offered": 8,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UP": {
+                "focus": "a964238a90b34496",
+                "joint": "98c8ad808dfff330",
+                "alloc": "ebe30d89622fa170",
+                "dollars": 2218,
+                "pool": 80,
+                "offered": 8,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RF": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "5b76e21b44f68421",
+                "alloc": "feab29a624c18d3a",
+                "dollars": 2156,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RP": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "04fdaf771f90f8c3",
+                "alloc": "feab29a624c18d3a",
+                "dollars": 2186,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              }
+            }
+          }
+        },
+        "80": {
+          "p": 80,
+          "q": 30,
+          "pass_rule": "fixed_market",
+          "recipient": "Team11",
+          "k": 11,
+          "frontier_mean_delta": -0.10118182,
+          "decomposition_total_mean": -0.10118182,
+          "components": {
+            "our_payment": -0.01956818,
+            "our_possession": -0.09479545,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "between_allocation_sd": 0.00737487,
+          "ci95": [
+            -0.10613601,
+            -0.09622763
+          ],
+          "verdict": "unfavorable",
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "agreement_tolerance": 1e-12,
+          "all_draws_agree": true,
+          "note": "frontier delta and decomposition total are two readings of the same five branch CEs; agreement is checked per draw, never only after averaging",
+          "draw0_evidence": {
+            "residual": 1.3877787807814457e-17,
+            "agrees": true,
+            "branch_fingerprints": {
+              "W": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "0542c19de2a31b95",
+                "alloc": "55190881b76a31ad",
+                "dollars": 2160,
+                "pool": 79,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UF": {
+                "focus": "a964238a90b34496",
+                "joint": "614ccd79dae52693",
+                "alloc": "ebe30d89622fa170",
+                "dollars": 2153,
+                "pool": 80,
+                "offered": 8,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UP": {
+                "focus": "ca4466287809c6d6",
+                "joint": "eea217bcce94dbc3",
+                "alloc": "7bbaf7519d2714d8",
+                "dollars": 2228,
+                "pool": 80,
+                "offered": 7,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RF": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "5b76e21b44f68421",
+                "alloc": "feab29a624c18d3a",
+                "dollars": 2156,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RP": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "04fdaf771f90f8c3",
+                "alloc": "feab29a624c18d3a",
+                "dollars": 2186,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              }
+            }
+          }
+        },
+        "100": {
+          "p": 100,
+          "q": 30,
+          "pass_rule": "fixed_market",
+          "recipient": "Team11",
+          "k": 11,
+          "frontier_mean_delta": -0.10938636,
+          "decomposition_total_mean": -0.10938636,
+          "components": {
+            "our_payment": -0.02777273,
+            "our_possession": -0.09479545,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "between_allocation_sd": 0.00776801,
+          "ci95": [
+            -0.11460466,
+            -0.10416807
+          ],
+          "verdict": "unfavorable",
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "agreement_tolerance": 1e-12,
+          "all_draws_agree": true,
+          "note": "frontier delta and decomposition total are two readings of the same five branch CEs; agreement is checked per draw, never only after averaging",
+          "draw0_evidence": {
+            "residual": 1.3877787807814457e-17,
+            "agrees": true,
+            "branch_fingerprints": {
+              "W": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "0542c19de2a31b95",
+                "alloc": "55190881b76a31ad",
+                "dollars": 2160,
+                "pool": 79,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UF": {
+                "focus": "a964238a90b34496",
+                "joint": "614ccd79dae52693",
+                "alloc": "ebe30d89622fa170",
+                "dollars": 2153,
+                "pool": 80,
+                "offered": 8,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UP": {
+                "focus": "030bbe39b089fdd5",
+                "joint": "d25a01faa7a40103",
+                "alloc": "38798f7ea3a301d5",
+                "dollars": 2249,
+                "pool": 80,
+                "offered": 4,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RF": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "5b76e21b44f68421",
+                "alloc": "feab29a624c18d3a",
+                "dollars": 2156,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RP": {
+                "focus": "8052be71c3b72a6a",
+                "joint": "04fdaf771f90f8c3",
+                "alloc": "feab29a624c18d3a",
+                "dollars": 2186,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "QB": {
+      "recipient": "Team07",
+      "q": 35,
+      "pass_rule": "fixed_market",
+      "prices": {
+        "40": {
+          "p": 40,
+          "q": 35,
+          "pass_rule": "fixed_market",
+          "recipient": "Team07",
+          "k": 11,
+          "frontier_mean_delta": -0.01838636,
+          "decomposition_total_mean": -0.01838636,
+          "components": {
+            "our_payment": 0.0,
+            "our_possession": -0.03277273,
+            "rival_denial": 0.01722727,
+            "rival_payment": -0.00284091
+          },
+          "between_allocation_sd": 0.00598891,
+          "ci95": [
+            -0.02240952,
+            -0.01436321
+          ],
+          "verdict": "unfavorable",
+          "max_per_draw_residual": 0.0,
+          "agreement_tolerance": 1e-12,
+          "all_draws_agree": true,
+          "note": "frontier delta and decomposition total are two readings of the same five branch CEs; agreement is checked per draw, never only after averaging",
+          "draw0_evidence": {
+            "residual": 0.0,
+            "agrees": true,
+            "branch_fingerprints": {
+              "W": {
+                "focus": "1e5509dae1cecf5e",
+                "joint": "f01e34a35d70ea84",
+                "alloc": "6637f475e22adeb3",
+                "dollars": 2157,
+                "pool": 79,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UF": {
+                "focus": "c3bd855b29588ebb",
+                "joint": "ec2686571f01dbb6",
+                "alloc": "ef92ac19300b9f75",
+                "dollars": 2153,
+                "pool": 80,
+                "offered": 6,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UP": {
+                "focus": "c3bd855b29588ebb",
+                "joint": "1f678c54137ad999",
+                "alloc": "ef92ac19300b9f75",
+                "dollars": 2193,
+                "pool": 80,
+                "offered": 6,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RF": {
+                "focus": "1e5509dae1cecf5e",
+                "joint": "6a21c327e409017e",
+                "alloc": "82dc55ab43f1aa0f",
+                "dollars": 2154,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RP": {
+                "focus": "1e5509dae1cecf5e",
+                "joint": "0da8faeed6b53668",
+                "alloc": "14be3af34aa0261d",
+                "dollars": 2185,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              }
+            }
+          }
+        },
+        "65": {
+          "p": 65,
+          "q": 35,
+          "pass_rule": "fixed_market",
+          "recipient": "Team07",
+          "k": 11,
+          "frontier_mean_delta": -0.08181818,
+          "decomposition_total_mean": -0.08181818,
+          "components": {
+            "our_payment": -0.06343182,
+            "our_possession": -0.03277273,
+            "rival_denial": 0.01722727,
+            "rival_payment": -0.00284091
+          },
+          "between_allocation_sd": 0.005369,
+          "ci95": [
+            -0.0854249,
+            -0.07821146
+          ],
+          "verdict": "unfavorable",
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "agreement_tolerance": 1e-12,
+          "all_draws_agree": true,
+          "note": "frontier delta and decomposition total are two readings of the same five branch CEs; agreement is checked per draw, never only after averaging",
+          "draw0_evidence": {
+            "residual": -1.3877787807814457e-17,
+            "agrees": true,
+            "branch_fingerprints": {
+              "W": {
+                "focus": "1e5509dae1cecf5e",
+                "joint": "f01e34a35d70ea84",
+                "alloc": "6637f475e22adeb3",
+                "dollars": 2157,
+                "pool": 79,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UF": {
+                "focus": "c3bd855b29588ebb",
+                "joint": "ec2686571f01dbb6",
+                "alloc": "ef92ac19300b9f75",
+                "dollars": 2153,
+                "pool": 80,
+                "offered": 6,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "UP": {
+                "focus": "14eb93e1938924d1",
+                "joint": "4822859d33dc0e55",
+                "alloc": "dd30ee18c43994fb",
+                "dollars": 2215,
+                "pool": 80,
+                "offered": 5,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RF": {
+                "focus": "1e5509dae1cecf5e",
+                "joint": "6a21c327e409017e",
+                "alloc": "82dc55ab43f1aa0f",
+                "dollars": 2154,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              },
+              "RP": {
+                "focus": "1e5509dae1cecf5e",
+                "joint": "0da8faeed6b53668",
+                "alloc": "14be3af34aa0261d",
+                "dollars": 2185,
+                "pool": 80,
+                "offered": 3,
+                "league_sum": 1.0,
+                "cons_ok": true
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "runtime_s": 731.5
+}
