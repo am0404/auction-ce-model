@@ -595,6 +595,32 @@ class SleeperSync:
         if sleeper_players is None:
             sleeper_players = self._load_players()
         self.index = PlayerIndex.from_board(self.session.board, sleeper_players)
+        self.import_owner_names()
+
+    def import_owner_names(self) -> List[str]:
+        """Push the verified Sleeper names onto the visible dashboard.
+
+        Internal owner ids (``Team01``..``Team12``) are the room's stable
+        identity and are never touched -- sales, the focus seat and every
+        saved record keep pointing at the same seat. Only the *display* name
+        changes, and only where Sleeper actually published one: a blank stays
+        blank rather than being invented. Renaming is idempotent, so a
+        reconnect does not re-log twelve renames every time.
+        """
+        if self.owners is None:
+            return []
+        changed: List[str] = []
+        for owner_id, name in sorted(self.owners.team_names.items()):
+            if not name or self.session.team_names.get(owner_id) == name:
+                continue
+            try:
+                self.session.rename_team(owner_id, name)
+            except Exception:
+                # A name is cosmetic. It must never break the sync or the
+                # room, so a rejected rename is skipped, not raised.
+                continue
+            changed.append(owner_id)
+        return changed
 
     def _load_players(self) -> Dict[str, dict]:
         """The Sleeper player dictionary, from the local cache.
@@ -864,6 +890,11 @@ class SleeperSync:
             "reconcile": self.reconcile_report.to_dict(),
             "owner_map": ({str(k): v for k, v in self.owners.roster_to_owner.items()}
                           if self.owners else {}),
+            # roster id -> the name now shown on the dashboard, so the operator
+            # can check the seating without decoding internal owner ids.
+            "owner_names": ({str(k): self.session.team_names.get(v, v)
+                             for k, v in self.owners.roster_to_owner.items()}
+                            if self.owners else {}),
             "n_requests": self.client.n_requests,
         }
 
