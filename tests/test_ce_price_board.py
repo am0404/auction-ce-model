@@ -275,3 +275,87 @@ def test_no_prohibited_certainty_language():
         upper = text.upper()
         for bad in FORBIDDEN_WORDS:
             assert bad not in upper, f"{bad!r} must never appear in {text!r}"
+
+
+# ---------------------------------------------------------------------------
+# The structural-disagreement guard
+# ---------------------------------------------------------------------------
+
+
+def test_low_ratio_with_material_dollars_is_suppressed():
+    # consensus $3 against a $30 market: ratio 0.10, difference $27
+    e = _entry([3] * 15, market_base=30)
+    assert e.seed_agreement == 5 and e.spread == 0, "tight and agreeing"
+    assert e.structural_disagreement
+    assert e.confidence == "LOW"
+    d = e.to_dict()
+    assert d["rough_ce_max"] is None
+    assert "STRUCTURAL DISAGREEMENT" in d["message"]
+    assert d["suppression_reason"] == "STRUCTURAL DISAGREEMENT"
+
+
+def test_high_ratio_with_material_dollars_is_suppressed():
+    # the guard is symmetric: $90 against a $30 market is ratio 3.0
+    e = _entry([90] * 15, market_base=30)
+    assert e.structural_disagreement and e.confidence == "LOW"
+    assert e.to_dict()["rough_ce_max"] is None
+
+
+def test_big_ratio_but_immaterial_dollars_is_not_suppressed():
+    # $2 against $6: ratio 0.33, but a $4 difference nobody can act on
+    e = _entry([2] * 15, market_base=6)
+    assert abs(e.center - e.market_base) < 8
+    assert not e.structural_disagreement
+    assert e.confidence == "MEDIUM"
+
+
+def test_ratio_boundaries_are_inclusive_and_do_not_suppress():
+    # exactly 0.40
+    lo = _entry([20] * 15, market_base=50)
+    assert lo.market_ratio == pytest.approx(0.40)
+    assert not lo.structural_disagreement, "0.40 is inside the band"
+    # exactly 2.50
+    hi = _entry([50] * 15, market_base=20)
+    assert hi.market_ratio == pytest.approx(2.50)
+    assert not hi.structural_disagreement, "2.50 is inside the band"
+
+
+def test_just_outside_the_band_does_suppress():
+    below = _entry([19] * 15, market_base=50)   # 0.38
+    above = _entry([51] * 15, market_base=20)   # 2.55
+    assert below.structural_disagreement and above.structural_disagreement
+
+
+def test_zero_or_negative_market_refuses_the_ratio_safely():
+    for base in (0, -5):
+        e = _entry([30] * 15, market_base=base)
+        assert e.market_ratio is None
+        assert not e.structural_disagreement, "no ratio, no guard, no crash"
+
+
+def test_suppressed_row_uses_the_market_guardrail():
+    e = _entry([3] * 15, market_base=30)
+    lv = live_value(e, market=_Market(), position="WR", legal_max=100,
+                    guardrail=31)
+    assert lv.working_number == 31
+    assert "MARKET GUARDRAIL" in lv.working_basis
+    assert lv.to_dict()["live_rough_ce_shown"] is None
+
+
+def test_suppressed_row_preserves_the_raw_result_untouched():
+    e = _entry([3] * 15, market_base=30)
+    d = e.to_dict()["diagnostics"]
+    assert d["consensus_median"] == 3, "the CE centre must not move"
+    assert d["market_base"] == 30
+    assert d["market_ratio"] == pytest.approx(0.1)
+    assert d["direction"] == "BELOW MARKET"
+    assert d["structural_disagreement"] is True
+    assert d["n_observations"] == 15
+
+
+def test_no_actionable_max_leaks_for_any_suppressed_row():
+    for prices, base in (([3] * 15, 30), ([90] * 15, 30), ([2, 30, 55] * 5, 35)):
+        d = _entry(prices, market_base=base).to_dict()
+        if d["confidence"] == "LOW":
+            assert d["rough_ce_max"] is None
+            assert d["range_low"] is None and d["range_high"] is None

@@ -185,7 +185,12 @@ class DraftDayServer:
                         reconcile_multiplier=self._reconcile_multiplier())
         out = {"status": "OK", "label": ROUGH_LABEL}
         out.update(entry.to_dict())
-        out.update(lv.to_dict())
+        live = lv.to_dict()
+        # The entry owns the suppression wording: a structurally-disagreeing
+        # row must say so, not fall back to the generic noise message that
+        # LiveValue emits for every LOW row.
+        live.pop("message", None)
+        out.update(live)
         return out
 
     def _ce_row(self, player_id: int) -> Dict[str, object]:
@@ -195,7 +200,7 @@ class DraftDayServer:
         and not the raw consensus, so nothing downstream can render a noisy
         number as an actionable maximum.
         """
-        from .ceboard import NOISY_MESSAGE
+        from .ceboard import NOISY_MESSAGE, STRUCTURAL_MESSAGE
         if self.ceboard is None:
             return {"rough_ce_status": "CE PRECOMPUTE REQUIRED"}
         e = self.ceboard.get(player_id)
@@ -208,7 +213,12 @@ class DraftDayServer:
             "rough_ce_max": None if low else e.center,
             "rough_ce_low": None if low else e.low,
             "rough_ce_high": None if low else e.high,
-            "rough_ce_message": NOISY_MESSAGE if low else "",
+            "rough_ce_message": (
+                (STRUCTURAL_MESSAGE if e.structural_disagreement
+                 else NOISY_MESSAGE) if low else ""),
+            "rough_ce_suppression": (
+                "STRUCTURAL DISAGREEMENT" if e.structural_disagreement
+                else ("SEED/CONTEXT NOISE" if low else "")),
             "rough_ce_lean": e.lean if low else "",
         }
 

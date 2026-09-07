@@ -73,6 +73,8 @@ FORBIDDEN_WORDS = ("CE AUDITED", "CERTIFIED MAX BID", "CERTIFIED", "OPTIMAL",
 
 #: What a LOW row shows instead of a price.
 NOISY_MESSAGE = "CE SIGNAL NOISY — USE MARKET GUARDRAIL"
+STRUCTURAL_MESSAGE = ("CE/MARKET STRUCTURAL DISAGREEMENT\n"
+                      "USE MARKET GUARDRAIL")
 LEANS_HIGHER = "CE LEANS HIGHER"
 LEANS_LOWER = "CE LEANS LOWER"
 
@@ -97,6 +99,17 @@ RANK_SEEDS: Tuple[int, ...] = (917_324_011, 20260907, 480_192_611,
 #: opinions, and the board says so instead of printing its midpoint.
 MEDIUM_MAX_SPREAD = 12
 MEDIUM_MIN_SEED_AGREEMENT = 4
+
+#: Structural-disagreement guard. Five seeds agreeing tightly on an absurd
+#: number is worse than five seeds disagreeing: it wears a confidence badge.
+#: Agreement measures variance, and every seed shares the same fixed
+#: representative rosters, so a systematic artifact is reproduced identically
+#: by all of them rather than being averaged away. When the consensus and the
+#: market disagree by this much, the disagreement is about structure, not
+#: sampling, and the number does not go on the board.
+STRUCTURAL_MIN_DOLLARS = 8
+STRUCTURAL_RATIO_LOW = 0.40
+STRUCTURAL_RATIO_HIGH = 2.50
 
 #: Three deterministic, legal 15-man shapes. Each fields all eight starters
 #: (1 QB, 2 RB, 3 WR/TE, 1 flex, 1 superflex) with real slack, and they differ
@@ -263,6 +276,34 @@ class BoardEntry:
         return statistics.stdev(med) if len(med) > 1 else 0.0
 
     @property
+    def market_ratio(self) -> Optional[float]:
+        """Consensus against the opening market base, or ``None``.
+
+        A non-positive market base has no meaningful ratio, so the comparison
+        is refused rather than computed against zero.
+        """
+        if self.market_base <= 0:
+            return None
+        return self.center / float(self.market_base)
+
+    @property
+    def structural_disagreement(self) -> bool:
+        """Does CE disagree with the market about the *kind* of player he is?
+
+        Both conditions must hold. The dollar floor keeps cheap players from
+        tripping the guard on ratios alone -- $1 against $3 is a ratio of 0.33
+        and a difference nobody can act on -- and the ratio band keeps large
+        but proportionate differences on the board. Symmetric by construction:
+        a consensus far above the market is as suspect as one far below.
+        """
+        if abs(self.center - self.market_base) < STRUCTURAL_MIN_DOLLARS:
+            return False
+        r = self.market_ratio
+        if r is None:
+            return False
+        return r < STRUCTURAL_RATIO_LOW or r > STRUCTURAL_RATIO_HIGH
+
+    @property
     def confidence(self) -> str:
         """MEDIUM needs agreement AND tightness. There is no HIGH.
 
@@ -272,6 +313,8 @@ class BoardEntry:
         print one.
         """
         if not self.conservation_ok:
+            return "LOW"
+        if self.structural_disagreement:
             return "LOW"
         if self.seed_agreement < MEDIUM_MIN_SEED_AGREEMENT:
             return "LOW"
@@ -298,7 +341,11 @@ class BoardEntry:
             "rough_ce_max": None if low else self.center,
             "range_low": None if low else self.low,
             "range_high": None if low else self.high,
-            "message": NOISY_MESSAGE if low else "",
+            "message": ((STRUCTURAL_MESSAGE if self.structural_disagreement
+                         else NOISY_MESSAGE) if low else ""),
+            "suppression_reason": ("STRUCTURAL DISAGREEMENT"
+                                   if self.structural_disagreement
+                                   else ("SEED/CONTEXT NOISE" if low else "")),
             "lean": self.lean if low else "",
             "diagnostics": {
                 "consensus_median": self.center,
@@ -307,6 +354,13 @@ class BoardEntry:
                 "seed_medians": self.seed_medians,
                 "seed_directions": self.seed_directions,
                 "seed_agreement": self.seed_agreement,
+                "market_base": self.market_base,
+                "market_ratio": (None if self.market_ratio is None
+                                 else round(self.market_ratio, 3)),
+                "structural_disagreement": self.structural_disagreement,
+                "direction": ("ABOVE MARKET" if self.center > self.market_base
+                              else "BELOW MARKET" if self.center < self.market_base
+                              else "AT MARKET"),
                 "seed_rank_sd": round(self.seed_rank_sd, 2),
                 "context_rank_sd": round(self.context_rank_sd, 2),
                 "conservation_ok": self.conservation_ok,
