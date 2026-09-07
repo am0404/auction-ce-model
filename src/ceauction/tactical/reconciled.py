@@ -55,6 +55,26 @@ class BranchEvaluation:
     league_ce_sum: float
     conservation_ok: bool
     n_offered: int
+    selection_ce: Optional[float] = None
+    """Equity of the CHOSEN world on the *selection* sample.
+
+    Exposed because the 12->24 candidate-set stability test asks whether
+    enlarging the offer changed what CE *picked*, and that question is about
+    the selection sample: the holdout only ever sees the winner. Upward-biased
+    for the winner by construction, which is exactly why :attr:`ce` and not
+    this is the number quoted anywhere else.
+    """
+
+    focus_proxy: Optional[float] = None
+    """Proxy strength of the chosen roster, so a selection change can be read
+    against the certified proxy bound it was emitted under."""
+
+    n_worlds_compared: int = 0
+    """How many completions CE actually chose between. Bounded by
+    ``EvalContext.max_worlds``, NOT by the size of the offer set: an offer set
+    larger than this cannot influence the answer, which is the first thing to
+    check when a set expansion appears to change nothing."""
+
     holdout_indicator: object = None
     """Per-season championship indicator on the holdout sample.
 
@@ -76,7 +96,12 @@ class BranchEvaluation:
                 "pool_remaining": self.pool_remaining,
                 "league_ce_sum": round(self.league_ce_sum, 8),
                 "conservation_ok": self.conservation_ok,
-                "completions_offered": self.n_offered}
+                "completions_offered": self.n_offered,
+                "worlds_compared": self.n_worlds_compared,
+                "selection_ce": None if self.selection_ce is None
+                else round(self.selection_ce, 8),
+                "focus_proxy": None if self.focus_proxy is None
+                else round(self.focus_proxy, 6)}
 
 
 def _roster_fp(roster: Sequence[int]) -> str:
@@ -124,6 +149,9 @@ def evaluate_branch(ctx: EvalContext, branch: str, *, proxy,
         pool_remaining=len(w.state.available_ids),
         league_ce_sum=arm.league_ce_sum,
         conservation_ok=w.conservation.ok, n_offered=len(offers),
+        selection_ce=float(arm.selection_ce),
+        focus_proxy=float(arm.focus_proxy),
+        n_worlds_compared=int(arm.n_worlds_compared),
         holdout_indicator=arm.holdout_indicator)
 
 
