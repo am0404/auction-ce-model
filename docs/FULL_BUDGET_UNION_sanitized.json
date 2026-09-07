@@ -1,0 +1,908 @@
+{
+  "provenance": "SIMULATED MID-AUCTION STATE -- invented from the market prior for frontier testing. NOT observed, NOT recorded, NOT historical, NOT calibrated. No league sale has ever been recorded.",
+  "simulated": true,
+  "state": {
+    "name": "balanced",
+    "fingerprint": "44209a94d76fce67",
+    "validation": {
+      "simulated": true,
+      "n_sales": 66,
+      "total_spent": 1488,
+      "dollars_reconcile": true,
+      "duplicate_ownership": false,
+      "reserve_ok": true,
+      "owners": {
+        "Team01": {
+          "budget_remaining": 139,
+          "spent": 61,
+          "open_slots": 12,
+          "n_players": 3,
+          "positions": {
+            "QB": 3
+          },
+          "financial_max_bid": 128
+        },
+        "Team02": {
+          "budget_remaining": 63,
+          "spent": 137,
+          "open_slots": 8,
+          "n_players": 7,
+          "positions": {
+            "WR": 4,
+            "RB": 2,
+            "QB": 1
+          },
+          "financial_max_bid": 56
+        },
+        "Team03": {
+          "budget_remaining": 27,
+          "spent": 173,
+          "open_slots": 9,
+          "n_players": 6,
+          "positions": {
+            "WR": 2,
+            "RB": 2,
+            "QB": 2
+          },
+          "financial_max_bid": 19
+        },
+        "Team04": {
+          "budget_remaining": 100,
+          "spent": 100,
+          "open_slots": 11,
+          "n_players": 4,
+          "positions": {
+            "RB": 2,
+            "QB": 1,
+            "WR": 1
+          },
+          "financial_max_bid": 90
+        },
+        "Team05": {
+          "budget_remaining": 50,
+          "spent": 150,
+          "open_slots": 9,
+          "n_players": 6,
+          "positions": {
+            "WR": 2,
+            "RB": 1,
+            "QB": 3
+          },
+          "financial_max_bid": 42
+        },
+        "Team06": {
+          "budget_remaining": 8,
+          "spent": 192,
+          "open_slots": 6,
+          "n_players": 9,
+          "positions": {
+            "RB": 4,
+            "WR": 3,
+            "QB": 2
+          },
+          "financial_max_bid": 3
+        },
+        "Team07": {
+          "budget_remaining": 68,
+          "spent": 132,
+          "open_slots": 10,
+          "n_players": 5,
+          "positions": {
+            "RB": 4,
+            "WR": 1
+          },
+          "financial_max_bid": 59
+        },
+        "Team08": {
+          "budget_remaining": 116,
+          "spent": 84,
+          "open_slots": 11,
+          "n_players": 4,
+          "positions": {
+            "RB": 2,
+            "QB": 2
+          },
+          "financial_max_bid": 106
+        },
+        "Team09": {
+          "budget_remaining": 151,
+          "spent": 49,
+          "open_slots": 12,
+          "n_players": 3,
+          "positions": {
+            "QB": 1,
+            "RB": 1,
+            "WR": 1
+          },
+          "financial_max_bid": 140
+        },
+        "Team10": {
+          "budget_remaining": 100,
+          "spent": 100,
+          "open_slots": 11,
+          "n_players": 4,
+          "positions": {
+            "RB": 2,
+            "WR": 1,
+            "QB": 1
+          },
+          "financial_max_bid": 90
+        },
+        "Team11": {
+          "budget_remaining": 82,
+          "spent": 118,
+          "open_slots": 9,
+          "n_players": 6,
+          "positions": {
+            "WR": 4,
+            "QB": 1,
+            "RB": 1
+          },
+          "financial_max_bid": 74
+        },
+        "Team12": {
+          "budget_remaining": 8,
+          "spent": 192,
+          "open_slots": 6,
+          "n_players": 9,
+          "positions": {
+            "WR": 5,
+            "QB": 2,
+            "RB": 2
+          },
+          "financial_max_bid": 3
+        }
+      },
+      "pool_remaining": {
+        "QB": 16,
+        "RB": 47,
+        "WR": 88,
+        "TE": 43
+      },
+      "candidates": {
+        "QB": {
+          "position": "QB",
+          "our_legal_max": 128,
+          "highest_rival_legal_max": 140,
+          "owners_able_to_bid": 11,
+          "top_rival": "Team09"
+        },
+        "RB": {
+          "position": "RB",
+          "our_legal_max": 128,
+          "highest_rival_legal_max": 140,
+          "owners_able_to_bid": 11,
+          "top_rival": "Team09"
+        }
+      },
+      "focus_budget_can_bind": true,
+      "refusals": [],
+      "ok": true
+    }
+  },
+  "support_prices": [
+    1,
+    5,
+    10,
+    20,
+    40,
+    65,
+    80,
+    100
+  ],
+  "restricted_support_prices": [
+    65,
+    80,
+    100
+  ],
+  "price_vocabulary": {
+    "search_support_price": "generates roster constructions only; NEVER a live bid",
+    "evaluated_bid_price": "a purchase actually evaluated; legal only at q+increment or above",
+    "standing_pass_price": "the named rival's current high bid q"
+  },
+  "positions": {
+    "QB": {
+      "recipient": "Team07",
+      "standing_pass_price": 35,
+      "next_legal_bid": 36,
+      "legal_max": 128,
+      "market_band": [
+        24,
+        26,
+        28
+      ],
+      "anchor": 52,
+      "lineup_improvement": 1.4576903843854154,
+      "union": {
+        "union_fingerprint": "3109ad0dcb728f41",
+        "size": 26,
+        "focus_budget": 139,
+        "started_at_one_dollar": true,
+        "accumulated_monotonically": true,
+        "rungs": [
+          {
+            "search_support_price": 1,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 3,
+            "min_completion_cost": 57,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 5,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 6,
+            "min_completion_cost": 57,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 10,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 9,
+            "min_completion_cost": 57,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 20,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 2,
+            "cumulative_unique": 11,
+            "min_completion_cost": 57,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 40,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 14,
+            "min_completion_cost": 57,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 65,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 17,
+            "min_completion_cost": 49,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 80,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 20,
+            "min_completion_cost": 42,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 100,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 23,
+            "min_completion_cost": 21,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 128,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 26,
+            "min_completion_cost": 11,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          }
+        ],
+        "note": "every price above is a SEARCH SUPPORT price used only to discover roster constructions; none is a live bid"
+      },
+      "union_adequacy": {
+        "restricted_union_size": 9,
+        "full_union_size": 26,
+        "overlap": 9,
+        "added_by_low_price_searches": 17,
+        "uf_selection_changed": true,
+        "restricted_uf_proxy": 93.1409,
+        "full_uf_proxy": 97.3028,
+        "uf_proxy_gain": 4.1619,
+        "extra_effort_union_size": 72,
+        "extra_effort_changed_selection": true,
+        "extra_effort_proxy_delta": 0.6898,
+        "tolerance": 0.25,
+        "status": "UNION_NOT_CONVERGED",
+        "may_quote_bracket": false,
+        "convergence_scope": "convergence is over the EVALUATED ACCUMULATED UNION -- more search effort did not change the chosen construction. It is NOT a claim that no better roster exists in the full space."
+      },
+      "possession_is_price_invariant": true,
+      "possession_effect": 0.06434091,
+      "points": [
+        {
+          "evaluated_bid_price": 36,
+          "pass_rule": "stop_now",
+          "standing_pass_price": 35,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.16229545,
+            "our_possession": 0.06434091,
+            "rival_denial": 0.01722727,
+            "rival_payment": -0.00284091
+          },
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.08356818,
+          "median_delta": -0.0845,
+          "between_allocation_sd": 0.00466381,
+          "se_of_ensemble_mean": 0.00140619,
+          "t_interval_95": [
+            -0.08670118,
+            -0.08043519
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00516546,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 36
+        },
+        {
+          "evaluated_bid_price": 40,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 35,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.16229545,
+            "our_possession": 0.06434091,
+            "rival_denial": 0.01722727,
+            "rival_payment": -0.00284091
+          },
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.08356818,
+          "median_delta": -0.0845,
+          "between_allocation_sd": 0.00466381,
+          "se_of_ensemble_mean": 0.00140619,
+          "t_interval_95": [
+            -0.08670118,
+            -0.08043519
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00516546,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 40
+        },
+        {
+          "evaluated_bid_price": 65,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 35,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.16229545,
+            "our_possession": 0.06434091,
+            "rival_denial": 0.01722727,
+            "rival_payment": -0.00284091
+          },
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.08356818,
+          "median_delta": -0.0845,
+          "between_allocation_sd": 0.00466381,
+          "se_of_ensemble_mean": 0.00140619,
+          "t_interval_95": [
+            -0.08670118,
+            -0.08043519
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00516546,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 65
+        },
+        {
+          "evaluated_bid_price": 80,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 35,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.16229545,
+            "our_possession": 0.06434091,
+            "rival_denial": 0.01722727,
+            "rival_payment": -0.00284091
+          },
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.08356818,
+          "median_delta": -0.0845,
+          "between_allocation_sd": 0.00466381,
+          "se_of_ensemble_mean": 0.00140619,
+          "t_interval_95": [
+            -0.08670118,
+            -0.08043519
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00516546,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 80
+        },
+        {
+          "evaluated_bid_price": 100,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 35,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.18277273,
+            "our_possession": 0.06434091,
+            "rival_denial": 0.01722727,
+            "rival_payment": -0.00284091
+          },
+          "max_per_draw_residual": 0.0,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.10404545,
+          "median_delta": -0.10375,
+          "between_allocation_sd": 0.00588092,
+          "se_of_ensemble_mean": 0.00177316,
+          "t_interval_95": [
+            -0.10799606,
+            -0.10009484
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00482731,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 100
+        },
+        {
+          "evaluated_bid_price": 128,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 35,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.18277273,
+            "our_possession": 0.06434091,
+            "rival_denial": 0.01722727,
+            "rival_payment": -0.00284091
+          },
+          "max_per_draw_residual": 0.0,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.10404545,
+          "median_delta": -0.10375,
+          "between_allocation_sd": 0.00588092,
+          "se_of_ensemble_mean": 0.00177316,
+          "t_interval_95": [
+            -0.10799606,
+            -0.10009484
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00482731,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 128
+        }
+      ],
+      "classification": "PASS_AT_NEXT_BID",
+      "highest_favorable_price": null,
+      "lowest_unfavorable_price": 36,
+      "bracket": null,
+      "refinement": "none -- no integer walk inside a bracket; the endpoints are the audited prices and nothing between them was evaluated",
+      "meaning": "unfavorable already at the legal next bid: there is no price at which buying is worth it",
+      "bracket_quotable": false
+    },
+    "RB": {
+      "recipient": "Team11",
+      "standing_pass_price": 30,
+      "next_legal_bid": 31,
+      "legal_max": 128,
+      "market_band": [
+        24,
+        25,
+        27
+      ],
+      "anchor": 28,
+      "lineup_improvement": 2.5038827090470193,
+      "union": {
+        "union_fingerprint": "23387423c5a8f691",
+        "size": 26,
+        "focus_budget": 139,
+        "started_at_one_dollar": true,
+        "accumulated_monotonically": true,
+        "rungs": [
+          {
+            "search_support_price": 1,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 3,
+            "min_completion_cost": 89,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 5,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 6,
+            "min_completion_cost": 89,
+            "max_completion_cost": 122,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 10,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 9,
+            "min_completion_cost": 89,
+            "max_completion_cost": 127,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 20,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 2,
+            "cumulative_unique": 11,
+            "min_completion_cost": 89,
+            "max_completion_cost": 127,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 40,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 14,
+            "min_completion_cost": 53,
+            "max_completion_cost": 127,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 65,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 17,
+            "min_completion_cost": 45,
+            "max_completion_cost": 127,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 80,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 20,
+            "min_completion_cost": 42,
+            "max_completion_cost": 127,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 100,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 23,
+            "min_completion_cost": 21,
+            "max_completion_cost": 127,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          },
+          {
+            "search_support_price": 128,
+            "role": "search_support_price",
+            "generated": 3,
+            "newly_unique": 3,
+            "cumulative_unique": 26,
+            "min_completion_cost": 11,
+            "max_completion_cost": 127,
+            "n_roster_fingerprints": 3,
+            "search_effort_nested": true,
+            "cross_price_nested": true
+          }
+        ],
+        "note": "every price above is a SEARCH SUPPORT price used only to discover roster constructions; none is a live bid"
+      },
+      "union_adequacy": {
+        "restricted_union_size": 9,
+        "full_union_size": 26,
+        "overlap": 9,
+        "added_by_low_price_searches": 17,
+        "uf_selection_changed": true,
+        "restricted_uf_proxy": 93.2476,
+        "full_uf_proxy": 98.1255,
+        "uf_proxy_gain": 4.8779,
+        "extra_effort_union_size": 72,
+        "extra_effort_changed_selection": false,
+        "extra_effort_proxy_delta": 0.0,
+        "tolerance": 0.25,
+        "status": "UNION_CONVERGED",
+        "may_quote_bracket": true,
+        "convergence_scope": "convergence is over the EVALUATED ACCUMULATED UNION -- more search effort did not change the chosen construction. It is NOT a claim that no better roster exists in the full space."
+      },
+      "possession_is_price_invariant": true,
+      "possession_effect": -0.01027273,
+      "points": [
+        {
+          "evaluated_bid_price": 31,
+          "pass_rule": "stop_now",
+          "standing_pass_price": 30,
+          "verdict": "unresolved",
+          "components": {
+            "our_payment": 0.0,
+            "our_possession": -0.01027273,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "max_per_draw_residual": 0.0,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": 0.00290909,
+          "median_delta": -0.00075,
+          "between_allocation_sd": 0.00747351,
+          "se_of_ensemble_mean": 0.00225335,
+          "t_interval_95": [
+            -0.00211137,
+            0.00792955
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00638232,
+          "sign_frequency_positive": 0.3636,
+          "sign_frequency_negative": 0.6364,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 31
+        },
+        {
+          "evaluated_bid_price": 40,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 30,
+          "verdict": "unresolved",
+          "components": {
+            "our_payment": 0.0,
+            "our_possession": -0.01027273,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "max_per_draw_residual": 0.0,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": 0.00290909,
+          "median_delta": -0.00075,
+          "between_allocation_sd": 0.00747351,
+          "se_of_ensemble_mean": 0.00225335,
+          "t_interval_95": [
+            -0.00211137,
+            0.00792955
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00638232,
+          "sign_frequency_positive": 0.3636,
+          "sign_frequency_negative": 0.6364,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 40
+        },
+        {
+          "evaluated_bid_price": 65,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 30,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.09622727,
+            "our_possession": -0.01027273,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.09331818,
+          "median_delta": -0.09525,
+          "between_allocation_sd": 0.00679438,
+          "se_of_ensemble_mean": 0.00204858,
+          "t_interval_95": [
+            -0.09788243,
+            -0.08875394
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00543677,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 65
+        },
+        {
+          "evaluated_bid_price": 80,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 30,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.09622727,
+            "our_possession": -0.01027273,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "max_per_draw_residual": 1.3877787807814457e-17,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.09331818,
+          "median_delta": -0.09525,
+          "between_allocation_sd": 0.00679438,
+          "se_of_ensemble_mean": 0.00204858,
+          "t_interval_95": [
+            -0.09788243,
+            -0.08875394
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00543677,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 80
+        },
+        {
+          "evaluated_bid_price": 100,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 30,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.11620455,
+            "our_possession": -0.01027273,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "max_per_draw_residual": 0.0,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.11329545,
+          "median_delta": -0.11275,
+          "between_allocation_sd": 0.00574219,
+          "se_of_ensemble_mean": 0.00173133,
+          "t_interval_95": [
+            -0.11715287,
+            -0.10943804
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00518416,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 100
+        },
+        {
+          "evaluated_bid_price": 128,
+          "pass_rule": "fixed_market",
+          "standing_pass_price": 30,
+          "verdict": "unfavorable",
+          "components": {
+            "our_payment": -0.12125,
+            "our_possession": -0.01027273,
+            "rival_denial": 0.01340909,
+            "rival_payment": -0.00022727
+          },
+          "max_per_draw_residual": 0.0,
+          "all_draws_agree": true,
+          "k": 11,
+          "mean_delta": -0.11834091,
+          "median_delta": -0.11825,
+          "between_allocation_sd": 0.00641899,
+          "se_of_ensemble_mean": 0.0019354,
+          "t_interval_95": [
+            -0.12265298,
+            -0.11402884
+          ],
+          "t_df": 10,
+          "rms_within_allocation_se": 0.00511699,
+          "sign_frequency_positive": 0.0,
+          "sign_frequency_negative": 1.0,
+          "distinct_allocation_worlds": 11,
+          "redundant_draws": 0,
+          "effective_k": 11,
+          "pooling_note": "between-allocation SD and within-allocation season SE are reported separately and never pooled; the interval above is a cluster t-interval on 11 allocation draws (df=10), not on 44,000 seasons treated as independent futures",
+          "p": 128
+        }
+      ],
+      "classification": "UNDERPOWERED",
+      "highest_favorable_price": null,
+      "lowest_unfavorable_price": 65,
+      "bracket": null,
+      "refinement": "none -- no integer walk inside a bracket; the endpoints are the audited prices and nothing between them was evaluated",
+      "meaning": "no price separated from zero at K draws; the ensemble cannot answer this question",
+      "bracket_quotable": false
+    }
+  },
+  "runtime_s": 1697.4
+}

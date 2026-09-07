@@ -55,6 +55,17 @@ class BranchEvaluation:
     league_ce_sum: float
     conservation_ok: bool
     n_offered: int
+    holdout_indicator: object = None
+    """Per-season championship indicator on the holdout sample.
+
+    Kept so the buy/pass delta can be differenced season by season WITHIN one
+    allocation. That paired difference is the only honest within-allocation
+    standard error: the two branches share the holdout seed, so forming an SE
+    from two independent means would ignore the pairing and overstate it.
+    Never merged with the between-allocation SD -- they answer different
+    questions, and pooling them would present season noise as if it were
+    uncertainty about which auction future occurs.
+    """
 
     def to_dict(self) -> Dict[str, object]:
         return {"branch": self.branch, "ce": round(self.ce, 8),
@@ -112,7 +123,8 @@ def evaluate_branch(ctx: EvalContext, branch: str, *, proxy,
         dollars_spent=sum(o.spent for o in w.state.owners),
         pool_remaining=len(w.state.available_ids),
         league_ce_sum=arm.league_ce_sum,
-        conservation_ok=w.conservation.ok, n_offered=len(offers))
+        conservation_ok=w.conservation.ok, n_offered=len(offers),
+        holdout_indicator=arm.holdout_indicator)
 
 
 @dataclass(frozen=True)
